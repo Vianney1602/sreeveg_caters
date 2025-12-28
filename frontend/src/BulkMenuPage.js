@@ -1,80 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import "./menu.css";
 
-const bulkMenuItems = [
-  {
-    id: 1,
-    name: "Veg Meals",
-    type: "main",
-    price: 140,
-    image: "/images/meals_veg.png",
-    description: "South Indian rice platter with curries and sides.",
-  },
-  {
-    id: 2,
-    name: "Paneer Butter Masala",
-    type: "main",
-    price: 120,
-    image: "/images/panner_butter_masala.png",
-    description: "Rich paneer gravy with butter & spices.",
-  },
-  {
-    id: 3,
-    name: "Veg Biriyani",
-    type: "main",
-    price: 180,
-    image: "/images/veg-biriyani.webp",
-    description: "Aromatic basmati rice with vegetables.",
-  },
-  {
-      id: 5,
-      name: "Chole Puri",
-      type: "main",
-      description: "Spiced chickpeas served with fluffy puris.",
-      price: 100,
-      image: "/images/chola_puri.png",
-    },
-    {
-      id: 7,
-      name: "Dal Makhani",
-      type: "main",
-      description: "Slow-cooked black lentils finished with cream.",
-      price: 130,
-      image: "/images/dhal_makini.png",
-    },
-    {
-      id: 11,
-      name: "Paneer Tikka",
-      type: "starter",
-      description: "Smoky marinated paneer skewers.",
-      price: 110,
-      image: "/images/paneer-tikka.jpg",
-    },
-    {
-      id: 12,
-      name: "Veg Cutlet",
-      type: "starter",
-      description: "Crispy vegetable patties with herbs.",
-      price: 90,
-      image: "/images/veg-cutlet.webp",
-    },
-    {
-      id: 13,
-      name: "Gulab Jamun",
-      type: "dessert",
-      description: "Soft milk dumplings soaked in syrup.",
-      price: 80,
-      image: "/images/gulab-jamun.jpg",
-    },
-    {
-      id: 14,
-      name: "Rasmalai",
-      type: "dessert",
-      description: "Cottage cheese patties in saffron milk.",
-      price: 90,
-      image: "/images/rasamalai.webp",
-    },
-];
+
 
 export default function BulkMenuPage({
   guestCount,
@@ -85,6 +13,51 @@ export default function BulkMenuPage({
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+
+  const [menuItems, setMenuItems] = useState([]);
+  
+  // Helper to resolve image URLs correctly
+  const resolveImageUrl = (url) => {
+    if (!url) return '/images/chef.png';
+    const trimmed = String(url).trim();
+    
+    // If it's a data URL or absolute URL, return as-is
+    if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
+    
+    // Get backend base URL from environment or default
+    const backendBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+    
+    // If it starts with /static or /api, it's a backend URL
+    if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
+      return `${backendBase}${trimmed}`;
+    }
+    
+    // If it starts with /images, it's a frontend public image
+    if (trimmed.startsWith('/images')) {
+      const base = process.env.PUBLIC_URL || '';
+      return `${base}${trimmed}`;
+    }
+    
+    // Otherwise, assume it's a relative path and prefix with backend base
+    return `${backendBase}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+  };
+  
+  useEffect(() => {
+    axios
+      .get("/api/menu_items")
+      .then((res) => {
+        const items = (res.data || []).map((m) => ({
+          id: m.item_id,
+          name: m.item_name,
+          type: (m.category || "main").toLowerCase(),
+          price: m.price_per_plate || 0,
+          image: resolveImageUrl(m.image_url),
+          description: m.description || "",
+        }));
+        setMenuItems(items);
+      })
+      .catch(() => setMenuItems([]));
+  }, []);
 
   const toggleItem = (item) => {
     setBulkCart((prev) => {
@@ -102,7 +75,7 @@ export default function BulkMenuPage({
 
   const cartCount = Object.keys(bulkCart).length;
 
-  const filteredData = bulkMenuItems.filter((item) => {
+  const filteredData = menuItems.filter((item) => {
     return (
       item.name.toLowerCase().includes(search.toLowerCase()) &&
       (filter === "all" || item.type === filter)
@@ -166,6 +139,7 @@ export default function BulkMenuPage({
           View Cart 🛒
         </button>
       </div>
+
     </div>
   );
 }

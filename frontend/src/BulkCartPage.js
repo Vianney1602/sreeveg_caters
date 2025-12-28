@@ -1,10 +1,16 @@
 import React, { useState } from "react";
+import axios from "axios";
 import "./cart.css";
 
 export default function BulkCartPage({
   bulkCart,
   guestCount,
   goBack,
+  clearCart,
+  initiatePayment,
+  defaultPaymentMethod,
+  paymentStatus,
+  clearPaymentStatus,
 }) {
   const items = Object.values(bulkCart);
 
@@ -25,6 +31,8 @@ export default function BulkCartPage({
     email: "",
     address: "",
   });
+  const [paymentMethod, setPaymentMethod] = useState(defaultPaymentMethod || "online"); // 'online' | 'cod'
+  const [orderStatus, setOrderStatus] = useState(null); // { type, message, orderId }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,13 +44,86 @@ export default function BulkCartPage({
 
     const { name, phone, email, address } = formData;
     if (!name || !phone || !email || !address) {
-      alert("Please fill all details");
+      setOrderStatus({ type: "error", message: "Please fill all required fields" });
+      setTimeout(() => setOrderStatus(null), 4000);
       return;
     }
 
-    alert(`Bulk Order Placed Successfully!\nTotal: ₹${total.toFixed(2)}`);
-    setShowCheckout(false);
-    setFormData({ name: "", phone: "", email: "", address: "" });
+    // Build payload for backend
+    const menu_items = items.map((it) => ({ id: it.id, qty: guestCount, price: it.price }));
+    const payload = {
+      customer_name: name,
+      phone_number: phone,
+      email: email,
+      event_type: "Bulk Order",
+      guests: guestCount,
+      event_date: new Date().toISOString().split("T")[0],
+      event_time: new Date().toLocaleTimeString(),
+      venue: address,
+      special: null,
+      total_amount: parseFloat(total.toFixed(2)),
+      payment_method: paymentMethod,
+      menu_items,
+    };
+
+    // Optional auth header if customer token exists
+    const headers = {};
+    try {
+      const token = sessionStorage.getItem("_ct");
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch {}
+
+    // COD flow
+    if (paymentMethod === "cod") {
+      axios
+        .post("/api/orders", payload, { headers })
+        .then((res) => {
+          setOrderStatus({
+            type: "success",
+            message: "Bulk order placed successfully! Cash on delivery.",
+            orderId: res.data.order_id,
+          });
+          setShowCheckout(false);
+          setFormData({ name: "", phone: "", email: "", address: "" });
+          setPaymentMethod("online");
+          if (typeof clearCart === "function") clearCart();
+          setTimeout(() => setOrderStatus(null), 5000);
+        })
+        .catch(() => {
+          setOrderStatus({ type: "error", message: "Error placing order. Please try again." });
+          setTimeout(() => setOrderStatus(null), 5000);
+        });
+      return;
+    }
+
+    // Online payment flow (Razorpay)
+    axios
+      .post("/api/orders", payload, { headers })
+      .then((res) => {
+        const dbOrderId = res.data.order_id;
+        return axios.post("/api/payments/create_order", { order_id: dbOrderId, amount: payload.total_amount });
+      })
+      .then((rzpRes) => {
+        const razorpayOrderId = rzpRes.data.order_id;
+        const customerDetails = { name, email, phone };
+        if (typeof initiatePayment === "function") {
+          initiatePayment(
+            razorpayOrderId,
+            payload.total_amount,
+            customerDetails,
+            () => {},
+            () => {}
+          );
+        }
+        setShowCheckout(false);
+        setFormData({ name: "", phone: "", email: "", address: "" });
+        setPaymentMethod("online");
+        if (typeof clearCart === "function") clearCart();
+      })
+      .catch(() => {
+        setOrderStatus({ type: "error", message: "Error creating payment. Please try again." });
+        setTimeout(() => setOrderStatus(null), 5000);
+      });
   };
 
   return (
@@ -177,6 +258,33 @@ export default function BulkCartPage({
                 />
               </div>
 
+              {/* Payment method selection */}
+              <div className="form-group">
+                <label>Payment Method *</label>
+                <div className="payment-methods">
+                  <label className="payment-option">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="online"
+                      checked={paymentMethod === "online"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    />
+                    <span className="payment-label">💳 Online Payment (Razorpay)</span>
+                  </label>
+                  <label className="payment-option">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cod"
+                      checked={paymentMethod === "cod"}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    />
+                    <span className="payment-label">💵 Cash on Delivery</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="checkout-summary">
                 <div className="summary-line">
                   <span>Total Guests</span>
@@ -192,6 +300,45 @@ export default function BulkCartPage({
                 Place Bulk Order
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER / PAYMENT STATUS POPUP */}
+      {(orderStatus || paymentStatus) && (
+        <div className="order-status-overlay">
+          <div className="order-status-popup">
+            <img
+              src={`${process.env.PUBLIC_URL}/images/chef.png`}
+              alt="Order Status"
+              className={`order-status-image ${(orderStatus || paymentStatus).type}`}
+              onError={(e) => {
+                e.target.src = "/images/biriyani.png";
+              }}
+            />
+            <div className="order-status-content">
+              <div className={`status-icon ${(orderStatus || paymentStatus).type}`}>
+                {(orderStatus || paymentStatus).type === "success" ? "✅" : "❌"}
+              </div>
+              <h3 className={`status-title ${(orderStatus || paymentStatus).type}`}>
+                {(orderStatus || paymentStatus).type === "success" ? "Order Placed Successfully!" : "Order Failed"}
+              </h3>
+              <p className="status-message">{(orderStatus || paymentStatus).message}</p>
+              {(orderStatus || paymentStatus).orderId && (
+                <p className="order-id">
+                  Order ID: <strong>{(orderStatus || paymentStatus).orderId}</strong>
+                </p>
+              )}
+              <button
+                className="status-close-btn"
+                onClick={() => {
+                  if (orderStatus) setOrderStatus(null);
+                  if (paymentStatus && clearPaymentStatus) clearPaymentStatus();
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

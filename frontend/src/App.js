@@ -392,6 +392,9 @@ function App() {
         goBack={navigateToBulkMenu}
         clearCart={() => setBulkCart({})}
         initiatePayment={initiatePayment}
+        defaultPaymentMethod="online"
+        paymentStatus={paymentStatus}
+        clearPaymentStatus={() => setPaymentStatus(null)}
       />
     );
 

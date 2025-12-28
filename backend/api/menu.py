@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+import os
 from extensions import db, socketio
 from models import MenuItem
 
@@ -52,6 +53,22 @@ def add_menu_item():
 def update_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     data = request.json
+    
+    # If new image is provided and different from old, delete old image
+    new_image_url = data.get("image")
+    if new_image_url and new_image_url != item.image_url:
+        old_image_url = item.image_url
+        if old_image_url and old_image_url.startswith('/static/uploads/'):
+            try:
+                filename = old_image_url.split('/static/uploads/')[-1]
+                base = os.path.dirname(os.path.abspath(__file__))
+                root = os.path.abspath(os.path.join(base, ".."))
+                file_path = os.path.join(root, "static", "uploads", filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                print(f"Error deleting old image: {e}")
+    
     item.item_name = data.get("item_name", item.item_name)
     item.category = data.get("category", item.category)
     item.price_per_plate = data.get("price", item.price_per_plate)
@@ -80,8 +97,28 @@ def update_menu_item(id):
 def delete_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     item_id = item.item_id
+    old_image_url = item.image_url
+    
+    # Delete the item from database
     db.session.delete(item)
     db.session.commit()
+    
+    # Delete associated image file if it exists
+    if old_image_url and old_image_url.startswith('/static/uploads/'):
+        try:
+            # Extract filename from URL
+            filename = old_image_url.split('/static/uploads/')[-1]
+            # Construct absolute path to the image file
+            base = os.path.dirname(os.path.abspath(__file__))  # .../backend/api
+            root = os.path.abspath(os.path.join(base, ".."))  # .../backend
+            file_path = os.path.join(root, "static", "uploads", filename)
+            
+            # Remove file if it exists
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            # Log error but don't fail the deletion
+            print(f"Error deleting image file: {e}")
     
     # Broadcast item deletion to all clients
     socketio.emit('menu_item_deleted', {
