@@ -1,0 +1,191 @@
+### Base URL
+@baseUrl = http://127.0.0.1:5000
+@token = your_jwt_token_here
+
+### ============================================
+### ADMIN AUTHENTICATION
+### ============================================
+
+### Admin Login (Get JWT Token)
+POST {{baseUrl}}/api/admin/login
+Content-Type: application/json
+
+{
+  "username": "admin@sreeveg.com",
+  "password": "Admin@123"
+}
+
+### Admin Verify Token
+GET {{baseUrl}}/api/admin/verify
+Authorization: Bearer {{token}}
+
+### Admin Stats
+GET {{baseUrl}}/api/admin/stats
+Authorization: Bearer {{token}}
+
+### ============================================
+### MENU ITEMS
+### ============================================
+
+### Get All Menu Items
+GET {{baseUrl}}/api/menu
+
+### Add New Menu Item
+POST {{baseUrl}}/api/menu
+Content-Type: application/json
+
+{
+  "item_name": "Paneer Tikka",
+  "category": "Starters",
+  "price": 250,
+  "description": "Grilled cottage cheese with Indian spices",
+  "veg": true,
+  "image": "🧀"
+}
+
+### Update Menu Item (replace :id with actual item_id)
+PUT {{baseUrl}}/api/menu/1
+Content-Type: application/json
+
+{
+  "item_name": "Paneer Tikka Masala",
+  "category": "Main Course",
+  "price": 320,
+  "description": "Cottage cheese in rich tomato gravy",
+  "veg": true,
+  "is_available": true
+}
+
+### Toggle Menu Item Availability (replace :id with actual item_id)
+PUT {{baseUrl}}/api/menu/1
+Content-Type: application/json
+
+{
+  "is_available": false
+}
+
+### Delete Menu Item (replace :id with actual item_id)
+DELETE {{baseUrl}}/api/menu/1
+
+### ============================================
+### ORDERS
+### ============================================
+
+### Get All Orders (Admin only - requires JWT)
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{token}}
+
+### Create New Order
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customer_name": "Abirami S",
+  "phone_number": "7904479451",
+  "email": "shanmugapriyaraja31@gmail.com",
+  "event_type": "Birthday Party",
+  "number_of_guests": 50,
+  "event_date": "2025-12-25",
+  "event_time": "18:00",
+  "venue_address": "123 Main Street, Chennai",
+  "special_requirements": "No onion and garlic",
+  "total_amount": 1500,
+  "payment_method": "online",
+  "menu_items": [
+    {
+      "id": 1,
+      "qty": 2,
+      "price": 250
+    },
+    {
+      "id": 2,
+      "qty": 3,
+      "price": 350
+    }
+  ]
+}
+
+### Update Order Status (replace :id with actual order_id)
+PUT {{baseUrl}}/api/orders/status/1
+Content-Type: application/json
+
+{
+  "status": "Paid"
+}
+
+### ============================================
+### CUSTOMERS
+### ============================================
+
+### Get All Customers (Admin only - requires JWT)
+GET {{baseUrl}}/api/customers
+Authorization: Bearer {{token}}
+
+### Customer Registration
+POST {{baseUrl}}/api/customers/register
+Content-Type: application/json
+
+{
+  "full_name": "Rajesh Kumar",
+  "phone_number": "9876543210",
+  "email": "rajesh@example.com",
+  "password": "SecurePass123"
+}
+
+### Customer Login
+POST {{baseUrl}}/api/customers/login
+Content-Type: application/json
+
+{
+  "email": "rajesh@example.com",
+  "password": "SecurePass123"
+}
+
+### ============================================
+### EVENT TYPES
+### ============================================
+
+### Get All Event Types
+GET {{baseUrl}}/api/events
+
+### ============================================
+### PAYMENTS
+### ============================================
+
+### Create Razorpay Order
+POST {{baseUrl}}/api/payments/create_order
+Content-Type: application/json
+
+{
+  "order_id": 1,
+  "amount": 1500
+}
+
+### Verify Payment
+POST {{baseUrl}}/api/payments/verify
+Content-Type: application/json
+
+{
+  "payment_id": "pay_xxxxxxxxxxxxx",
+  "order_id": 1,
+  "razorpay_order_id": "order_xxxxxxxxxxxxx",
+  "razorpay_signature": "signature_here"
+}
+
+### ============================================
+### STATS
+### ============================================
+
+### Get Summary Stats
+GET {{baseUrl}}/api/stats/summary
+
+### ============================================
+### NOTES
+### ============================================
+# 
+# 1. After admin login, copy the "access_token" from response
+# 2. Replace {{token}} variable at the top with your actual JWT token
+# 3. For protected routes (orders, customers list), include the Authorization header
+# 4. Replace :id placeholders with actual IDs from your database
+# 5. Update @baseUrl if backend runs on different port
+#

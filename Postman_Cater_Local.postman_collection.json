@@ -1,0 +1,201 @@
+{
+  "info": {
+    "name": "Cater Local API",
+    "_postman_id": "cater-local-collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Admin Login (Get Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","admin","login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin@sreeveg.com\",\n  \"password\": \"Admin@123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Save admin access_token', function () {",
+              "  const json = pm.response.json();",
+              "  pm.environment.set('token', json.access_token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Verify",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","admin","verify"]
+        }
+      }
+    },
+    {
+      "name": "Admin Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/admin/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","admin","refresh"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Save refreshed admin access_token', function () {",
+              "  const json = pm.response.json();",
+              "  pm.environment.set('token', json.access_token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Customers (Admin Only)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/customers",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","customers"]
+        }
+      }
+    },
+    {
+      "name": "Get Orders (Admin Only)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","orders"]
+        }
+      }
+    },
+    {
+      "name": "Update Order Status (Admin Only)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/status/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","orders","status","{{orderId}}"],
+          "variable": [
+            { "key": "orderId", "value": "1" }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"Paid\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Customer Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/customers/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","customers","register"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Test User\",\n  \"phone_number\": \"9999999999\",\n  \"email\": \"test@example.com\",\n  \"password\": \"pass123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Customer Login (Get Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/customers/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","customers","login"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"pass123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Save customer access_token', function () {",
+              "  const json = pm.response.json();",
+              "  pm.environment.set('customerToken', json.access_token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Customer Orders (Customer Only)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/customers/{{customerId}}/orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","customers","{{customerId}}","orders"],
+          "variable": [
+            { "key": "customerId", "value": "1" }
+          ]
+        }
+      }
+    }
+  ]
+}
