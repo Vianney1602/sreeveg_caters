@@ -45,7 +45,7 @@ def add_menu_item():
         'description': item.description,
         'is_available': item.is_available,
         'stock_quantity': item.stock_quantity if item.stock_quantity is not None else 100
-    }, broadcast=True)
+    })
     
     return jsonify({"message": "Item Added", "item_id": item.item_id})
 
@@ -89,7 +89,7 @@ def update_menu_item(id):
         'description': item.description,
         'is_available': item.is_available,
         'stock_quantity': item.stock_quantity if item.stock_quantity is not None else 100
-    }, broadcast=True)
+    })
     
     return jsonify({"message": "Item Updated"})
 
@@ -123,6 +123,6 @@ def delete_menu_item(id):
     # Broadcast item deletion to all clients
     socketio.emit('menu_item_deleted', {
         'item_id': item_id
-    }, broadcast=True)
+    })
     
     return jsonify({"message": "Item Deleted"})

@@ -99,6 +99,23 @@ export default function AdminDashboard({ onLogout }) {
 
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
+  // Filter and sort states
+  const [orderSortBy, setOrderSortBy] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+  const [customerSortBy, setCustomerSortBy] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+  const [customerFilterName, setCustomerFilterName] = useState(''); // Filter by name
+
+  // Toast notification state
+  const [toast, setToast] = useState(null);
+
+  // Toast helper function
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000); // Auto-hide after 4 seconds
+  };
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState(null);
+
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -211,7 +228,7 @@ export default function AdminDashboard({ onLogout }) {
     const formData = editingItem ? editForm : newItem;
 
     if (!formData.name || !formData.price) {
-      alert('Please fill in all required fields');
+      showToast('Please fill in all required fields: Name and Price', 'error');
       return;
     }
 
@@ -219,13 +236,19 @@ export default function AdminDashboard({ onLogout }) {
       // If a file is selected, upload it first
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
+      
       if (fileToUpload) {
         const fd = new FormData();
         fd.append('image', fileToUpload);
-        const upRes = await axios.post('/api/uploads/image', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+        try {
+          const upRes = await axios.post('/api/uploads/image', fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+        } catch (uploadErr) {
+          console.error('Image upload failed:', uploadErr);
+          showToast('Image upload failed. Item will be saved without image.', 'error');
+        }
       }
 
       if (editingItem) {
@@ -237,9 +260,15 @@ export default function AdminDashboard({ onLogout }) {
           description: formData.description,
           veg: true,
           is_available: true,
-          image: imageUrl || undefined,
         };
-        await axios.put(`/api/menu/${editingItem.id}`, updatePayload);
+        
+        // Only include image URL if it exists or was updated
+        if (imageUrl) {
+          updatePayload.image = imageUrl;
+        }
+        
+        await axios.put(`/api/menu/${editingItem}`, updatePayload);
+        showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
         // Add new item
         const addPayload = {
@@ -248,14 +277,19 @@ export default function AdminDashboard({ onLogout }) {
           price: parseInt(formData.price, 10),
           description: formData.description,
           veg: true,
-          image: imageUrl || undefined,
         };
+        
+        if (imageUrl) {
+          addPayload.image = imageUrl;
+        }
+        
         await axios.post('/api/menu', addPayload);
+        showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
       // Refresh menu items
       const res = await axios.get('/api/menu');
-      setMenuItems(res.data.map(item => ({
+      const updatedItems = res.data.map(item => ({
         id: item.item_id,
         name: item.item_name,
         category: item.category,
@@ -263,17 +297,20 @@ export default function AdminDashboard({ onLogout }) {
         description: item.description || '',
         available: item.is_available,
         imageUrl: resolveImageUrl(item.image_url)
-      })));
+      }));
+      
+      // Ensure no duplicates by filtering unique IDs
+      const uniqueItems = updatedItems.filter((item, index, self) =>
+        index === self.findIndex((t) => t.id === item.id)
+      );
+      
+      setMenuItems(uniqueItems);
 
-      // Reset forms
-      setEditingItem(null);
-      setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
-      setNewItem({ name: '', category: 'Starters', price: '', description: '' });
-      setNewImageFile(null);
-      setEditImageFile(null);
-      setShowAddForm(false);
+      // Reset forms and close
+      cancelEditing();
     } catch (err) {
-      alert('Failed to save item');
+      console.error('Error saving item:', err);
+      showToast(`Failed to save item: ${err.response?.data?.message || err.message}`, 'error');
     }
   };
 
@@ -283,30 +320,43 @@ export default function AdminDashboard({ onLogout }) {
 
     axios.put(`/api/menu/${id}`, { is_available: !item.available })
       .then(() => {
+        const newStatus = !item.available ? 'Available' : 'Unavailable';
         setMenuItems(menuItems.map(it =>
           it.id === id ? { ...it, available: !it.available } : it
         ));
+        showToast(`"${item.name}" is now ${newStatus} ✓`, 'success');
       })
       .catch(err => {
-        alert('Failed to update item availability');
+        console.error('Error updating item availability:', err);
+        showToast(`Failed to update item availability: ${err.response?.data?.message || err.message}`, 'error');
       });
   };
 
   const deleteItem = (id) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    const item = menuItems.find(it => it.id === id);
+    if (!item) return;
 
-    axios.delete(`/api/menu/${id}`)
-      .then(() => {
-        setMenuItems(menuItems.filter(item => item.id !== id));
-        if (editingItem && editingItem === id) {
-          setEditingItem(null);
-          setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
-          setShowAddForm(false);
-        }
-      })
-      .catch(err => {
-        alert('Failed to delete item');
-      });
+    // Show custom confirmation modal
+    setConfirmModal({
+      title: 'Delete Menu Item',
+      message: `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        axios.delete(`/api/menu/${id}`)
+          .then(() => {
+            setMenuItems(menuItems.filter(item => item.id !== id));
+            if (editingItem && editingItem === id) {
+              cancelEditing();
+            }
+            showToast(`"${item.name}" has been deleted successfully! ✓`, 'success');
+          })
+          .catch(err => {
+            console.error('Error deleting item:', err);
+            showToast(`Failed to delete item: ${err.response?.data?.message || err.message}`, 'error');
+          });
+      },
+      onCancel: () => setConfirmModal(null)
+    });
   };
 
   const startEditingItem = (item) => {
@@ -318,11 +368,66 @@ export default function AdminDashboard({ onLogout }) {
       description: item.description,
       image: item.imageUrl || '',
     });
+    setEditImageFile(null);
     setShowAddForm(true);
+  };
+
+  const cancelEditing = () => {
+    setShowAddForm(false);
+    setEditingItem(null);
+    setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
+    setEditImageFile(null);
+    setNewItem({ name: '', category: 'Starters', price: '', description: '' });
+    setNewImageFile(null);
   };
 
   const toggleOrderDetails = (id) => {
     setExpandedOrderId(expandedOrderId === id ? null : id);
+  };
+
+  // Sorting function for orders
+  const getSortedOrders = () => {
+    const sorted = [...orders];
+    switch (orderSortBy) {
+      case 'date-desc':
+        return sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      case 'date-asc':
+        return sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      case 'name-asc':
+        return sorted.sort((a, b) => a.customerName.localeCompare(b.customerName));
+      case 'name-desc':
+        return sorted.sort((a, b) => b.customerName.localeCompare(a.customerName));
+      default:
+        return sorted;
+    }
+  };
+
+  // Sorting and filtering function for customers
+  const getFilteredAndSortedCustomers = () => {
+    let filtered = customers;
+    
+    // Filter by name
+    if (customerFilterName.trim()) {
+      filtered = filtered.filter(c =>
+        c.full_name.toLowerCase().includes(customerFilterName.toLowerCase()) ||
+        c.email.toLowerCase().includes(customerFilterName.toLowerCase())
+      );
+    }
+
+    // Sort
+    const sorted = [...filtered];
+    switch (customerSortBy) {
+      case 'date-desc':
+        return sorted.sort((a, b) => new Date(b.customer_id) - new Date(a.customer_id));
+      case 'date-asc':
+        return sorted.sort((a, b) => new Date(a.customer_id) - new Date(b.customer_id));
+      case 'name-asc':
+        return sorted.sort((a, b) => a.full_name.localeCompare(b.full_name));
+      case 'name-desc':
+        return sorted.sort((a, b) => b.full_name.localeCompare(a.full_name));
+      default:
+        return sorted;
+    }
   };
 
   const updateOrderStatus = (id, newStatus) => {
@@ -498,6 +603,8 @@ export default function AdminDashboard({ onLogout }) {
                   setEditingItem(null); // reset to add mode
                   setNewItem({ name: '', category: 'Starters', price: '', description: '' });
                   setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
+                  setNewImageFile(null);
+                  setEditImageFile(null);
                 }}
                 className="add-item-btn"
               >
@@ -585,8 +692,12 @@ export default function AdminDashboard({ onLogout }) {
                     <span>Preview:</span>
                     <img
                       src={editingItem
-                        ? (editImageFile ? URL.createObjectURL(editImageFile) : (resolveImageUrl(editForm.image) || suggestImageByName(editForm.name)))
-                        : (newImageFile ? URL.createObjectURL(newImageFile) : (resolveImageUrl(newItem.image) || suggestImageByName(newItem.name)))}
+                        ? (editImageFile 
+                            ? URL.createObjectURL(editImageFile) 
+                            : (editForm.image || suggestImageByName(editForm.name)))
+                        : (newImageFile 
+                            ? URL.createObjectURL(newImageFile) 
+                            : (newItem.image || suggestImageByName(newItem.name)))}
                       alt="preview"
                       onError={(e) => {
                         e.currentTarget.onerror = null;
@@ -600,14 +711,20 @@ export default function AdminDashboard({ onLogout }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowAddForm(false);
-                        setEditingItem(null);
-                      }}
+                      onClick={cancelEditing}
                       className="cancel-btn"
                     >
                       Cancel
                     </button>
+                    {editingItem && (
+                      <button
+                        type="button"
+                        onClick={() => deleteItem(editingItem)}
+                        className="delete-btn-form"
+                      >
+                        🗑️ Delete Item
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -650,18 +767,8 @@ export default function AdminDashboard({ onLogout }) {
                     <button
                       className="edit-btn"
                       type="button"
-                      onClick={() => {
-                        setEditingItem(item);
-                        setEditForm({
-                          name: item.name,
-                          category: item.category,
-                          price: item.price,
-                          description: item.description,
-                          image: item.imageUrl || '',
-                        });
-                        setEditImageFile(null);
-                        setShowAddForm(true);
-                      }}
+                      title="Edit item"
+                      onClick={() => startEditingItem(item)}
                     >
                       ✏️
                     </button>
@@ -669,8 +776,10 @@ export default function AdminDashboard({ onLogout }) {
                       onClick={() => deleteItem(item.id)}
                       className="delete-btn"
                       type="button"
+                      title="Delete item"
+                      style={{ display: 'inline-block', visibility: 'visible' }}
                     >
-                      
+                      🗑️
                     </button>
                   </div>
                 </div>
@@ -682,9 +791,25 @@ export default function AdminDashboard({ onLogout }) {
         {/* Orders Tab with expandable details */}
         {activeTab === 'orders' && (
           <div className="orders-section">
-            <h3>All Orders</h3>
+            <div className="orders-header">
+              <h3>All Orders ({orders.length})</h3>
+              <div className="sort-controls">
+                <label htmlFor="order-sort">Sort by:</label>
+                <select 
+                  id="order-sort"
+                  value={orderSortBy} 
+                  onChange={(e) => setOrderSortBy(e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="date-desc">📅 Newest First</option>
+                  <option value="date-asc">📅 Oldest First</option>
+                  <option value="name-asc">👤 Customer A-Z</option>
+                  <option value="name-desc">👤 Customer Z-A</option>
+                </select>
+              </div>
+            </div>
             <div className="orders-table">
-              {orders.map(order => (
+              {getSortedOrders().map(order => (
                 <div key={order.id} className="order-card">
                   <div className="order-card-header">
                     <div>
@@ -754,7 +879,28 @@ export default function AdminDashboard({ onLogout }) {
         {/* Customers Tab */}
         {activeTab === 'customers' && (
           <div className="customers-section">
-            <h3>All Customers ({customers.length})</h3>
+            <div className="customers-header">
+              <h3>All Customers ({customers.length})</h3>
+              <div className="filter-sort-controls">
+                <input
+                  type="text"
+                  placeholder="🔍 Search by name or email..."
+                  value={customerFilterName}
+                  onChange={(e) => setCustomerFilterName(e.target.value)}
+                  className="search-input"
+                />
+                <select 
+                  value={customerSortBy} 
+                  onChange={(e) => setCustomerSortBy(e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="date-desc">📅 Newest First</option>
+                  <option value="date-asc">📅 Oldest First</option>
+                  <option value="name-asc">👤 Name A-Z</option>
+                  <option value="name-desc">👤 Name Z-A</option>
+                </select>
+              </div>
+            </div>
             <div className="customers-table">
               <div className="table-header">
                 <div className="table-cell">Customer ID</div>
@@ -763,15 +909,21 @@ export default function AdminDashboard({ onLogout }) {
                 <div className="table-cell">Phone</div>
                 <div className="table-cell">Total Orders</div>
               </div>
-              {customers.map(customer => (
-                <div key={customer.customer_id} className="table-row">
-                  <div className="table-cell">#{customer.customer_id}</div>
-                  <div className="table-cell">{customer.full_name}</div>
-                  <div className="table-cell">{customer.email}</div>
-                  <div className="table-cell">{customer.phone_number}</div>
-                  <div className="table-cell">{customer.total_orders_count || 0}</div>
+              {getFilteredAndSortedCustomers().length > 0 ? (
+                getFilteredAndSortedCustomers().map(customer => (
+                  <div key={customer.customer_id} className="table-row">
+                    <div className="table-cell">#{customer.customer_id}</div>
+                    <div className="table-cell">{customer.full_name}</div>
+                    <div className="table-cell">{customer.email}</div>
+                    <div className="table-cell">{customer.phone_number}</div>
+                    <div className="table-cell">{customer.total_orders_count || 0}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">
+                  <p>No customers found matching your search.</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -893,6 +1045,41 @@ export default function AdminDashboard({ onLogout }) {
                   <span>Payment Methods:</span>
                   <strong>Razorpay, COD</strong>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toast Notification */}
+        {toast && (
+          <div className={`toast-notification toast-${toast.type}`}>
+            <div className="toast-content">
+              {toast.type === 'success' && <span className="toast-icon">✓</span>}
+              {toast.type === 'error' && <span className="toast-icon">✕</span>}
+              <span className="toast-message">{toast.message}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Modal */}
+        {confirmModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 className="modal-title">{confirmModal.title}</h3>
+              <p className="modal-message">{confirmModal.message}</p>
+              <div className="modal-actions">
+                <button 
+                  className="modal-btn modal-btn-confirm" 
+                  onClick={confirmModal.onConfirm}
+                >
+                  Yes, Delete
+                </button>
+                <button 
+                  className="modal-btn modal-btn-cancel" 
+                  onClick={confirmModal.onCancel}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
