@@ -1086,4 +1086,37 @@
   .header-content {
     padding: 1rem;
   }
+
+  /* tighter mobile header alignment */
+  .header-content {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    text-align: center;
+  }
+
+  .header-left {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .logo-text {
+    font-size: 1.35rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .contact-button,
+  .book-now-button,
+  .admin-btn {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.9rem;
+    width: auto;
+  }
 }
