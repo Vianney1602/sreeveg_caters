@@ -52,12 +52,17 @@ def create_app():
         },
     )
 
-    # Initialize SocketIO with CORS settings
+    # Initialize SocketIO with CORS settings and production-ready config
     socketio.init_app(
         app,
         cors_allowed_origins=allowed,
         async_mode="threading",
-        allow_upgrades=False  # force long-polling to avoid websocket issues with dev server
+        allow_upgrades=False,  # force long-polling to avoid websocket issues
+        # Production-ready session settings
+        ping_timeout=60,
+        ping_interval=25,
+        engineio_logger=False,
+        manage_session=False,  # Don't manage sessions to avoid encoding issues
     )
 
     # Import models
