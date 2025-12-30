@@ -122,17 +122,21 @@ export default function AdminDashboard({ onLogout }) {
       try {
         setLoading(true);
         
+        // Get token from sessionStorage
+        const token = sessionStorage.getItem('_st');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        
         // Verify admin token first
-        const verifyRes = await axios.get('/api/admin/verify');
+        const verifyRes = await axios.get('/api/admin/verify', { headers });
         setAdminInfo(verifyRes.data.admin);
 
         // Fetch all required data in parallel
         const [ordersRes, menuRes, customersRes, statsRes, eventsRes] = await Promise.all([
-          axios.get('/api/orders'),
-          axios.get('/api/menu'),
-          axios.get('/api/customers'),
-          axios.get('/api/admin/stats'),
-          axios.get('/api/events'),
+          axios.get('/api/orders', { headers }),
+          axios.get('/api/menu', { headers }),
+          axios.get('/api/customers', { headers }),
+          axios.get('/api/admin/stats', { headers }),
+          axios.get('/api/events', { headers }),
         ]);
 
         // Process and set orders
@@ -233,6 +237,10 @@ export default function AdminDashboard({ onLogout }) {
     }
 
     try {
+      // Get token from sessionStorage
+      const token = sessionStorage.getItem('_st');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
       // If a file is selected, upload it first
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
@@ -242,7 +250,7 @@ export default function AdminDashboard({ onLogout }) {
         fd.append('image', fileToUpload);
         try {
           const upRes = await axios.post('/api/uploads/image', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { ...headers, 'Content-Type': 'multipart/form-data' },
           });
           imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
         } catch (uploadErr) {
@@ -267,7 +275,7 @@ export default function AdminDashboard({ onLogout }) {
           updatePayload.image = imageUrl;
         }
         
-        await axios.put(`/api/menu/${editingItem}`, updatePayload);
+        await axios.put(`/api/menu/${editingItem}`, updatePayload, { headers });
         showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
         // Add new item
@@ -283,12 +291,12 @@ export default function AdminDashboard({ onLogout }) {
           addPayload.image = imageUrl;
         }
         
-        await axios.post('/api/menu', addPayload);
+        await axios.post('/api/menu', addPayload, { headers });
         showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
       // Refresh menu items
-      const res = await axios.get('/api/menu');
+      const res = await axios.get('/api/menu', { headers });
       const updatedItems = res.data.map(item => ({
         id: item.item_id,
         name: item.item_name,
@@ -318,7 +326,10 @@ export default function AdminDashboard({ onLogout }) {
     const item = menuItems.find(it => it.id === id);
     if (!item) return;
 
-    axios.put(`/api/menu/${id}`, { is_available: !item.available })
+    const token = sessionStorage.getItem('_st');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    axios.put(`/api/menu/${id}`, { is_available: !item.available }, { headers })
       .then(() => {
         const newStatus = !item.available ? 'Available' : 'Unavailable';
         setMenuItems(menuItems.map(it =>
@@ -342,7 +353,9 @@ export default function AdminDashboard({ onLogout }) {
       message: `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
       onConfirm: () => {
         setConfirmModal(null);
-        axios.delete(`/api/menu/${id}`)
+        const token = sessionStorage.getItem('_st');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        axios.delete(`/api/menu/${id}`, { headers })
           .then(() => {
             setMenuItems(menuItems.filter(item => item.id !== id));
             if (editingItem && editingItem === id) {
@@ -431,7 +444,9 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   const updateOrderStatus = (id, newStatus) => {
-    axios.put(`/api/orders/status/${id}`, { status: newStatus })
+    const token = sessionStorage.getItem('_st');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    axios.put(`/api/orders/status/${id}`, { status: newStatus }, { headers })
       .then((response) => {
         setOrders(orders.map(order =>
           order.id === id ? { ...order, status: newStatus } : order
