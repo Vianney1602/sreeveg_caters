@@ -1008,3 +1008,82 @@
     font-size: 0.875rem;
   }
 }
+
+/* Responsive: keep desktop styles intact, adjust only on smaller viewports */
+@media (max-width: 1024px) {
+  .header-content {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .chef-grid,
+  .features-grid,
+  .menu-grid,
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .hero {
+    padding: 4rem 1.25rem;
+  }
+
+  .hero-title {
+    font-size: 2.4rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .cta-button {
+    width: 100%;
+  }
+
+  .chef-grid,
+  .features-grid,
+  .menu-grid,
+  .stats-grid,
+  .testimonial-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .chef-section,
+  .menu-section,
+  .features-section,
+  .testimonial-section,
+  .contact-section {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .header-content {
+    padding: 1rem;
+  }
+}

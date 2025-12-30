@@ -73,6 +73,56 @@
   border-color: #7a0000;
 }
 
+/* Additional mobile refinements */
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    padding: 60px 5%;
+    gap: 28px;
+  }
+
+  .hero-left h1 {
+    font-size: 32px;
+  }
+
+  .hero-left p {
+    font-size: 15px;
+  }
+
+  .order-box,
+  .hero-right .order-box {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .section {
+    padding: 48px 36px;
+  }
+}
+
+@media (max-width: 540px) {
+  .hero {
+    padding: 44px 5%;
+  }
+
+  .hero-left h1 {
+    font-size: 28px;
+  }
+
+  .hero-left p {
+    font-size: 14px;
+  }
+
+  .order-box,
+  .hero-right .order-box {
+    padding: 18px;
+  }
+
+  .section {
+    padding: 40px 22px;
+  }
+}
+
 /* INPUT */
 .order-box input {
   width: 100%;

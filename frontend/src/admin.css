@@ -186,3 +186,54 @@
 .signup-link a:hover {
   color: #a11a1a;
 }
+
+/* Mobile adjustments without changing desktop styles */
+@media (max-width: 768px) {
+  .admin-login-container {
+    padding: 1.5rem;
+  }
+
+  .back-link {
+    top: 1.25rem;
+    left: 1.25rem;
+  }
+
+  .login-card {
+    padding: 2.25rem 2rem;
+    max-width: 420px;
+  }
+
+  .login-card h1 {
+    font-size: 1.75rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 540px) {
+  .admin-login-container {
+    padding: 1.25rem;
+    align-items: stretch;
+  }
+
+  .login-card {
+    width: 100%;
+    padding: 1.75rem 1.5rem;
+    border-radius: 16px;
+  }
+
+  .login-form {
+    gap: 1rem;
+  }
+
+  .form-group input,
+  .sign-in-btn {
+    font-size: 0.95rem;
+  }
+
+  .back-link {
+    font-size: 0.95rem;
+  }
+}

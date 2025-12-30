@@ -49,6 +49,53 @@
 
 /* TABS */
 .order-tabs {
+
+/* Additional mobile refinements */
+@media (max-width: 768px) {
+  .hero {
+    padding: 56px 5%;
+    gap: 28px;
+  }
+
+  .hero-left h1 {
+    font-size: 32px;
+  }
+
+  .hero-left p {
+    font-size: 15px;
+  }
+
+  .order-box {
+    width: 100%;
+  }
+
+  .section {
+    padding: 48px 36px;
+  }
+}
+
+@media (max-width: 540px) {
+  .hero {
+    padding: 44px 5%;
+  }
+
+  .hero-left h1 {
+    font-size: 28px;
+  }
+
+  .hero-left p {
+    font-size: 14px;
+  }
+
+  .order-box {
+    width: 100%;
+    padding: 18px;
+  }
+
+  .section {
+    padding: 40px 22px;
+  }
+}
   display: flex;
   gap: 8px;
   margin-bottom: 14px;
