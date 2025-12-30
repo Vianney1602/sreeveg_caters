@@ -31,7 +31,7 @@ export default function BulkMenuPage({
     
     // If it starts with /static or /api, it's a backend URL
     if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
-      const cleanPath = trimmed.replace(/^\\/+/, '/');
+      const cleanPath = trimmed.replace(/^\/+/, '/');
       return `${backendBase}${cleanPath}`;
     }
     
