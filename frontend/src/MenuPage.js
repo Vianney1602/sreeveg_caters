@@ -13,28 +13,46 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
   const resolveImageUrl = (url) => {
     if (!url) return '/images/default-food.png';
     const trimmed = String(url).trim();
-    
+
     // If it's a data URL or absolute URL, return as-is
     if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
-    
+
     // Get backend base URL - use axios defaults or environment
-    const backendBase = (axios.defaults && axios.defaults.baseURL) || 
-                       process.env.REACT_APP_API_URL || 
-                       'http://127.0.0.1:5000';
-    
-    // If it starts with /static or /api, it's a backend URL
-    if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
+    const backendBase = (axios.defaults && axios.defaults.baseURL) ||
+      process.env.REACT_APP_API_URL ||
+      'http://127.0.0.1:5000';
+
+    const toBackendUrl = (path) => {
+      const clean = path.replace(/^\/+/, '');
+      return `${backendBase}/${clean}`;
+    };
+
+    // If it starts with /static, static, /uploads, or uploads, treat as backend asset
+    if (
+      trimmed.startsWith('/static') ||
+      trimmed.startsWith('static') ||
+      trimmed.startsWith('/uploads') ||
+      trimmed.startsWith('uploads') ||
+      trimmed.includes('/static/') ||
+      trimmed.includes('/uploads/')
+    ) {
+      return toBackendUrl(trimmed);
+    }
+
+    // If it starts with /api, it's a backend URL
+    if (trimmed.startsWith('/api')) {
       const cleanPath = trimmed.replace(/^\/+/, '/');
       return `${backendBase}${cleanPath}`;
     }
-    
+
     // If it starts with /images, it's a frontend public image
     if (trimmed.startsWith('/images')) {
       const base = process.env.PUBLIC_URL || '';
       return `${base}${trimmed}`;
     }
-    
-    return trimmed;
+
+    // Fallback: assume backend-relative path
+    return toBackendUrl(trimmed);
   };
 
   // Fetch menu items from API on mount

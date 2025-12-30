@@ -19,9 +19,26 @@ export default function AdminDashboard({ onLogout }) {
     const backendBase = (axios.defaults && axios.defaults.baseURL) || 
                        process.env.REACT_APP_API_URL || 
                        'http://127.0.0.1:5000';
+
+    const toBackendUrl = (path) => {
+      const clean = path.replace(/^\/+/, '');
+      return `${backendBase}/${clean}`;
+    };
     
-    // If it starts with /static or /api, it's a backend URL
-    if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
+    // If it starts with /static, static, /uploads or uploads, treat as backend asset
+    if (
+      trimmed.startsWith('/static') ||
+      trimmed.startsWith('static') ||
+      trimmed.startsWith('/uploads') ||
+      trimmed.startsWith('uploads') ||
+      trimmed.includes('/static/') ||
+      trimmed.includes('/uploads/')
+    ) {
+      return toBackendUrl(trimmed);
+    }
+    
+    // If it starts with /api, it's a backend URL
+    if (trimmed.startsWith('/api')) {
       // Remove any leading duplicates
       const cleanPath = trimmed.replace(/^\/+/, '/');
       return `${backendBase}${cleanPath}`;
@@ -39,7 +56,8 @@ export default function AdminDashboard({ onLogout }) {
       return `${base}/images/${trimmed}`;
     }
     
-    return trimmed;
+    // Fallback: assume backend-relative path
+    return toBackendUrl(trimmed);
   };
 
   const suggestImageByName = (name) => {

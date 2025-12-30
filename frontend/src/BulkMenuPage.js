@@ -28,9 +28,26 @@ export default function BulkMenuPage({
     const backendBase = (axios.defaults && axios.defaults.baseURL) || 
                        process.env.REACT_APP_API_URL || 
                        'http://127.0.0.1:5000';
+
+    const toBackendUrl = (path) => {
+      const clean = path.replace(/^\/+/, '');
+      return `${backendBase}/${clean}`;
+    };
     
-    // If it starts with /static or /api, it's a backend URL
-    if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
+    // If it starts with /static, static, /uploads or uploads, treat as backend asset
+    if (
+      trimmed.startsWith('/static') ||
+      trimmed.startsWith('static') ||
+      trimmed.startsWith('/uploads') ||
+      trimmed.startsWith('uploads') ||
+      trimmed.includes('/static/') ||
+      trimmed.includes('/uploads/')
+    ) {
+      return toBackendUrl(trimmed);
+    }
+    
+    // If it starts with /api, it's a backend URL
+    if (trimmed.startsWith('/api')) {
       const cleanPath = trimmed.replace(/^\/+/, '/');
       return `${backendBase}${cleanPath}`;
     }
@@ -42,7 +59,7 @@ export default function BulkMenuPage({
     }
     
     // Otherwise, assume it's a relative path and prefix with backend base
-    return `${backendBase}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+    return toBackendUrl(trimmed);
   };
   
   useEffect(() => {
