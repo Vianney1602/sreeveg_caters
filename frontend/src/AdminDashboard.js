@@ -15,12 +15,16 @@ export default function AdminDashboard({ onLogout }) {
     // If it's a data URL or absolute URL, return as-is
     if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
     
-    // Get backend base URL from environment or default
-    const backendBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+    // Get backend base URL - use axios defaults or environment
+    const backendBase = (axios.defaults && axios.defaults.baseURL) || 
+                       process.env.REACT_APP_API_URL || 
+                       'http://127.0.0.1:5000';
     
     // If it starts with /static or /api, it's a backend URL
     if (trimmed.startsWith('/static') || trimmed.startsWith('/api')) {
-      return `${backendBase}${trimmed}`;
+      // Remove any leading duplicates
+      const cleanPath = trimmed.replace(/^\/+/, '/');
+      return `${backendBase}${cleanPath}`;
     }
     
     // If it starts with /images, it's a frontend public image
