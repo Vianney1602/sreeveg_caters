@@ -1,6 +1,16 @@
 from datetime import datetime
 from extensions import db
 
+
+class UploadedImage(db.Model):
+    __tablename__ = "uploaded_images"
+
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    mime_type = db.Column(db.String(64), nullable=False)
+    data = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # 1. CUSTOMERS TABLE
 class Customer(db.Model):
     __tablename__ = "customers"

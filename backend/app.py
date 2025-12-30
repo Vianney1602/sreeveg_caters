@@ -68,7 +68,7 @@ def create_app():
     # Import models
     from models import (
         Customer, Order, MenuItem, EventType,
-        OrderMenuItem, MonthlyStat, ContactInquiry
+        OrderMenuItem, MonthlyStat, ContactInquiry, UploadedImage
     )
 
     # Register API Blueprints

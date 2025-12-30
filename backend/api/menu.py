@@ -1,7 +1,35 @@
 from flask import Blueprint, request, jsonify
 import os
 from extensions import db, socketio
-from models import MenuItem
+from models import MenuItem, UploadedImage
+def _delete_image_asset(image_url: str):
+    """Remove stored image from disk or database based on URL."""
+    if not image_url:
+        return
+
+    # Legacy disk-based uploads
+    if image_url.startswith('/static/uploads/'):
+        try:
+            filename = image_url.split('/static/uploads/')[-1]
+            base = os.path.dirname(os.path.abspath(__file__))
+            root = os.path.abspath(os.path.join(base, ".."))
+            file_path = os.path.join(root, "static", "uploads", filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Error deleting old image: {e}")
+        return
+
+    # Database-backed uploads
+    if '/api/uploads/image/' in image_url:
+        try:
+            image_id_str = image_url.rstrip('/').split('/')[-1]
+            image_id = int(image_id_str)
+            image = UploadedImage.query.get(image_id)
+            if image:
+                db.session.delete(image)
+        except Exception as e:
+            print(f"Error deleting stored image {image_url}: {e}")
 
 menu_bp = Blueprint("menu", __name__)
 
@@ -57,17 +85,7 @@ def update_menu_item(id):
     # If new image is provided and different from old, delete old image
     new_image_url = data.get("image")
     if new_image_url and new_image_url != item.image_url:
-        old_image_url = item.image_url
-        if old_image_url and old_image_url.startswith('/static/uploads/'):
-            try:
-                filename = old_image_url.split('/static/uploads/')[-1]
-                base = os.path.dirname(os.path.abspath(__file__))
-                root = os.path.abspath(os.path.join(base, ".."))
-                file_path = os.path.join(root, "static", "uploads", filename)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                print(f"Error deleting old image: {e}")
+        _delete_image_asset(item.image_url)
     
     item.item_name = data.get("item_name", item.item_name)
     item.category = data.get("category", item.category)
@@ -99,26 +117,10 @@ def delete_menu_item(id):
     item_id = item.item_id
     old_image_url = item.image_url
     
-    # Delete the item from database
+    # Delete the item from database and associated stored image
+    _delete_image_asset(old_image_url)
     db.session.delete(item)
     db.session.commit()
-    
-    # Delete associated image file if it exists
-    if old_image_url and old_image_url.startswith('/static/uploads/'):
-        try:
-            # Extract filename from URL
-            filename = old_image_url.split('/static/uploads/')[-1]
-            # Construct absolute path to the image file
-            base = os.path.dirname(os.path.abspath(__file__))  # .../backend/api
-            root = os.path.abspath(os.path.join(base, ".."))  # .../backend
-            file_path = os.path.join(root, "static", "uploads", filename)
-            
-            # Remove file if it exists
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except Exception as e:
-            # Log error but don't fail the deletion
-            print(f"Error deleting image file: {e}")
     
     # Broadcast item deletion to all clients
     socketio.emit('menu_item_deleted', {
