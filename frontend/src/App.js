@@ -449,18 +449,22 @@ function App() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <h2>Shree Veg Caterers</h2>
-        <div className="header-contact">
-          <span className="header-phone">📞 79044 79451</span>
-          <span className="header-email">📧 shanmugapriyaraja31@gmail.com</span>
+        <div className="header-content">
+          <h2 className="header-title">Shree Veg Caterers</h2>
+          <div className="header-contact">
+            <span className="header-phone">📞 79044 79451</span>
+            <span className="header-email">📧 shanmugapriyaraja31@gmail.com</span>
+          </div>
+          <nav className="header-nav" aria-label="Primary">
+            <button onClick={() => setShowMenuPage(true)}>View Menu</button>
+            <span className="nav-separator" aria-hidden="true">|</span>
+            <button onClick={() => setShowCart(true)}>
+              Cart ({Object.keys(cart).length})
+            </button>
+            <span className="nav-separator" aria-hidden="true">|</span>
+            <button onClick={() => setShowAdminLogin(true)}>Admin</button>
+          </nav>
         </div>
-        <nav>
-          <button onClick={() => setShowMenuPage(true)}>View Menu</button>
-          <button onClick={() => setShowCart(true)}>
-            Cart ({Object.keys(cart).length})
-          </button>
-          <button onClick={() => setShowAdminLogin(true)}>Admin</button>
-        </nav>
       </header>
 
       {/* Hero Section */}
