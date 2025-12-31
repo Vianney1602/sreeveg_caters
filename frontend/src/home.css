@@ -807,30 +807,6 @@
 }
 
 @media (max-width: 900px) {
-  .header {
-    padding: 1rem 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .header-contact {
-    justify-content: center;
-    flex-wrap: wrap;
-    font-size: 0.85rem;
-  }
-
-  .header nav {
-    width: 100%;
-    justify-content: center;
-    gap: 0.25rem;
-    margin-left: 0;
-  }
-
-  .header nav button {
-    font-size: 0.9rem;
-    padding: 0.5rem 0.8rem;
-  }
-
   .why-grid,
   .review-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -842,38 +818,90 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .header {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     flex-direction: column;
     align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-content {
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: 0.75rem;
   }
 
-  .header h2 {
-    font-size: 1.4rem;
+  .header-title {
+    font-size: 1.5rem;
   }
 
   .header-contact {
-    width: 100%;
     justify-content: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    flex-direction: column;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
   }
 
   .header nav {
     width: 100%;
     justify-content: center;
-    gap: 0.25rem;
+    gap: 0.5rem;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0.5rem;
+  }
+
+  .header-content {
+    padding: 0.5rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 100%;
+  }
+
+  .header-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .header-contact {
+    width: 100%;
+    justify-content: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    flex-direction: column;
+  }
+
+  .header-phone,
+  .header-email {
+    font-size: 0.7rem;
+  }
+
+  .header nav,
+  .header-nav {
+    width: 100%;
+    justify-content: center;
+    gap: 0.15rem;
     flex-wrap: wrap;
     margin-left: 0;
   }
 
-  .header nav button {
-    font-size: 0.85rem;
-    padding: 0.5rem 0.6rem;
-    min-height: 44px;
+  .header nav button,
+  .header-nav button {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.5rem;
+    min-height: auto;
+  }
+
+  .nav-separator {
+    font-size: 0.8rem;
+    margin: 0 0.1rem;
   }
 
   .why-grid,
@@ -884,14 +912,14 @@
   .footer {
     grid-template-columns: 1fr;
     gap: 1.25rem;
-    padding: 2.5rem 1rem;
+    padding: 2rem 0.75rem;
   }
 
   .footer p,
   .foot-note,
   .footer a,
   .footer-link {
-    font-size: 14px;
+    font-size: 0.85rem;
   }
 }
 

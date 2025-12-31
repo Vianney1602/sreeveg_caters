@@ -1162,41 +1162,48 @@ img {
   }
 
   .header-content {
-    padding: 1rem 0.75rem;
+    padding: 0.5rem;
     gap: 0.5rem;
+    flex-direction: column;
+    align-items: center;
   }
 
   .header-title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
+    font-weight: 700;
   }
 
   .header-contact {
-    font-size: 0.75rem;
-    gap: 0.5rem;
+    font-size: 0.7rem;
+    gap: 0.3rem;
+    flex-direction: column;
   }
 
   .header-contact span {
     word-break: break-word;
+    font-size: 0.7rem;
   }
 
   .header-nav {
-    gap: 0.25rem;
-    padding: 0.5rem 0;
+    gap: 0.15rem;
+    padding: 0;
     width: 100%;
     flex-wrap: wrap;
+    justify-content: center;
   }
 
   .header-nav button {
-    padding: 0.5rem 0.7rem;
-    font-size: 0.85rem;
-    min-height: 44px; /* Touch target size */
-    flex: 1;
-    max-width: calc(33.333% - 0.5rem);
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+    min-height: auto;
+    flex: none;
+    max-width: none;
   }
 
   .nav-separator {
-    font-size: 0.9rem;
-    display: none; /* Hide separators on very small screens */
+    font-size: 0.8rem;
+    display: block;
+    margin: 0 0.1rem;
   }
 }
 
