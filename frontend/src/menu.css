@@ -710,6 +710,9 @@ body, .menu-container {
   background: #faf5e4;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 /* ---------- HEADER ---------- */
@@ -719,6 +722,10 @@ body, .menu-container {
   text-align: center;
   padding: 18px 0;
   font-weight: 600;
+  width: 100%;
+  position: relative;
+  left: 0;
+  right: 0;
 }
 
 .menu-header p {

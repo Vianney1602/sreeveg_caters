@@ -3,6 +3,9 @@
   background: #faf5e4;
   min-height: 100vh;
   padding-bottom: 40px;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 /* HEADER */
@@ -12,6 +15,9 @@
   padding: 18px;
   text-align: center;
   position: relative;
+  width: 100%;
+  left: 0;
+  right: 0;
 }
 
 .cart-header h2 {

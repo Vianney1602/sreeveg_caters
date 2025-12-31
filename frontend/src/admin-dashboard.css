@@ -2,6 +2,9 @@
   min-height: 100vh;
   background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 /* Header */
@@ -15,6 +18,9 @@
   border-bottom: 3px solid #ff7a45;
   position: relative;
   z-index: 100;
+  width: 100%;
+  left: 0;
+  right: 0;
 }
 
 .admin-header-left {
