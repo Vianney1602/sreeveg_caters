@@ -1,5 +1,9 @@
 /* App.css - Shree Caterers with Deep Red / Golden Theme */
 
+:root {
+  --mobile-shell: 430px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -397,6 +401,87 @@
 .event-card.selected {
   border-color: #a11a1a;
   box-shadow: 0 0 0 3px rgba(161, 26, 26, 0.12);
+}
+
+/* Mobile-first refinements (360-430px focus) */
+@media (max-width: 480px) {
+  #root {
+    max-width: var(--mobile-shell);
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .app {
+    width: 100%;
+    padding: 0 1rem;
+  }
+
+  .header-content {
+    padding: 1rem 0;
+  }
+
+  .contact-button,
+  .book-now-button,
+  .admin-btn {
+    width: auto;
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .hero {
+    padding: 4rem 1rem;
+    text-align: center;
+  }
+
+  .hero-content {
+    width: 100%;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 6vw, 2.6rem);
+  }
+
+  .hero-subtitle {
+    font-size: 1.05rem;
+  }
+
+  .cta-button {
+    width: 100%;
+    padding: 0.9rem 1.25rem;
+  }
+
+  .chef-section,
+  .gallery-section,
+  .section {
+    padding: 3rem 1rem;
+  }
+
+  .chef-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .gallery-section::before,
+  .gallery-section::after,
+  .section::before,
+  .section::after {
+    display: none;
+  }
+
+  .food-gallery,
+  .event-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+  }
 }
 
 .event-image-container {
@@ -1087,18 +1172,18 @@
     padding: 1rem;
   }
 
-  /* tighter mobile header alignment */
+  /* keep header row-ish but allow wrapping */
   .header-content {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    text-align: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    text-align: left;
   }
 
   .header-left {
-    width: 100%;
-    justify-content: center;
+    flex: 1 1 160px;
   }
 
   .logo-text {
@@ -1106,10 +1191,10 @@
   }
 
   .header-right {
-    width: 100%;
-    justify-content: space-around;
-    flex-wrap: wrap;
+    flex: 1 1 200px;
+    justify-content: flex-end;
     gap: 0.35rem;
+    flex-wrap: wrap;
   }
 
   .contact-button,
