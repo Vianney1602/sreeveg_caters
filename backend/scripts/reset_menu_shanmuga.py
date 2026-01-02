@@ -1,4 +1,9 @@
 import os
+import sys
+
+# Add parent directory to path so we can import app and models
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app import create_app, db
 from models import MenuItem
 
@@ -62,7 +67,13 @@ MENU_DATA = [
 def reset_menu():
     app = create_app()
     with app.app_context():
-        # Clear all existing menu items
+        # First delete all order_menu_items (references to menu items)
+        from models import OrderMenuItem
+        deleted_order_items = OrderMenuItem.query.delete()
+        db.session.commit()
+        print(f"Deleted {deleted_order_items} order-menu item references")
+
+        # Then delete all menu items
         deleted = MenuItem.query.delete()
         db.session.commit()
         print(f"Deleted {deleted} existing menu items")
