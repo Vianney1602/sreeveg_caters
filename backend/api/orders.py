@@ -290,6 +290,32 @@ def update_status(id):
         old_status = order.status
         order.status = new_status
         db.session.commit()
+
+        # If status moved to Paid, ensure customer segment gets the new customer immediately
+        if new_status == "Paid" and order.customer_id:
+            try:
+                customer = Customer.query.get(order.customer_id)
+                if customer:
+                    orders_for_customer = Order.query.filter_by(customer_id=order.customer_id).all()
+                    total_spent = sum((o.total_amount or 0) for o in orders_for_customer)
+                    orders_count = len(orders_for_customer)
+
+                    customer.total_orders_count = orders_count
+                    db.session.commit()
+
+                    payload = {
+                        "customer_id": customer.customer_id,
+                        "full_name": customer.full_name,
+                        "phone_number": customer.phone_number,
+                        "email": customer.email,
+                        "total_orders_count": orders_count,
+                        "total_spent": float(total_spent),
+                        "created_at": customer.created_at.isoformat() if customer.created_at else None,
+                        "is_registered": bool(customer.password_hash),
+                    }
+                    socketio.emit('customer_created', payload, room='admins')
+            except Exception:
+                pass
         
         # Emit real-time update to all connected clients
         try:
