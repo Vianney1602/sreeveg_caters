@@ -116,22 +116,52 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
     // Handle menu item updated by admin
     const onMenuItemUpdated = (data) => {
-      setMenuData(prevMenu =>
-        prevMenu.map(item =>
-          item.id === data.item_id
-            ? {
-                id: data.item_id,
-                name: data.item_name,
-                type: data.category,
-                description: data.description || '',
-                price: data.price_per_plate,
-                image: resolveImageUrl(data.image_url),
-                stock: data.stock_quantity !== null ? data.stock_quantity : 100,
-                available: data.is_available
-              }
-            : item
-        )
-      );
+      setMenuData(prevMenu => {
+        const exists = prevMenu.some((item) => item.id === data.item_id);
+
+        // If item exists and is now unavailable, remove it completely
+        if (exists && data.is_available === false) {
+          return prevMenu.filter((item) => item.id != data.item_id);
+        }
+
+        // If item exists, update it in place
+        if (exists) {
+          return prevMenu.map(item =>
+            item.id === data.item_id
+              ? {
+                  id: data.item_id,
+                  name: data.item_name,
+                  type: data.category,
+                  description: data.description || '',
+                  price: data.price_per_plate,
+                  image: resolveImageUrl(data.image_url),
+                  stock: data.stock_quantity !== null ? data.stock_quantity : 100,
+                  available: data.is_available
+                }
+              : item
+          );
+        }
+
+        // If it did not exist and is now available, add it
+        if (data.is_available !== false) {
+          return [
+            ...prevMenu,
+            {
+              id: data.item_id,
+              name: data.item_name,
+              type: data.category,
+              description: data.description || '',
+              price: data.price_per_plate,
+              image: resolveImageUrl(data.image_url),
+              stock: data.stock_quantity !== null ? data.stock_quantity : 100,
+              available: data.is_available,
+            }
+          ];
+        }
+
+        // Otherwise, keep state unchanged
+        return prevMenu;
+      });
     };
 
     // Handle menu item deleted by admin

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import socketService from "./services/socketService";
 import "./menu.css";
 
 
@@ -98,9 +99,36 @@ export default function BulkMenuPage({
     };
 
     const onMenuItemUpdated = (data) => {
-      setMenuItems((prev) => prev.map((item) => (
-        item.id === data.item_id
-          ? {
+      setMenuItems((prev) => {
+        const exists = prev.some((item) => item.id === data.item_id);
+
+        // If it exists and is now unavailable, remove it
+        if (exists && data.is_available === false) {
+          return prev.filter((item) => item.id !== data.item_id);
+        }
+
+        // If it exists, update it
+        if (exists) {
+          return prev.map((item) => (
+            item.id === data.item_id
+              ? {
+                  id: data.item_id,
+                  name: data.item_name,
+                  type: (data.category || "main").toLowerCase(),
+                  price: data.price_per_plate || 0,
+                  image: resolveImageUrl(data.image_url),
+                  description: data.description || "",
+                  available: data.is_available,
+                }
+              : item
+          ));
+        }
+
+        // If it did not exist and is now available, add it
+        if (data.is_available !== false) {
+          return [
+            ...prev,
+            {
               id: data.item_id,
               name: data.item_name,
               type: (data.category || "main").toLowerCase(),
@@ -109,8 +137,11 @@ export default function BulkMenuPage({
               description: data.description || "",
               available: data.is_available,
             }
-          : item
-      )));
+          ];
+        }
+
+        return prev;
+      });
     };
 
     const onMenuItemDeleted = (data) => {
