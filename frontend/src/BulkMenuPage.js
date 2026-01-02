@@ -73,10 +73,59 @@ export default function BulkMenuPage({
           price: m.price_per_plate || 0,
           image: resolveImageUrl(m.image_url),
           description: m.description || "",
+          available: m.is_available !== false,
         }));
         setMenuItems(items);
       })
       .catch(() => setMenuItems([]));
+  }, []);
+
+  // Keep menu in sync with admin changes
+  useEffect(() => {
+    const onMenuItemAdded = (data) => {
+      setMenuItems((prev) => ([
+        ...prev,
+        {
+          id: data.item_id,
+          name: data.item_name,
+          type: (data.category || "main").toLowerCase(),
+          price: data.price_per_plate || 0,
+          image: resolveImageUrl(data.image_url),
+          description: data.description || "",
+          available: data.is_available,
+        }
+      ]));
+    };
+
+    const onMenuItemUpdated = (data) => {
+      setMenuItems((prev) => prev.map((item) => (
+        item.id === data.item_id
+          ? {
+              id: data.item_id,
+              name: data.item_name,
+              type: (data.category || "main").toLowerCase(),
+              price: data.price_per_plate || 0,
+              image: resolveImageUrl(data.image_url),
+              description: data.description || "",
+              available: data.is_available,
+            }
+          : item
+      )));
+    };
+
+    const onMenuItemDeleted = (data) => {
+      setMenuItems((prev) => prev.filter((item) => item.id !== data.item_id));
+    };
+
+    socketService.on('menu_item_added', onMenuItemAdded);
+    socketService.on('menu_item_updated', onMenuItemUpdated);
+    socketService.on('menu_item_deleted', onMenuItemDeleted);
+
+    return () => {
+      socketService.off('menu_item_added', onMenuItemAdded);
+      socketService.off('menu_item_updated', onMenuItemUpdated);
+      socketService.off('menu_item_deleted', onMenuItemDeleted);
+    };
   }, []);
 
   const toggleItem = (item) => {
@@ -97,6 +146,7 @@ export default function BulkMenuPage({
 
   const filteredData = menuItems.filter((item) => {
     return (
+      item.available &&
       item.name.toLowerCase().includes(search.toLowerCase()) &&
       (filter === "all" || item.type === filter)
     );

@@ -165,6 +165,7 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
   const filteredData = menuData.filter((item) => {
     return (
+      item.available &&
       item.name.toLowerCase().includes(search.toLowerCase()) &&
       (filter === "all" || item.type === filter)
     );

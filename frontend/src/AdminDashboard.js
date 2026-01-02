@@ -416,7 +416,10 @@ export default function AdminDashboard({ onLogout }) {
         setMenuItems(menuItems.map(it =>
           it.id === id ? { ...it, available: !it.available } : it
         ));
-        showToast(`"${item.name}" is now ${newStatus} ✓`, 'success');
+        const scopeMsg = newStatus === 'Available'
+          ? 'Item will appear on all customer menus.'
+          : 'Item is hidden from all customer menus.';
+        showToast(`"${item.name}" is now ${newStatus}. ${scopeMsg}`, 'success');
       })
       .catch(err => {
         console.error('Error updating item availability:', err);

@@ -171,7 +171,8 @@ def create_app():
 
     @app.route('/api/menu_items', methods=['GET'])
     def menu_items_alias():
-        items = MenuItem.query.all()
+        # Expose only available items for customer-facing menus
+        items = MenuItem.query.filter_by(is_available=True).all()
         return jsonify([{
             'item_id': m.item_id,
             'item_name': m.item_name,
@@ -179,7 +180,9 @@ def create_app():
             'price_per_plate': m.price_per_plate,
             'is_vegetarian': m.is_vegetarian,
             'image_url': m.image_url,
-            'description': m.description
+            'description': m.description,
+            'is_available': m.is_available,
+            'stock_quantity': m.stock_quantity if m.stock_quantity is not None else 100
         } for m in items])
 
     # WebSocket event handlers
