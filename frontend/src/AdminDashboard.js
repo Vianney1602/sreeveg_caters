@@ -234,10 +234,28 @@ export default function AdminDashboard({ onLogout }) {
             ? { ...order, status: data.new_status }
             : order
         )
+
+        // Listen for real-time customer creation
+        const onCustomerCreated = (data) => {
+          setCustomers((prev) => {
+            if (!prev) return [data];
+            const exists = prev.some(c => c.customer_id === data.customer_id);
+            if (exists) return prev;
+            return [data, ...prev];
+          });
+
+          setStats((prev) => ({
+            ...prev,
+            customers: (prev?.customers || 0) + 1,
+          }));
+        };
+
+        socketService.on('customer_created', onCustomerCreated);
       );
 
       // Show a notification
       if (Notification.permission === 'granted') {
+          socketService.off('customer_created', onCustomerCreated);
         new Notification('Order Status Update', {
           body: `Order #${data.order_id} status changed to ${data.new_status}`,
           icon: '/images/chef.png'

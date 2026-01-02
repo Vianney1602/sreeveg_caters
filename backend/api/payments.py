@@ -74,6 +74,7 @@ def verify_payment():
         # Update order status to paid
         order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
         if order:
+            previous_status = order.status
             order.status = "Paid"
             db.session.commit()
             current_app.logger.info(f"Payment verified for order {order.order_id}")
@@ -83,7 +84,7 @@ def verify_payment():
                 payload = {
                     'order_id': order.order_id,
                     'customer_id': order.customer_id,
-                    'old_status': 'Pending',
+                    'old_status': previous_status,
                     'new_status': 'Paid',
                     'customer_name': order.customer_name,
                     'timestamp': order.updated_at.isoformat() if order.updated_at else None
