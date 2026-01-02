@@ -78,6 +78,21 @@ def verify_payment():
             db.session.commit()
             current_app.logger.info(f"Payment verified for order {order.order_id}")
 
+            # Emit real-time status change so admin dashboard updates immediately
+            try:
+                payload = {
+                    'order_id': order.order_id,
+                    'customer_id': order.customer_id,
+                    'old_status': 'Pending',
+                    'new_status': 'Paid',
+                    'customer_name': order.customer_name,
+                    'timestamp': order.updated_at.isoformat() if order.updated_at else None
+                }
+                socketio.emit('order_status_changed', payload, room='admins')
+                socketio.emit('order_status_changed', payload)
+            except Exception:
+                pass
+
         return jsonify({"message": "Payment verified successfully"})
     except razorpay.errors.SignatureVerificationError:
         current_app.logger.warning(f"Payment signature verification failed for {razorpay_order_id}")
