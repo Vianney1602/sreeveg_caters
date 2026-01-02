@@ -38,9 +38,9 @@ class Config:
     JWT_HEADER_TYPE = "Bearer"
     
     # Hardcoded admin credentials for website owner only
-    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin@sreeveg.com")
+    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin@shanmugabhavaan.com")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Admin@123")
-    ADMIN_EMAIL = "admin@sreeveg.com"
+    ADMIN_EMAIL = "admin@shanmugabhavaan.com"
 
     # Upload limits and allowed image types
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(5 * 1024 * 1024)))  # 5 MB

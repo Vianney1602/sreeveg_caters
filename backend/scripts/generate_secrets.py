@@ -57,7 +57,7 @@ JWT_SECRET_KEY={jwt_secret}
 JWT_ACCESS_TOKEN_EXPIRES=7200
 
 # Admin Credentials (CHANGE THESE!)
-ADMIN_USERNAME=admin@sreeveg.com
+ADMIN_USERNAME=admin@shanmugabhavaan.com
 ADMIN_PASSWORD={admin_password}
 
 # Database
