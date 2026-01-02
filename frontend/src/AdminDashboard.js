@@ -147,6 +147,9 @@ export default function AdminDashboard({ onLogout }) {
         // Get token from sessionStorage
         const token = sessionStorage.getItem('_st');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // Ensure socket connection uses the admin token
+        socketService.connect(token);
         
         // Verify admin token first
         const verifyRes = await axios.get('/api/admin/verify', { headers });
@@ -242,9 +245,48 @@ export default function AdminDashboard({ onLogout }) {
       }
     });
 
+    // Listen for new orders in real-time
+    const onOrderCreated = (data) => {
+      setOrders(prev => {
+        const exists = prev.some(o => o.id === data.order_id);
+        if (exists) return prev;
+        const newOrder = {
+          id: data.order_id,
+          orderId: data.order_id?.toString(),
+          customerName: data.customer_name,
+          phone: data.phone_number,
+          total: data.total_amount,
+          totalLabel: `₹${data.total_amount ?? 0}`,
+          status: data.status,
+          timestamp: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A',
+          address: data.venue_address,
+          eventDate: data.event_date,
+          items: data.items || []
+        };
+        return [newOrder, ...prev];
+      });
+
+      // Optimistically bump stats
+      setStats(prev => ({
+        ...prev,
+        totalOrders: (prev.totalOrders || 0) + 1,
+        pending: (prev.pending || 0) + 1
+      }));
+
+      if (Notification.permission === 'granted') {
+        new Notification('New Order Received', {
+          body: `Order #${data.order_id} placed by ${data.customer_name || 'Customer'}`,
+          icon: '/images/chef.png'
+        });
+      }
+    };
+
+    socketService.on('order_created', onOrderCreated);
+
     // Cleanup listener when component unmounts
     return () => {
       socketService.off('order_status_changed');
+      socketService.off('order_created', onOrderCreated);
     };
   }, [onLogout]);
 

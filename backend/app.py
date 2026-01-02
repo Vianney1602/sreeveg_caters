@@ -206,7 +206,8 @@ def create_app():
                     # Store user info in the session for this socket
                     request.sid_data = {
                         'identity': identity,
-                        'authenticated': True
+                        'authenticated': True,
+                        'role': decoded.get('role')
                     }
                     
                     # Join user-specific room for targeted messaging
@@ -216,6 +217,10 @@ def create_app():
                         if user_id:
                             room = f"user_{user_id}"
                             join_room(room)
+
+                    # Admins also join the shared admin room for dashboards
+                    if decoded.get('role') == 'Admin':
+                        join_room('admins')
                     
                     return {'status': 'connected', 'authenticated': True}
                     

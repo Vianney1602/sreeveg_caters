@@ -170,6 +170,35 @@ def create_order():
                 customer.total_orders_count = Order.query.filter_by(customer_id=customer_id).count()
                 db.session.commit()
 
+                # Emit real-time event to admin room for new order
+                try:
+                    socketio.emit(
+                        'order_created',
+                        {
+                            'order_id': order.order_id,
+                            'customer_name': order.customer_name,
+                            'phone_number': order.phone_number,
+                            'email': order.email,
+                            'event_type': order.event_type,
+                            'number_of_guests': order.number_of_guests,
+                            'event_date': order.event_date,
+                            'event_time': order.event_time,
+                            'status': order.status,
+                            'total_amount': float(order.total_amount) if order.total_amount else 0,
+                            'venue_address': order.venue_address,
+                            'items': [{
+                                'menu_item_id': item.menu_item_id,
+                                'quantity': item.quantity,
+                                'item_name': item.menu_item.item_name if item.menu_item else "Unknown"
+                            } for item in order.menu_items],
+                            'created_at': order.created_at.isoformat() if order.created_at else None,
+                        },
+                        room='admins'
+                    )
+                except Exception:
+                    # Avoid failing the request if socket broadcast fails
+                    pass
+
         return jsonify({"message": "Order Created", "order_id": order.order_id}), 201
         
     except Exception as e:

@@ -7,6 +7,7 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.lastToken = null;
   }
 
   /**
@@ -14,9 +15,16 @@ class SocketService {
    * @param {string} token - JWT authentication token
    */
   connect(token = null) {
+    // Reconnect with a new token if provided
+    if (token && this.lastToken && token !== this.lastToken) {
+      this.disconnect();
+    }
+
     if (this.socket && this.isConnected) {
       return;
     }
+
+    this.lastToken = token || this.lastToken;
 
     const options = {
       // Backend is configured for long-polling only (allow_upgrades=False)
@@ -25,7 +33,7 @@ class SocketService {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
-      auth: token ? { token } : {}
+      auth: this.lastToken ? { token: this.lastToken } : {}
     };
 
     this.socket = io(SOCKET_URL, options);
