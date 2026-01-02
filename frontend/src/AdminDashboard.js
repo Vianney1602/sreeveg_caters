@@ -99,7 +99,7 @@ export default function AdminDashboard({ onLogout }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({
     name: '',
-    category: 'Starters',
+    category: 'Morning Tiffin Menu',
     price: '',
     description: '',
     image: '',
@@ -109,7 +109,7 @@ export default function AdminDashboard({ onLogout }) {
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({
     name: '',
-    category: 'Starters',
+    category: 'Morning Tiffin Menu',
     price: '',
     description: '',
     image: '',
@@ -472,9 +472,9 @@ export default function AdminDashboard({ onLogout }) {
   const cancelEditing = () => {
     setShowAddForm(false);
     setEditingItem(null);
-    setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
+    setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '' });
     setEditImageFile(null);
-    setNewItem({ name: '', category: 'Starters', price: '', description: '' });
+    setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '' });
     setNewImageFile(null);
   };
 
@@ -700,8 +700,8 @@ export default function AdminDashboard({ onLogout }) {
                 onClick={() => {
                   setShowAddForm(true);
                   setEditingItem(null); // reset to add mode
-                  setNewItem({ name: '', category: 'Starters', price: '', description: '' });
-                  setEditForm({ name: '', category: 'Starters', price: '', description: '', image: '' });
+                  setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '' });
+                  setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '' });
                   setNewImageFile(null);
                   setEditImageFile(null);
                 }}
@@ -748,10 +748,11 @@ export default function AdminDashboard({ onLogout }) {
                         : setNewItem({ ...newItem, category: e.target.value })
                     }
                   >
-                    <option>Starters</option>
-                    <option>Main Course</option>
-                    <option>Desserts</option>
-                    <option>Beverages</option>
+                    <option>Morning Tiffin Menu</option>
+                    <option>Lunch Menu - Regular Meals</option>
+                    <option>Lunch Menu - Mini Meals</option>
+                    <option>Lunch Menu - Variety Rice</option>
+                    <option>Dinner Menu</option>
                   </select>
                   <input
                     type="number"

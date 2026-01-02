@@ -70,7 +70,7 @@ export default function BulkMenuPage({
         const items = (res.data || []).map((m) => ({
           id: m.item_id,
           name: m.item_name,
-          type: (m.category || "main").toLowerCase(),
+          type: m.category || "",
           price: m.price_per_plate || 0,
           image: resolveImageUrl(m.image_url),
           description: m.description || "",
@@ -89,7 +89,7 @@ export default function BulkMenuPage({
         {
           id: data.item_id,
           name: data.item_name,
-          type: (data.category || "main").toLowerCase(),
+          type: data.category || "",
           price: data.price_per_plate || 0,
           image: resolveImageUrl(data.image_url),
           description: data.description || "",
@@ -114,7 +114,7 @@ export default function BulkMenuPage({
               ? {
                   id: data.item_id,
                   name: data.item_name,
-                  type: (data.category || "main").toLowerCase(),
+                  type: data.category || "",
                   price: data.price_per_plate || 0,
                   image: resolveImageUrl(data.image_url),
                   description: data.description || "",
@@ -131,7 +131,7 @@ export default function BulkMenuPage({
             {
               id: data.item_id,
               name: data.item_name,
-              type: (data.category || "main").toLowerCase(),
+              type: data.category || "",
               price: data.price_per_plate || 0,
               image: resolveImageUrl(data.image_url),
               description: data.description || "",
@@ -202,9 +202,11 @@ export default function BulkMenuPage({
 
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">All Items</option>
-          <option value="starter">Starters</option>
-          <option value="main">Main Course</option>
-          <option value="dessert">Desserts</option>
+          <option value="Morning Tiffin Menu">Morning Tiffin Menu</option>
+          <option value="Lunch Menu - Regular Meals">Lunch Menu - Regular Meals</option>
+          <option value="Lunch Menu - Mini Meals">Lunch Menu - Mini Meals</option>
+          <option value="Lunch Menu - Variety Rice">Lunch Menu - Variety Rice</option>
+          <option value="Dinner Menu">Dinner Menu</option>
         </select>
       </div>
 

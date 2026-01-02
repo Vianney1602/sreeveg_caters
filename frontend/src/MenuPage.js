@@ -222,9 +222,11 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">All Items</option>
-          <option value="starter">Starters</option>
-          <option value="main">Main Course</option>
-          <option value="dessert">Desserts</option>
+          <option value="Morning Tiffin Menu">Morning Tiffin Menu</option>
+          <option value="Lunch Menu - Regular Meals">Lunch Menu - Regular Meals</option>
+          <option value="Lunch Menu - Mini Meals">Lunch Menu - Mini Meals</option>
+          <option value="Lunch Menu - Variety Rice">Lunch Menu - Variety Rice</option>
+          <option value="Dinner Menu">Dinner Menu</option>
         </select>
       </div>
 
