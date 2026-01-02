@@ -226,7 +226,7 @@ export default function AdminDashboard({ onLogout }) {
     fetchData();
 
     // Listen for real-time order status changes
-    socketService.on('order_status_changed', (data) => {
+    const onOrderStatusChanged = (data) => {
       // Update the orders list with new status
       setOrders(prevOrders =>
         prevOrders.map(order =>
@@ -234,34 +234,32 @@ export default function AdminDashboard({ onLogout }) {
             ? { ...order, status: data.new_status }
             : order
         )
-
-        // Listen for real-time customer creation
-        const onCustomerCreated = (data) => {
-          setCustomers((prev) => {
-            if (!prev) return [data];
-            const exists = prev.some(c => c.customer_id === data.customer_id);
-            if (exists) return prev;
-            return [data, ...prev];
-          });
-
-          setStats((prev) => ({
-            ...prev,
-            customers: (prev?.customers || 0) + 1,
-          }));
-        };
-
-        socketService.on('customer_created', onCustomerCreated);
       );
 
-      // Show a notification
       if (Notification.permission === 'granted') {
-          socketService.off('customer_created', onCustomerCreated);
         new Notification('Order Status Update', {
           body: `Order #${data.order_id} status changed to ${data.new_status}`,
           icon: '/images/chef.png'
         });
       }
-    });
+    };
+
+    const onCustomerCreated = (data) => {
+      setCustomers((prev) => {
+        if (!prev) return [data];
+        const exists = prev.some(c => c.customer_id === data.customer_id);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
+
+      setStats((prev) => ({
+        ...prev,
+        customers: (prev?.customers || 0) + 1,
+      }));
+    };
+
+    socketService.on('order_status_changed', onOrderStatusChanged);
+    socketService.on('customer_created', onCustomerCreated);
 
     // Listen for new orders in real-time
     const onOrderCreated = (data) => {
@@ -303,7 +301,8 @@ export default function AdminDashboard({ onLogout }) {
 
     // Cleanup listener when component unmounts
     return () => {
-      socketService.off('order_status_changed');
+      socketService.off('order_status_changed', onOrderStatusChanged);
+      socketService.off('customer_created', onCustomerCreated);
       socketService.off('order_created', onOrderCreated);
     };
   }, [onLogout]);

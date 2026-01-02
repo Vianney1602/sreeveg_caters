@@ -1,6 +1,6 @@
 
 from flask import Blueprint, request, jsonify
-from extensions import db
+from extensions import db, socketio
 from models import Customer, Order
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
@@ -67,6 +67,22 @@ def register_customer():
     )
     db.session.add(new_customer)
     db.session.commit()
+
+    # Emit real-time customer creation to admin room
+    try:
+        payload = {
+            "customer_id": new_customer.customer_id,
+            "full_name": new_customer.full_name,
+            "phone_number": new_customer.phone_number,
+            "email": new_customer.email,
+            "total_orders_count": 0,
+            "total_spent": 0,
+            "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
+            "is_registered": True,
+        }
+        socketio.emit('customer_created', payload, room='admins')
+    except Exception:
+        pass
 
     # Associate previous orders (placed before signup) by matching email
     try:
@@ -165,6 +181,20 @@ def add_customer():
     )
     db.session.add(new_customer)
     db.session.commit()
+    try:
+        payload = {
+            "customer_id": new_customer.customer_id,
+            "full_name": new_customer.full_name,
+            "phone_number": new_customer.phone_number,
+            "email": new_customer.email,
+            "total_orders_count": 0,
+            "total_spent": 0,
+            "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
+            "is_registered": bool(new_customer.password_hash)
+        }
+        socketio.emit('customer_created', payload, room='admins')
+    except Exception:
+        pass
     return jsonify({"message": "Customer added"}), 201
 
 @customers_bp.route("/<int:id>", methods=["PUT"])

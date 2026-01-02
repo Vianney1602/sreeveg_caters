@@ -94,7 +94,6 @@ def create_order():
         customer_name = data.get("customer_name")
         phone_number = data.get("phone_number")
         
-        new_customer_created = None
         if email and not customer_id:
             existing_customer = Customer.query.filter_by(email=email).first()
             if existing_customer:
@@ -109,7 +108,6 @@ def create_order():
                 db.session.add(new_customer)
                 db.session.flush()
                 customer_id = new_customer.customer_id
-                new_customer_created = new_customer
 
         # Create order
         order = Order(

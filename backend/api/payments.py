@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app
 import razorpay
 from extensions import db, socketio
-from models import Order
+from models import Order, Customer
 import os
 
 payments_bp = Blueprint("payments", __name__)
@@ -74,7 +74,10 @@ def verify_payment():
         # Update order status to paid
         order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
         if order:
-            previous_status = order.status
+            previous_status = order.status or "Pending"
+            if previous_status == "Paid":
+                return jsonify({"message": "Payment already verified"}), 200
+
             order.status = "Paid"
             db.session.commit()
             current_app.logger.info(f"Payment verified for order {order.order_id}")
@@ -93,6 +96,34 @@ def verify_payment():
                 socketio.emit('order_status_changed', payload)
             except Exception:
                 pass
+
+            # If this is the customer's first successful (paid) order, broadcast customer_created
+            if order.customer_id:
+                customer = Customer.query.get(order.customer_id)
+                if customer:
+                    try:
+                        orders_for_customer = Order.query.filter_by(customer_id=order.customer_id).all()
+                        total_spent = sum((o.total_amount or 0) for o in orders_for_customer)
+                        orders_count = len(orders_for_customer)
+
+                        customer.total_orders_count = orders_count
+                        db.session.commit()
+
+                        is_guest = not bool(customer.password_hash)
+                        if is_guest and orders_count == 1:
+                            payload = {
+                                "customer_id": customer.customer_id,
+                                "full_name": customer.full_name,
+                                "phone_number": customer.phone_number,
+                                "email": customer.email,
+                                "total_orders_count": orders_count,
+                                "total_spent": float(total_spent),
+                                "created_at": customer.created_at.isoformat() if customer.created_at else None,
+                                "is_registered": False,
+                            }
+                            socketio.emit('customer_created', payload, room='admins')
+                    except Exception:
+                        current_app.logger.warning("Failed to emit customer_created after payment", exc_info=True)
 
         return jsonify({"message": "Payment verified successfully"})
     except razorpay.errors.SignatureVerificationError:
