@@ -15,16 +15,17 @@ class SocketService {
    * @param {string} token - JWT authentication token
    */
   connect(token = null) {
-    // Reconnect with a new token if provided
-    if (token && this.lastToken && token !== this.lastToken) {
+    // If a new token is provided and differs from the last one, reconnect with it
+    if (token && token !== this.lastToken) {
       this.disconnect();
+      this.lastToken = token;
+    } else if (!this.lastToken && token) {
+      this.lastToken = token;
     }
 
     if (this.socket && this.isConnected) {
-      return;
+      return this.socket;
     }
-
-    this.lastToken = token || this.lastToken;
 
     const options = {
       // Backend is configured for long-polling only (allow_upgrades=False)
