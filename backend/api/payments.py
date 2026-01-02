@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 import razorpay
-from extensions import db
+from extensions import db, socketio
 from models import Order
 import os
 
@@ -85,3 +85,60 @@ def verify_payment():
     except Exception as e:
         current_app.logger.error(f"Payment verification error: {str(e)}", exc_info=True)
         return jsonify({"error": "Payment verification error"}), 500
+
+
+@payments_bp.route("/cancel", methods=["POST"])
+def cancel_payment():
+    data = request.json or {}
+    razorpay_order_id = data.get("razorpay_order_id")
+    order_id = data.get("order_id")
+
+    if not razorpay_order_id and not order_id:
+        return jsonify({"error": "order_id or razorpay_order_id required"}), 400
+
+    try:
+        order = None
+        if razorpay_order_id:
+            order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
+        if not order and order_id:
+            order = Order.query.get(order_id)
+
+        if not order:
+            return jsonify({"error": "Order not found"}), 404
+
+        # Update status to Cancelled
+        previous_status = order.status
+        order.status = "Cancelled"
+        db.session.commit()
+
+        # Emit real-time status change to admins (and user room if applicable)
+        try:
+            socketio.emit(
+                'order_status_changed',
+                {
+                    'order_id': order.order_id,
+                    'customer_id': order.customer_id,
+                    'old_status': previous_status,
+                    'new_status': 'Cancelled',
+                    'customer_name': order.customer_name,
+                    'timestamp': order.updated_at.isoformat() if order.updated_at else None
+                },
+                room='admins'
+            )
+            # Also broadcast to all for compatibility
+            socketio.emit('order_status_changed', {
+                'order_id': order.order_id,
+                'customer_id': order.customer_id,
+                'old_status': previous_status,
+                'new_status': 'Cancelled',
+                'customer_name': order.customer_name,
+                'timestamp': order.updated_at.isoformat() if order.updated_at else None
+            })
+        except Exception:
+            pass
+
+        return jsonify({"message": "Payment cancelled"})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Payment cancel error: {str(e)}", exc_info=True)
+        return jsonify({"error": "Payment cancel error"}), 500

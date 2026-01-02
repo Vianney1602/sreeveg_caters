@@ -146,6 +146,7 @@ function App() {
           });
           // Auto-hide after 5 seconds
           setTimeout(() => setPaymentStatus(null), 5000);
+          if (onSuccess) onSuccess();
         }).catch(err => {
           setPaymentStatus({
             type: 'error',
@@ -153,7 +154,20 @@ function App() {
           });
           // Auto-hide after 5 seconds
           setTimeout(() => setPaymentStatus(null), 5000);
+          if (onError) onError(err);
         });
+      },
+      modal: {
+        ondismiss: function () {
+          // User closed/cancelled the payment modal
+          axios.post('/api/payments/cancel', { razorpay_order_id: orderId }).catch(() => {});
+          setPaymentStatus({
+            type: 'error',
+            message: 'Payment cancelled. You can retry from the cart.'
+          });
+          setTimeout(() => setPaymentStatus(null), 5000);
+          if (onError) onError(new Error('Payment cancelled'));
+        }
       },
       prefill: {
         name: customerDetails?.name || "Hotel Shanmuga Bhavaan",
