@@ -5,7 +5,7 @@ export default function WelcomePage({ goUser, goAdmin }) {
   return (
     <div className="welcome-container" style={{ backgroundImage: `url(${bgUrl})` }}>
         <div className="overlay">
-      <h1>Welcome to Shree Veg Caterers</h1>
+      <h1>Welcome to Hotel Shanmuga Bhavaan</h1>
 
       <div className="welcome-buttons">
         <button className="user-btn" onClick={goUser}>

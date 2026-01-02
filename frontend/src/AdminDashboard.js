@@ -501,11 +501,11 @@ export default function AdminDashboard({ onLogout }) {
       {/* Header */}
       <div className="admin-header">
         <div className="admin-header-left">
-          <h1 className="admin-logo">🍽️ Shree Veg</h1>
+          <h1 className="admin-logo">🍽️ Hotel Shanmuga Bhavaan</h1>
           <span className="admin-badge">Admin</span>
         </div>
         <div className="admin-header-right">
-          <span className="admin-email">{adminInfo?.email || 'admin@shreeveg.com'}</span>
+          <span className="admin-email">{adminInfo?.email || 'admin@shanmugabhavaan.com'}</span>
           <button onClick={onLogout} className="logout-btn">→ Logout</button>
         </div>
       </div>

@@ -128,7 +128,7 @@ function App() {
       key: process.env.REACT_APP_RAZORPAY_KEY || 'rzp_live_YOUR_PRODUCTION_KEY',
       amount: amount * 100, // Amount in paisa
       currency: 'INR',
-      name: 'Shree Veg Caterers',
+      name: 'Hotel Shanmuga Bhavaan',
       description: 'Order Payment',
       order_id: orderId, // Razorpay order ID from backend
       handler: function (response) {
@@ -156,7 +156,7 @@ function App() {
         });
       },
       prefill: {
-        name: customerDetails?.name || "Shree Veg Caterers",
+        name: customerDetails?.name || "Hotel Shanmuga Bhavaan",
         email: customerDetails?.email || "",
         contact: customerDetails?.phone || ""
       },
@@ -450,10 +450,12 @@ function App() {
       {/* Header */}
       <header className="header">
         <div className="header-content">
-          <h2 className="header-title">Shree Veg Caterers</h2>
-          <div className="header-contact">
-            <span className="header-phone">📞 79044 79451</span>
-            <span className="header-email">📧 shanmugapriyaraja31@gmail.com</span>
+          <div className="header-left">
+            <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
+            <div className="header-contact">
+              <span className="header-phone">📞 79044 79451</span>
+              <span className="header-email">📧 shanmugapriyaraja31@gmail.com</span>
+            </div>
           </div>
           <nav className="header-nav" aria-label="Primary">
             <button onClick={() => setShowMenuPage(true)}>View Menu</button>
@@ -608,7 +610,7 @@ function App() {
         <h2>What Our Customers Say</h2>
         <div className="review-grid">
           <div>
-            <p>"Amazing food and excellent service! Our wedding was perfect thanks to Shree Veg Caterers."</p>
+            <p>"Amazing food and excellent service! Our wedding was perfect thanks to Hotel Shanmuga Bhavaan."</p>
             <strong>- Priya Sharma</strong>
           </div>
           <div>
@@ -625,7 +627,7 @@ function App() {
       {/* Footer */}
       <footer className="footer">
         <div>
-          <h3>Shree Veg Caterers</h3>
+          <h3>Hotel Shanmuga Bhavaan</h3>
           <p>Delicious vegetarian catering for all occasions</p>
         </div>
         <div>

@@ -1,4 +1,4 @@
-# Production Deployment Guide - Shree Veg Caterers
+# Production Deployment Guide - Hotel Shanmuga Bhavaan
 
 ## 🚀 Pre-Deployment Checklist
 

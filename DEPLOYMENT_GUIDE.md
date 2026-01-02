@@ -1,4 +1,4 @@
-# Complete Deployment Guide - Shree Veg Caterers
+# Complete Deployment Guide - Hotel Shanmuga Bhavaan
 
 ## ✅ Your Website WILL Work on HTTPS!
 

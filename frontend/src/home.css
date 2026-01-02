@@ -707,6 +707,14 @@
   z-index: 100;
 }
 
+/* HEADER LEFT SECTION - Title and Contact */
+.header-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+}
+
 /* HEADER CONTENT WRAPPER */
 .header-content {
   max-width: 1400px;
@@ -715,7 +723,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 2rem;
   flex-wrap: nowrap;
 }
@@ -742,9 +750,8 @@
   gap: 1.5rem;
   font-size: 0.9rem;
   color: #7a0000;
-  flex: 1;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
   flex-wrap: nowrap;
 }
 
@@ -834,6 +841,14 @@
     gap: 0.75rem;
   }
 
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
   .header-title {
     font-size: 1.5rem;
   }
@@ -842,6 +857,7 @@
     justify-content: center;
     flex-wrap: wrap;
     font-size: 0.85rem;
+    flex-direction: row;
   }
 
   .header nav {
