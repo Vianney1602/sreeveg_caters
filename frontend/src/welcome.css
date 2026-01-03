@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Playfair+Display:wght@700;900&display=swap');
 
 .welcome-container {
   height: 100vh;
@@ -61,7 +61,7 @@
 }
 
 .welcome-container h1 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Cinzel Decorative', 'Playfair Display', serif;
   font-size: 48px;
   font-weight: 900;
   background: linear-gradient(135deg, #fff 0%, #f0e68c 50%, #fff 100%);
