@@ -1,8 +1,52 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import socketService from "./services/socketService";
 import MenuCard from "./MenuCard";
 import "./menu.css";
+
+// Keep a consistent priority so shared dishes prefer their first slot (tiffin wins over dinner)
+const CATEGORY_PRIORITY = [
+  "Morning Tiffin Menu",
+  "Lunch Menu - Regular Meals",
+  "Lunch Menu - Mini Meals",
+  "Lunch Menu - Variety Rice",
+  "Dinner Menu"
+];
+
+const normalizeName = (name = "") => name.trim().toLowerCase();
+const categoryRank = (type = "") => {
+  const idx = CATEGORY_PRIORITY.indexOf(type);
+  return idx === -1 ? CATEGORY_PRIORITY.length : idx;
+};
+
+const dedupeMenuItems = (items = []) => {
+  const byName = new Map();
+
+  items.forEach((item) => {
+    const key = normalizeName(item.name);
+    const categories = Array.from(new Set([item.type].filter(Boolean)));
+
+    if (!byName.has(key)) {
+      byName.set(key, { ...item, categories, sourceIds: [item.id] });
+      return;
+    }
+
+    const existing = byName.get(key);
+    const preferred = categoryRank(item.type) < categoryRank(existing.type) ? item : existing;
+
+    byName.set(key, {
+      ...preferred,
+      categories: Array.from(new Set([...(existing.categories || []), ...categories])),
+      sourceIds: [...(existing.sourceIds || []), item.id],
+      stock: Math.max(existing.stock ?? 0, item.stock ?? 0),
+      available: existing.available || item.available,
+      description: preferred.description || existing.description || "",
+      image: preferred.image || existing.image
+    });
+  });
+
+  return Array.from(byName.values());
+};
 
 export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addToCart }) {
   const [menuData, setMenuData] = useState([]);
@@ -193,13 +237,17 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
     0
   );
 
-  const filteredData = menuData.filter((item) => {
-    return (
-      item.available &&
-      item.name.toLowerCase().includes(search.toLowerCase()) &&
-      (filter === "all" || item.type === filter)
-    );
-  });
+  const dedupedMenu = useMemo(() => dedupeMenuItems(menuData), [menuData]);
+
+  const filteredData = useMemo(
+    () =>
+      dedupedMenu.filter((item) => {
+        const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+        const matchesFilter = filter === "all" || (item.categories || []).includes(filter);
+        return item.available && matchesSearch && matchesFilter;
+      }),
+    [dedupedMenu, search, filter]
+  );
 
   return (
     <div className="menu-container">
