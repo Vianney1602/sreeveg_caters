@@ -4,6 +4,7 @@ import socketService from './services/socketService';
 import './admin-dashboard.css';
 
 export default function AdminDashboard({ onLogout }) {
+  const normalizeName = (name = '') => String(name).trim().toLowerCase();
   // helper to convert status to a safe classname (no spaces)
   const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
   const apiBase = (axios && axios.defaults && axios.defaults.baseURL) || '';
@@ -103,6 +104,7 @@ export default function AdminDashboard({ onLogout }) {
     price: '',
     description: '',
     image: '',
+    linkBoth: false,
   });
 
   // NEW: edit state
@@ -113,6 +115,7 @@ export default function AdminDashboard({ onLogout }) {
     price: '',
     description: '',
     image: '',
+      linkBoth: false,
   });
 
   // Image file selection for add/edit
@@ -311,6 +314,9 @@ export default function AdminDashboard({ onLogout }) {
     e.preventDefault();
 
     const formData = editingItem ? editForm : newItem;
+    const isTiffinOrDinner = (cat) => cat === 'Morning Tiffin Menu' || cat === 'Dinner Menu';
+    const wantsLink = Boolean(formData.linkBoth && isTiffinOrDinner(formData.category));
+    const secondaryCategory = formData.category === 'Morning Tiffin Menu' ? 'Dinner Menu' : 'Morning Tiffin Menu';
 
     if (!formData.name || !formData.price) {
       showToast('Please fill in all required fields: Name and Price', 'error');
@@ -357,6 +363,26 @@ export default function AdminDashboard({ onLogout }) {
         }
         
         await axios.put(`/api/menu/${editingItem}`, updatePayload, { headers });
+
+        // If linking across tiffin/dinner, upsert the counterpart
+        if (wantsLink) {
+          const counterpart = menuItems.find((it) =>
+            normalizeName(it.name) === normalizeName(formData.name) &&
+            it.category === secondaryCategory
+          );
+
+          const counterpartPayload = {
+            ...updatePayload,
+            category: secondaryCategory,
+          };
+
+          if (counterpart) {
+            await axios.put(`/api/menu/${counterpart.id}`, counterpartPayload, { headers });
+          } else {
+            await axios.post('/api/menu', counterpartPayload, { headers });
+          }
+        }
+
         showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
         // Add new item
@@ -372,7 +398,13 @@ export default function AdminDashboard({ onLogout }) {
           addPayload.image = imageUrl;
         }
         
-        await axios.post('/api/menu', addPayload, { headers });
+        const addRes = await axios.post('/api/menu', addPayload, { headers });
+
+        if (wantsLink) {
+          const secondaryPayload = { ...addPayload, category: secondaryCategory };
+          // Sync availability with primary; backend defaults to available true
+          await axios.post('/api/menu', secondaryPayload, { headers });
+        }
         showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
@@ -407,14 +439,27 @@ export default function AdminDashboard({ onLogout }) {
     const item = menuItems.find(it => it.id === id);
     if (!item) return;
 
+    const targetStatus = !item.available;
+    const linkedItems = menuItems.filter((it) =>
+      normalizeName(it.name) === normalizeName(item.name) &&
+      (it.category === 'Morning Tiffin Menu' || it.category === 'Dinner Menu')
+    );
+
     const token = sessionStorage.getItem('_st');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const requests = linkedItems.length ? linkedItems : [item];
 
-    axios.put(`/api/menu/${id}`, { is_available: !item.available }, { headers })
+    Promise.all(
+      requests.map((it) =>
+        axios.put(`/api/menu/${it.id}`, { is_available: targetStatus }, { headers })
+      )
+    )
       .then(() => {
-        const newStatus = !item.available ? 'Available' : 'Unavailable';
+        const newStatus = targetStatus ? 'Available' : 'Unavailable';
         setMenuItems(menuItems.map(it =>
-          it.id === id ? { ...it, available: !it.available } : it
+          requests.some(r => r.id === it.id)
+            ? { ...it, available: targetStatus }
+            : it
         ));
         const scopeMsg = newStatus === 'Available'
           ? 'Item will appear on all customer menus.'
@@ -464,6 +509,11 @@ export default function AdminDashboard({ onLogout }) {
       price: item.price.toString(),
       description: item.description,
       image: item.imageUrl || '',
+      linkBoth: menuItems.some((it) =>
+        normalizeName(it.name) === normalizeName(item.name) &&
+        it.category !== item.category &&
+        (it.category === 'Morning Tiffin Menu' || it.category === 'Dinner Menu')
+      ),
     });
     setEditImageFile(null);
     setShowAddForm(true);
@@ -472,9 +522,9 @@ export default function AdminDashboard({ onLogout }) {
   const cancelEditing = () => {
     setShowAddForm(false);
     setEditingItem(null);
-    setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '' });
+    setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '', linkBoth: false });
     setEditImageFile(null);
-    setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '' });
+    setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '', linkBoth: false });
     setNewImageFile(null);
   };
 
@@ -700,8 +750,8 @@ export default function AdminDashboard({ onLogout }) {
                 onClick={() => {
                   setShowAddForm(true);
                   setEditingItem(null); // reset to add mode
-                  setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '' });
-                  setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '' });
+                  setNewItem({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '', linkBoth: false });
+                  setEditForm({ name: '', category: 'Morning Tiffin Menu', price: '', description: '', image: '', linkBoth: false });
                   setNewImageFile(null);
                   setEditImageFile(null);
                 }}
@@ -754,6 +804,21 @@ export default function AdminDashboard({ onLogout }) {
                     <option>Lunch Menu - Variety Rice</option>
                     <option>Dinner Menu</option>
                   </select>
+                  {(editingItem ? editForm.category : newItem.category) === 'Morning Tiffin Menu' ||
+                  (editingItem ? editForm.category : newItem.category) === 'Dinner Menu' ? (
+                    <label className="link-both-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={editingItem ? editForm.linkBoth : newItem.linkBoth}
+                        onChange={(e) =>
+                          editingItem
+                            ? setEditForm({ ...editForm, linkBoth: e.target.checked })
+                            : setNewItem({ ...newItem, linkBoth: e.target.checked })
+                        }
+                      />
+                      Show in both Tiffin and Dinner menus
+                    </label>
+                  ) : null}
                   <input
                     type="number"
                     placeholder="Price"
