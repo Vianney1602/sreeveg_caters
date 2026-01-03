@@ -223,21 +223,6 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             </div>
           ))}
 
-          {/* Delivery Info (only when NOT empty) */}
-          <div className="delivery-card">
-            <h3>Your Delivery Info</h3>
-
-            <div className="delivery-tag">🚚 Delivery in 30mins</div>
-
-            <label>Phone Number*</label>
-            <input type="text" placeholder="Enter phone number" />
-
-            <label>Email Address*</label>
-            <input type="email" placeholder="Enter email" />
-
-            <label>Address*</label>
-            <textarea placeholder="Enter full delivery address" rows="3"></textarea>
-          </div>
             </>
           )}
         </div>
