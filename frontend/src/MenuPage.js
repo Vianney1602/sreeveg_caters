@@ -19,12 +19,38 @@ const categoryRank = (type = "") => {
   return idx === -1 ? CATEGORY_PRIORITY.length : idx;
 };
 
+const DINNER_DUP_NAMES = new Set([
+  "kesari",
+  "idly(2)",
+  "idly (2)",
+  "vada",
+  "masal dosa",
+  "masala dosa",
+  "podi dosa",
+  "ghee dosa",
+  "butter dosa",
+  "rava dosa"
+].map(normalizeName));
+
+const getLinkedCategories = (name = "", type = "") => {
+  const norm = normalizeName(name);
+  const links = [];
+  if (type === "Morning Tiffin Menu" && DINNER_DUP_NAMES.has(norm)) links.push("Dinner Menu");
+  if (type === "Dinner Menu" && DINNER_DUP_NAMES.has(norm)) links.push("Morning Tiffin Menu");
+  return links;
+};
+
 const dedupeMenuItems = (items = []) => {
   const byName = new Map();
 
   items.forEach((item) => {
     const key = normalizeName(item.name);
-    const categories = Array.from(new Set([item.type].filter(Boolean)));
+    const categories = Array.from(
+      new Set([
+        item.type,
+        ...getLinkedCategories(item.name, item.type)
+      ].filter(Boolean))
+    );
 
     if (!byName.has(key)) {
       byName.set(key, { ...item, categories, sourceIds: [item.id] });
@@ -38,8 +64,11 @@ const dedupeMenuItems = (items = []) => {
       ...preferred,
       categories: Array.from(new Set([...(existing.categories || []), ...categories])),
       sourceIds: [...(existing.sourceIds || []), item.id],
-      stock: Math.max(existing.stock ?? 0, item.stock ?? 0),
-      available: existing.available || item.available,
+      stock: Math.min(
+        existing.stock ?? Number.POSITIVE_INFINITY,
+        item.stock ?? Number.POSITIVE_INFINITY
+      ),
+      available: Boolean(existing.available && item.available),
       description: preferred.description || existing.description || "",
       image: preferred.image || existing.image
     });
