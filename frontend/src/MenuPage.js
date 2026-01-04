@@ -22,6 +22,15 @@ const normalizeCategoryLabel = (cat = "") => {
 const toCategoryArray = (category) => {
   if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
   if (!category) return [];
+  const maybeStr = String(category).trim();
+  if (maybeStr.startsWith('[') && maybeStr.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(maybeStr);
+      if (Array.isArray(parsed)) return parsed.map(normalizeCategoryLabel);
+    } catch (e) {
+      // ignore parse error and fallback to single value
+    }
+  }
   return [normalizeCategoryLabel(category)];
 };
 const categoryRank = (type = "") => {

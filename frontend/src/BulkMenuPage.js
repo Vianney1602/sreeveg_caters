@@ -11,6 +11,21 @@ const normalizeCategoryLabel = (cat = "") => {
   return cat || "";
 };
 
+const toCategoryArray = (category) => {
+  if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
+  if (!category) return [];
+  const maybeStr = String(category).trim();
+  if (maybeStr.startsWith('[') && maybeStr.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(maybeStr);
+      if (Array.isArray(parsed)) return parsed.map(normalizeCategoryLabel);
+    } catch (e) {
+      // ignore parse errors and fall back
+    }
+  }
+  return [normalizeCategoryLabel(category)];
+};
+
 
 
 export default function BulkMenuPage({
@@ -76,9 +91,7 @@ export default function BulkMenuPage({
       .get("/api/menu")
       .then((res) => {
         const items = (res.data || []).map((m) => {
-          const categories = Array.isArray(m.category)
-            ? m.category.map(normalizeCategoryLabel)
-            : [normalizeCategoryLabel(m.category)];
+          const categories = toCategoryArray(m.category);
           return {
             id: m.item_id,
             name: m.item_name,
@@ -98,9 +111,7 @@ export default function BulkMenuPage({
   // Keep menu in sync with admin changes
   useEffect(() => {
     const onMenuItemAdded = (data) => {
-      const categories = Array.isArray(data.category)
-        ? data.category.map(normalizeCategoryLabel)
-        : [normalizeCategoryLabel(data.category)];
+      const categories = toCategoryArray(data.category);
       setMenuItems((prev) => ([
         ...prev,
         {

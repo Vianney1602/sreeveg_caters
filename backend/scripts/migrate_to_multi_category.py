@@ -15,10 +15,31 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from extensions import db
 from models import MenuItem
+from app import app
+import json
 
 def normalize_name(name):
     """Normalize item name for comparison"""
     return name.strip().lower()
+
+
+def to_list(category_value):
+    """Convert stored category value into a list, handling legacy string formats."""
+    if isinstance(category_value, list):
+        return category_value
+    if isinstance(category_value, str):
+        stripped = category_value.strip()
+        # Handle stringified JSON lists
+        if stripped.startswith('[') and stripped.endswith(']'):
+            try:
+                loaded = json.loads(stripped)
+                if isinstance(loaded, list):
+                    return loaded
+            except Exception:
+                pass
+        # Fallback: wrap single string
+        return [category_value]
+    return []
 
 def migrate_items():
     """Migrate items to multi-category format"""
@@ -53,11 +74,7 @@ def migrate_items():
                 categories = []
                 
                 for item in items:
-                    # Convert category to list if it's a string
-                    if isinstance(item.category, str):
-                        categories.append(item.category)
-                    elif isinstance(item.category, list):
-                        categories.extend(item.category)
+                    categories.extend(to_list(item.category))
                     
                     # Mark duplicates for deletion
                     if item.item_id != primary_item.item_id:
@@ -73,8 +90,9 @@ def migrate_items():
             else:
                 # Single item - just ensure category is a list
                 item = items[0]
-                if isinstance(item.category, str):
-                    item.category = [item.category]
+                parsed = to_list(item.category)
+                if parsed != item.category:
+                    item.category = parsed
                     items_to_update.append((item.item_id, item.category))
                     print(f"Converting '{item.item_name}' to array: {item.category}")
         
@@ -107,4 +125,5 @@ def migrate_items():
         sys.exit(1)
 
 if __name__ == "__main__":
-    migrate_items()
+    with app.app_context():
+        migrate_items()

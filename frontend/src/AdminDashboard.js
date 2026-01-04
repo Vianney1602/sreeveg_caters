@@ -15,6 +15,15 @@ export default function AdminDashboard({ onLogout }) {
   const toCategoryArray = (category) => {
     if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
     if (!category) return [];
+    const maybeStr = String(category).trim();
+    if (maybeStr.startsWith('[') && maybeStr.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(maybeStr);
+        if (Array.isArray(parsed)) return parsed.map(normalizeCategoryLabel);
+      } catch (e) {
+        // fall through to single-string handling
+      }
+    }
     return [normalizeCategoryLabel(category)];
   };
   // helper to convert status to a safe classname (no spaces)
