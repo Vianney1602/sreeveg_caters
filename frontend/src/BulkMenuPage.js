@@ -203,9 +203,7 @@ export default function BulkMenuPage({
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">All Items</option>
           <option value="Morning Tiffin Menu">Morning Tiffin Menu</option>
-          <option value="Lunch Menu - Regular Meals">Lunch Menu - Regular Meals</option>
-          <option value="Lunch Menu - Mini Meals">Lunch Menu - Mini Meals</option>
-          <option value="Lunch Menu - Variety Rice">Lunch Menu - Variety Rice</option>
+          <option value="Lunch Menu">Lunch Menu</option>
           <option value="Dinner Menu">Dinner Menu</option>
         </select>
       </div>
