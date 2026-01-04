@@ -3,6 +3,14 @@ import axios from "axios";
 import socketService from "./services/socketService";
 import "./menu.css";
 
+const normalizeCategoryLabel = (cat = "") => {
+  const c = String(cat).trim().toLowerCase();
+  if (c.includes("lunch menu")) return "Lunch Menu";
+  if (c.includes("tiffin")) return "Morning Tiffin Menu";
+  if (c.includes("dinner")) return "Dinner Menu";
+  return cat || "";
+};
+
 
 
 export default function BulkMenuPage({
@@ -68,12 +76,14 @@ export default function BulkMenuPage({
       .get("/api/menu")
       .then((res) => {
         const items = (res.data || []).map((m) => {
-          const categories = Array.isArray(m.category) ? m.category : [m.category];
+          const categories = Array.isArray(m.category)
+            ? m.category.map(normalizeCategoryLabel)
+            : [normalizeCategoryLabel(m.category)];
           return {
             id: m.item_id,
             name: m.item_name,
             type: categories[0] || "",
-            categories: categories,
+            categories,
             price: m.price_per_plate || 0,
             image: resolveImageUrl(m.image_url),
             description: m.description || "",
@@ -88,7 +98,9 @@ export default function BulkMenuPage({
   // Keep menu in sync with admin changes
   useEffect(() => {
     const onMenuItemAdded = (data) => {
-      const categories = Array.isArray(data.category) ? data.category : [data.category];
+      const categories = Array.isArray(data.category)
+        ? data.category.map(normalizeCategoryLabel)
+        : [normalizeCategoryLabel(data.category)];
       setMenuItems((prev) => ([
         ...prev,
         {
@@ -107,7 +119,9 @@ export default function BulkMenuPage({
     const onMenuItemUpdated = (data) => {
       setMenuItems((prev) => {
         const exists = prev.some((item) => item.id === data.item_id);
-        const categories = Array.isArray(data.category) ? data.category : [data.category];
+        const categories = Array.isArray(data.category)
+          ? data.category.map(normalizeCategoryLabel)
+          : [normalizeCategoryLabel(data.category)];
 
         // If it exists and is now unavailable, remove it
         if (exists && data.is_available === false) {

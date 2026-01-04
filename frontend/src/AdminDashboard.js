@@ -5,6 +5,18 @@ import './admin-dashboard.css';
 
 export default function AdminDashboard({ onLogout }) {
   const normalizeName = (name = '') => String(name).trim().toLowerCase();
+  const normalizeCategoryLabel = (cat = '') => {
+    const c = String(cat).trim().toLowerCase();
+    if (c.includes('lunch menu')) return 'Lunch Menu';
+    if (c.includes('tiffin')) return 'Morning Tiffin Menu';
+    if (c.includes('dinner')) return 'Dinner Menu';
+    return cat || '';
+  };
+  const toCategoryArray = (category) => {
+    if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
+    if (!category) return [];
+    return [normalizeCategoryLabel(category)];
+  };
   // helper to convert status to a safe classname (no spaces)
   const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
   const apiBase = (axios && axios.defaults && axios.defaults.baseURL) || '';
@@ -184,17 +196,33 @@ export default function AdminDashboard({ onLogout }) {
           })) || []
         })));
 
-        // Process and set menu items
-        setMenuItems(menuRes.data.map(item => ({
+        // Process and set menu items (merge duplicates by name)
+        const mapped = menuRes.data.map(item => ({
           id: item.item_id,
           name: item.item_name,
-          category: item.category, // This is now an array
-          categories: Array.isArray(item.category) ? item.category : [item.category],
+          categories: toCategoryArray(item.category),
           price: item.price_per_plate,
           description: item.description || '',
           available: item.is_available,
           imageUrl: resolveImageUrl(item.image_url)
-        })));
+        }));
+
+        const merged = mapped.reduce((acc, curr) => {
+          const key = normalizeName(curr.name);
+          const existing = acc.get(key);
+          if (!existing) {
+            acc.set(key, { ...curr });
+            return acc;
+          }
+          acc.set(key, {
+            ...existing,
+            categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
+            available: existing.available || curr.available,
+          });
+          return acc;
+        }, new Map());
+
+        setMenuItems(Array.from(merged.values()));
 
         // Set customers
         setCustomers(customersRes.data);
@@ -372,18 +400,32 @@ export default function AdminDashboard({ onLogout }) {
 
       // Refresh menu items
       const res = await axios.get('/api/menu', { headers });
-      const updatedItems = res.data.map(item => ({
+      const mapped = res.data.map(item => ({
         id: item.item_id,
         name: item.item_name,
-        category: item.category,
-        categories: Array.isArray(item.category) ? item.category : [item.category],
+        categories: toCategoryArray(item.category),
         price: item.price_per_plate,
         description: item.description || '',
         available: item.is_available,
         imageUrl: resolveImageUrl(item.image_url)
       }));
+
+      const merged = mapped.reduce((acc, curr) => {
+        const key = normalizeName(curr.name);
+        const existing = acc.get(key);
+        if (!existing) {
+          acc.set(key, { ...curr });
+          return acc;
+        }
+        acc.set(key, {
+          ...existing,
+          categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
+          available: existing.available || curr.available,
+        });
+        return acc;
+      }, new Map());
       
-      setMenuItems(updatedItems);
+      setMenuItems(Array.from(merged.values()));
 
       // Reset forms and close
       cancelEditing();

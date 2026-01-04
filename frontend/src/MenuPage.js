@@ -12,6 +12,18 @@ const CATEGORY_PRIORITY = [
 ];
 
 const normalizeName = (name = "") => name.trim().toLowerCase();
+const normalizeCategoryLabel = (cat = "") => {
+  const c = String(cat).trim().toLowerCase();
+  if (c.includes("lunch menu")) return "Lunch Menu";
+  if (c.includes("tiffin")) return "Morning Tiffin Menu";
+  if (c.includes("dinner")) return "Dinner Menu";
+  return cat || "";
+};
+const toCategoryArray = (category) => {
+  if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
+  if (!category) return [];
+  return [normalizeCategoryLabel(category)];
+};
 const categoryRank = (type = "") => {
   const idx = CATEGORY_PRIORITY.indexOf(type);
   return idx === -1 ? CATEGORY_PRIORITY.length : idx;
@@ -103,12 +115,12 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
     axios.get('/api/menu')
       .then((res) => {
         const items = res.data.map(item => {
-          const categories = Array.isArray(item.category) ? item.category : [item.category];
+          const categories = toCategoryArray(item.category);
           return {
             id: item.item_id,
             name: item.item_name,
-            type: categories[0], // Use first category as primary type for sorting
-            categories: categories,
+            type: categories[0], // primary
+            categories,
             description: item.description || '',
             price: item.price_per_plate,
             image: resolveImageUrl(item.image_url),
@@ -148,12 +160,12 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
     // Handle new menu item added by admin
     const onMenuItemAdded = (data) => {
-      const categories = Array.isArray(data.category) ? data.category : [data.category];
+      const categories = toCategoryArray(data.category);
       const newItem = {
         id: data.item_id,
         name: data.item_name,
         type: categories[0],
-        categories: categories,
+        categories,
         description: data.description || '',
         price: data.price_per_plate,
         image: resolveImageUrl(data.image_url),
@@ -175,12 +187,14 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
         // If item exists, update it in place
         if (exists) {
+          const categories = toCategoryArray(data.category);
           return prevMenu.map(item =>
             item.id === data.item_id
               ? {
                   id: data.item_id,
                   name: data.item_name,
-                  type: data.category,
+                  type: categories[0],
+                  categories,
                   description: data.description || '',
                   price: data.price_per_plate,
                   image: resolveImageUrl(data.image_url),
@@ -193,12 +207,14 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
         // If it did not exist and is now available, add it
         if (data.is_available !== false) {
+          const categories = toCategoryArray(data.category);
           return [
             ...prevMenu,
             {
               id: data.item_id,
               name: data.item_name,
-              type: data.category,
+              type: categories[0],
+              categories,
               description: data.description || '',
               price: data.price_per_plate,
               image: resolveImageUrl(data.image_url),
