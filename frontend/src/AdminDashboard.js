@@ -82,6 +82,16 @@ export default function AdminDashboard({ onLogout }) {
     return toBackendUrl(trimmed);
   };
 
+  const mergeItemData = (existing, curr) => ({
+    ...existing,
+    categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
+    available: existing.available || curr.available,
+    // Prefer the first non-empty image
+    imageUrl: existing.imageUrl || curr.imageUrl,
+    // Fill missing description if the existing one is empty
+    description: existing.description || curr.description,
+  });
+
   const suggestImageByName = (name) => {
     if (!name) return '';
     const n = name.toLowerCase();
@@ -223,11 +233,7 @@ export default function AdminDashboard({ onLogout }) {
             acc.set(key, { ...curr });
             return acc;
           }
-          acc.set(key, {
-            ...existing,
-            categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
-            available: existing.available || curr.available,
-          });
+          acc.set(key, mergeItemData(existing, curr));
           return acc;
         }, new Map());
 
@@ -426,11 +432,7 @@ export default function AdminDashboard({ onLogout }) {
           acc.set(key, { ...curr });
           return acc;
         }
-        acc.set(key, {
-          ...existing,
-          categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
-          available: existing.available || curr.available,
-        });
+        acc.set(key, mergeItemData(existing, curr));
         return acc;
       }, new Map());
       
