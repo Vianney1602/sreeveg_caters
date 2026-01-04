@@ -188,7 +188,8 @@ export default function AdminDashboard({ onLogout }) {
         setMenuItems(menuRes.data.map(item => ({
           id: item.item_id,
           name: item.item_name,
-          category: item.category,
+          category: item.category, // This is now an array
+          categories: Array.isArray(item.category) ? item.category : [item.category],
           price: item.price_per_plate,
           description: item.description || '',
           available: item.is_available,
@@ -347,66 +348,25 @@ export default function AdminDashboard({ onLogout }) {
         }
       }
 
+      const payload = {
+        item_name: formData.name,
+        categories: selectedCategories,
+        price: parseInt(formData.price, 10),
+        description: formData.description,
+        veg: true,
+      };
+      
+      if (imageUrl) {
+        payload.image = imageUrl;
+      }
+
       if (editingItem) {
-        // For editing: find all existing items with this name
-        const existingItems = menuItems.filter((it) =>
-          normalizeName(it.name) === normalizeName(formData.name)
-        );
-
-        // Update payload
-        const updatePayload = {
-          item_name: formData.name,
-          price: parseInt(formData.price, 10),
-          description: formData.description,
-          veg: true,
-          is_available: true,
-        };
-        
-        if (imageUrl) {
-          updatePayload.image = imageUrl;
-        }
-
-        // Update or create items for each selected category
-        for (const category of selectedCategories) {
-          const existing = existingItems.find(it => it.category === category);
-          
-          if (existing) {
-            // Update existing item
-            await axios.put(`/api/menu/${existing.id}`, { ...updatePayload, category }, { headers });
-          } else {
-            // Create new item in this category
-            await axios.post('/api/menu', { ...updatePayload, category }, { headers });
-          }
-        }
-
-        // Delete items from categories that are no longer selected
-        const categoriesToRemove = existingItems.filter(
-          it => !selectedCategories.includes(it.category)
-        );
-        
-        for (const item of categoriesToRemove) {
-          await axios.delete(`/api/menu/${item.id}`, { headers });
-        }
-
+        // Update existing item with new categories
+        await axios.put(`/api/menu/${editingItem}`, payload, { headers });
         showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
-        // Add new item to all selected categories
-        const addPayload = {
-          item_name: formData.name,
-          price: parseInt(formData.price, 10),
-          description: formData.description,
-          veg: true,
-        };
-        
-        if (imageUrl) {
-          addPayload.image = imageUrl;
-        }
-        
-        // Create item in each selected category
-        for (const category of selectedCategories) {
-          await axios.post('/api/menu', { ...addPayload, category }, { headers });
-        }
-        
+        // Add new item with selected categories
+        await axios.post('/api/menu', payload, { headers });
         showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
@@ -416,18 +376,14 @@ export default function AdminDashboard({ onLogout }) {
         id: item.item_id,
         name: item.item_name,
         category: item.category,
+        categories: Array.isArray(item.category) ? item.category : [item.category],
         price: item.price_per_plate,
         description: item.description || '',
         available: item.is_available,
         imageUrl: resolveImageUrl(item.image_url)
       }));
       
-      // Ensure no duplicates by filtering unique IDs
-      const uniqueItems = updatedItems.filter((item, index, self) =>
-        index === self.findIndex((t) => t.id === item.id)
-      );
-      
-      setMenuItems(uniqueItems);
+      setMenuItems(updatedItems);
 
       // Reset forms and close
       cancelEditing();
@@ -442,25 +398,15 @@ export default function AdminDashboard({ onLogout }) {
     if (!item) return;
 
     const targetStatus = !item.available;
-    // Find all items with the same name (across all categories)
-    const linkedItems = menuItems.filter((it) =>
-      normalizeName(it.name) === normalizeName(item.name)
-    );
 
     const token = sessionStorage.getItem('_st');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    Promise.all(
-      linkedItems.map((it) =>
-        axios.put(`/api/menu/${it.id}`, { is_available: targetStatus }, { headers })
-      )
-    )
+    axios.put(`/api/menu/${id}`, { is_available: targetStatus }, { headers })
       .then(() => {
         const newStatus = targetStatus ? 'Available' : 'Unavailable';
         setMenuItems(menuItems.map(it =>
-          linkedItems.some(r => r.id === it.id)
-            ? { ...it, available: targetStatus }
-            : it
+          it.id === id ? { ...it, available: targetStatus } : it
         ));
         const scopeMsg = newStatus === 'Available'
           ? 'Item will appear on all customer menus.'
@@ -505,17 +451,9 @@ export default function AdminDashboard({ onLogout }) {
   const startEditingItem = (item) => {
     setEditingItem(item.id);
     
-    // Find all categories this item exists in (by matching name)
-    const allCategoriesForItem = menuItems
-      .filter((it) => normalizeName(it.name) === normalizeName(item.name))
-      .map(it => it.category);
-    
-    // Remove duplicates
-    const uniqueCategories = [...new Set(allCategoriesForItem)];
-    
     setEditForm({
       name: item.name,
-      categories: uniqueCategories,
+      categories: item.categories || [],
       price: item.price.toString(),
       description: item.description,
       image: item.imageUrl || '',
@@ -923,7 +861,11 @@ export default function AdminDashboard({ onLogout }) {
                   </div>
                   <div className="item-details">
                     <div className="item-name">{item.name}</div>
-                    <div className="item-category">{item.category}</div>
+                    <div className="item-categories">
+                      {(item.categories || []).map((cat, idx) => (
+                        <span key={idx} className="category-tag">{cat}</span>
+                      ))}
+                    </div>
                     <div className="item-desc">{item.description}</div>
                   </div>
                   <div className="item-price">₹{item.price}</div>

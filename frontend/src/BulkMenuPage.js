@@ -65,17 +65,21 @@ export default function BulkMenuPage({
   
   useEffect(() => {
     axios
-      .get("/api/menu_items")
+      .get("/api/menu")
       .then((res) => {
-        const items = (res.data || []).map((m) => ({
-          id: m.item_id,
-          name: m.item_name,
-          type: m.category || "",
-          price: m.price_per_plate || 0,
-          image: resolveImageUrl(m.image_url),
-          description: m.description || "",
-          available: m.is_available !== false,
-        }));
+        const items = (res.data || []).map((m) => {
+          const categories = Array.isArray(m.category) ? m.category : [m.category];
+          return {
+            id: m.item_id,
+            name: m.item_name,
+            type: categories[0] || "",
+            categories: categories,
+            price: m.price_per_plate || 0,
+            image: resolveImageUrl(m.image_url),
+            description: m.description || "",
+            available: m.is_available !== false,
+          };
+        });
         setMenuItems(items);
       })
       .catch(() => setMenuItems([]));
@@ -84,12 +88,14 @@ export default function BulkMenuPage({
   // Keep menu in sync with admin changes
   useEffect(() => {
     const onMenuItemAdded = (data) => {
+      const categories = Array.isArray(data.category) ? data.category : [data.category];
       setMenuItems((prev) => ([
         ...prev,
         {
           id: data.item_id,
           name: data.item_name,
-          type: data.category || "",
+          type: categories[0] || "",
+          categories: categories,
           price: data.price_per_plate || 0,
           image: resolveImageUrl(data.image_url),
           description: data.description || "",
@@ -101,6 +107,7 @@ export default function BulkMenuPage({
     const onMenuItemUpdated = (data) => {
       setMenuItems((prev) => {
         const exists = prev.some((item) => item.id === data.item_id);
+        const categories = Array.isArray(data.category) ? data.category : [data.category];
 
         // If it exists and is now unavailable, remove it
         if (exists && data.is_available === false) {
@@ -114,7 +121,8 @@ export default function BulkMenuPage({
               ? {
                   id: data.item_id,
                   name: data.item_name,
-                  type: data.category || "",
+                  type: categories[0] || "",
+                  categories: categories,
                   price: data.price_per_plate || 0,
                   image: resolveImageUrl(data.image_url),
                   description: data.description || "",
@@ -131,7 +139,8 @@ export default function BulkMenuPage({
             {
               id: data.item_id,
               name: data.item_name,
-              type: data.category || "",
+              type: categories[0] || "",
+              categories: categories,
               price: data.price_per_plate || 0,
               image: resolveImageUrl(data.image_url),
               description: data.description || "",
@@ -179,7 +188,7 @@ export default function BulkMenuPage({
     return (
       item.available &&
       item.name.toLowerCase().includes(search.toLowerCase()) &&
-      (filter === "all" || item.type === filter)
+      (filter === "all" || (item.categories || []).includes(filter))
     );
   });
 

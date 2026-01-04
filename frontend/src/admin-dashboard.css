@@ -570,6 +570,26 @@
   margin-bottom: 0.25rem;
 }
 
+.item-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.category-tag {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: linear-gradient(135deg, #ff7a45 0%, #ff9068 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(255, 122, 69, 0.2);
+}
+
 .item-category {
   color: #999;
   font-size: 0.875rem;

@@ -51,9 +51,13 @@ def get_menu():
 @menu_bp.route("/", methods=["POST"])
 def add_menu_item():
     data = request.json
+    categories = data.get("categories", [data.get("category")])
+    if isinstance(categories, str):
+        categories = [categories]
+    
     item = MenuItem(
         item_name=data["item_name"],
-        category=data["category"],
+        category=categories,  # Store as JSON array
         price_per_plate=data["price"],
         is_vegetarian=data.get("veg", True),
         image_url=data.get("image"),
@@ -88,7 +92,20 @@ def update_menu_item(id):
         _delete_image_asset(item.image_url)
     
     item.item_name = data.get("item_name", item.item_name)
-    item.category = data.get("category", item.category)
+    
+    # Handle categories - support both single and multiple
+    if "categories" in data:
+        categories = data["categories"]
+        if isinstance(categories, str):
+            categories = [categories]
+        item.category = categories
+    elif "category" in data:
+        category = data["category"]
+        if isinstance(category, str):
+            item.category = [category]
+        else:
+            item.category = category
+    
     item.price_per_plate = data.get("price", item.price_per_plate)
     item.is_vegetarian = data.get("veg", item.is_vegetarian)
     item.image_url = data.get("image", item.image_url)

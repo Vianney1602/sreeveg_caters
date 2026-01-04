@@ -39,40 +39,12 @@ const getLinkedCategories = (name = "", type = "") => {
 };
 
 const dedupeMenuItems = (items = []) => {
-  const byName = new Map();
-
-  items.forEach((item) => {
-    const key = normalizeName(item.name);
-    const categories = Array.from(
-      new Set([
-        item.type,
-        ...getLinkedCategories(item.name, item.type)
-      ].filter(Boolean))
-    );
-
-    if (!byName.has(key)) {
-      byName.set(key, { ...item, categories, sourceIds: [item.id] });
-      return;
-    }
-
-    const existing = byName.get(key);
-    const preferred = categoryRank(item.type) < categoryRank(existing.type) ? item : existing;
-
-    byName.set(key, {
-      ...preferred,
-      categories: Array.from(new Set([...(existing.categories || []), ...categories])),
-      sourceIds: [...(existing.sourceIds || []), item.id],
-      stock: Math.min(
-        existing.stock ?? Number.POSITIVE_INFINITY,
-        item.stock ?? Number.POSITIVE_INFINITY
-      ),
-      available: Boolean(existing.available && item.available),
-      description: preferred.description || existing.description || "",
-      image: preferred.image || existing.image
-    });
-  });
-
-  return Array.from(byName.values());
+  // Items now have categories as arrays in the database
+  // No need for complex deduplication - just return the items
+  return items.map(item => ({
+    ...item,
+    sourceIds: [item.id]
+  }));
 };
 
 export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addToCart }) {
@@ -130,16 +102,20 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
   useEffect(() => {
     axios.get('/api/menu')
       .then((res) => {
-        const items = res.data.map(item => ({
-          id: item.item_id,
-          name: item.item_name,
-          type: item.category,
-          description: item.description || '',
-          price: item.price_per_plate,
-          image: resolveImageUrl(item.image_url),
-          stock: item.stock_quantity !== null ? item.stock_quantity : 100,
-          available: item.is_available
-        }));
+        const items = res.data.map(item => {
+          const categories = Array.isArray(item.category) ? item.category : [item.category];
+          return {
+            id: item.item_id,
+            name: item.item_name,
+            type: categories[0], // Use first category as primary type for sorting
+            categories: categories,
+            description: item.description || '',
+            price: item.price_per_plate,
+            image: resolveImageUrl(item.image_url),
+            stock: item.stock_quantity !== null ? item.stock_quantity : 100,
+            available: item.is_available
+          };
+        });
         setMenuData(items);
       })
       .catch(() => {});
@@ -172,10 +148,12 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
     // Handle new menu item added by admin
     const onMenuItemAdded = (data) => {
+      const categories = Array.isArray(data.category) ? data.category : [data.category];
       const newItem = {
         id: data.item_id,
         name: data.item_name,
-        type: data.category,
+        type: categories[0],
+        categories: categories,
         description: data.description || '',
         price: data.price_per_plate,
         image: resolveImageUrl(data.image_url),
