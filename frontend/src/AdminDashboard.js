@@ -795,24 +795,36 @@ export default function AdminDashboard({ onLogout }) {
                     }
                     required
                   />
-                  <select
-                    multiple
-                    value={editingItem ? editForm.categories : newItem.categories}
-                    onChange={(e) => {
-                      const selected = Array.from(e.target.selectedOptions, option => option.value);
-                      if (selected.length === 0) return; // Prevent empty selection
-                      editingItem
-                        ? setEditForm({ ...editForm, categories: selected })
-                        : setNewItem({ ...newItem, categories: selected });
-                    }}
-                    style={{ minHeight: '80px' }}
-                  >
-                    <option value="Morning Tiffin Menu">Morning Tiffin Menu</option>
-                    <option value="Lunch Menu">Lunch Menu</option>
-                    <option value="Dinner Menu">Dinner Menu</option>
-                  </select>
-                  <div style={{ fontSize: '0.85em', color: '#666', marginTop: '-8px', marginBottom: '8px' }}>
-                    Hold Ctrl (Windows) or Cmd (Mac) to select multiple categories
+                  <div className="category-multi-select">
+                    <div className="category-select-label">Select Categories</div>
+                    <div className="category-options">
+                      {['Morning Tiffin Menu', 'Lunch Menu', 'Dinner Menu'].map(category => {
+                        const currentCategories = editingItem ? editForm.categories : newItem.categories;
+                        const isSelected = currentCategories.includes(category);
+                        return (
+                          <label key={category} className="category-checkbox-item">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                let newCategories;
+                                if (e.target.checked) {
+                                  newCategories = [...currentCategories, category];
+                                } else {
+                                  newCategories = currentCategories.filter(c => c !== category);
+                                  if (newCategories.length === 0) return; // Prevent empty selection
+                                }
+                                editingItem
+                                  ? setEditForm({ ...editForm, categories: newCategories })
+                                  : setNewItem({ ...newItem, categories: newCategories });
+                              }}
+                            />
+                            <span className="checkbox-custom"></span>
+                            <span className="category-name">{category}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
                   <input
                     type="number"

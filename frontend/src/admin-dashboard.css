@@ -358,6 +358,107 @@
   min-height: 80px;
 }
 
+/* Custom Category Multi-Select Styles */
+.category-multi-select {
+  grid-column: 1 / -1;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9f9f9;
+  transition: all 0.3s;
+}
+
+.category-multi-select:hover {
+  border-color: #ff7a45;
+  background: #fff;
+}
+
+.category-select-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.category-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+}
+
+.category-checkbox-item:hover {
+  border-color: #ff7a45;
+  background: #fff5f0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 122, 69, 0.15);
+}
+
+.category-checkbox-item input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkbox-custom {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #d0d0d0;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  background: white;
+}
+
+.category-checkbox-item input[type="checkbox"]:checked ~ .checkbox-custom {
+  background: #ff7a45;
+  border-color: #ff7a45;
+}
+
+.category-checkbox-item input[type="checkbox"]:checked ~ .checkbox-custom::after {
+  content: "✓";
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.category-checkbox-item input[type="checkbox"]:checked ~ .category-name {
+  color: #ff7a45;
+  font-weight: 600;
+}
+
+.category-name {
+  font-size: 0.95rem;
+  color: #555;
+  transition: all 0.2s;
+}
+
+.category-checkbox-item:hover .category-name {
+  color: #333;
+}
+
 .image-preview {
   display: flex;
   align-items: center;
