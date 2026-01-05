@@ -33,6 +33,7 @@ export default function BulkCartPage({
   });
   const [paymentMethod, setPaymentMethod] = useState(defaultPaymentMethod || "online"); // 'online' | 'cod'
   const [orderStatus, setOrderStatus] = useState(null); // { type, message, orderId }
+  const [isSubmitting, setIsSubmitting] = useState(false); // Prevent duplicate submissions on slow network
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,6 +42,11 @@ export default function BulkCartPage({
 
   const handlePlaceOrder = (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions during network delay
+    if (isSubmitting) {
+      return;
+    }
 
     const { name, phone, email, address } = formData;
     if (!name || !phone || !email || !address) {
@@ -48,6 +54,8 @@ export default function BulkCartPage({
       setTimeout(() => setOrderStatus(null), 4000);
       return;
     }
+    
+    setIsSubmitting(true);
 
     // Build payload for backend
     const menu_items = items.map((it) => ({ id: it.id, qty: guestCount, price: it.price }));
@@ -92,6 +100,9 @@ export default function BulkCartPage({
         .catch(() => {
           setOrderStatus({ type: "error", message: "Error placing order. Please try again." });
           setTimeout(() => setOrderStatus(null), 5000);
+        })
+        .finally(() => {
+          setIsSubmitting(false);
         });
       return;
     }
@@ -123,6 +134,9 @@ export default function BulkCartPage({
       .catch(() => {
         setOrderStatus({ type: "error", message: "Error creating payment. Please try again." });
         setTimeout(() => setOrderStatus(null), 5000);
+      })
+      .finally(() => {
+        setIsSubmitting(false);
       });
   };
 
@@ -188,7 +202,7 @@ export default function BulkCartPage({
 
           <button
             className="checkout-btn"
-            disabled={isEmpty}
+            disabled={isEmpty || isSubmitting}
             onClick={() => setShowCheckout(true)}
           >
             Proceed to Checkout
@@ -296,8 +310,8 @@ export default function BulkCartPage({
                 </div>
               </div>
 
-              <button type="submit" className="place-order-btn">
-                Place Bulk Order
+              <button type="submit" className="place-order-btn" disabled={isSubmitting}>
+                {isSubmitting ? "Processing..." : "Place Bulk Order"}
               </button>
             </form>
           </div>

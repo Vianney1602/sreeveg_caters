@@ -3,8 +3,14 @@ from extensions import db, socketio
 from models import Order, OrderMenuItem, Customer, MenuItem
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_required, get_jwt
 from sqlalchemy.orm import joinedload
+from datetime import datetime, timedelta
+import hashlib
 
 orders_bp = Blueprint("orders", __name__)
+
+# Track recent order requests to prevent duplicates during network issues
+# Key: hash(email + timestamp), Value: order_id
+_order_request_cache = {}
 
 @orders_bp.route("/", methods=["GET"])
 @jwt_required()
@@ -56,6 +62,29 @@ def create_order():
         menu_items = data.get("menu_items", [])
         if not menu_items:
             return jsonify({"error": "menu_items is required"}), 400
+
+        # Duplicate detection: Check if same email created order in last 5 seconds
+        email = data.get("email", "").lower().strip()
+        if email:
+            current_time = datetime.utcnow()
+            request_hash = hashlib.md5(email.encode()).hexdigest()
+            
+            # Check cache for recent requests from same email
+            if request_hash in _order_request_cache:
+                cached_time, cached_order_id = _order_request_cache[request_hash]
+                time_diff = (current_time - cached_time).total_seconds()
+                
+                # If within 5 seconds, return cached order (likely duplicate submission)
+                if time_diff < 5:
+                    return jsonify({
+                        "message": "Order already exists",
+                        "order_id": cached_order_id,
+                        "duplicate": True
+                    }), 201
+            
+            # Clean old entries (older than 10 seconds)
+            _order_request_cache.clear() if len(_order_request_cache) > 100 else None
+
 
         # If a JWT is provided, verify it (optional)
         identity = None
@@ -127,6 +156,11 @@ def create_order():
 
         db.session.add(order)
         db.session.commit()
+        
+        # Cache this order to prevent duplicates from rapid submissions
+        if email:
+            request_hash = hashlib.md5(email.encode()).hexdigest()
+            _order_request_cache[request_hash] = (datetime.utcnow(), order.order_id)
 
         # Save menu items and update stock
         for item in menu_items:
