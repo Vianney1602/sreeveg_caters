@@ -26,6 +26,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
   const total = subtotal;
 
   const isEmpty = cartItems.length === 0;
+  const showSuccess = orderCompleted && orderedItems && orderedItems.length > 0;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -181,7 +182,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         {/* LEFT SIDE */}
         <div className="cart-left">
 
-          {orderCompleted ? (
+          {showSuccess ? (
             <div className="empty-cart-container success-container">
               <div className="empty-cart-icon">🎉</div>
               <h3 className="empty-cart-title" style={{color: '#7a0000'}}>Your Order is Preparing to Get Delivered!</h3>
