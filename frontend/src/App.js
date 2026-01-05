@@ -85,7 +85,7 @@ function App() {
       setShowBulkMenu(false);
       setShowCart(true);
       setIsPageTransitioning(false);
-    }, 300);
+    }, 3500);
   };
 
   const navigateToMenu = () => {
@@ -95,7 +95,7 @@ function App() {
       setShowBulkCart(false);
       setShowMenuPage(true);
       setIsPageTransitioning(false);
-    }, 300);
+    }, 3500);
   };
 
   const navigateToBulkCart = () => {
@@ -104,7 +104,7 @@ function App() {
       setShowBulkMenu(false);
       setShowBulkCart(true);
       setIsPageTransitioning(false);
-    }, 300);
+    }, 3500);
   };
 
   const navigateToBulkMenu = () => {
@@ -113,7 +113,7 @@ function App() {
       setShowBulkCart(false);
       setShowBulkMenu(true);
       setIsPageTransitioning(false);
-    }, 500);
+    }, 3500);
   };
 
   // Initialize WebSocket connection on app mount
@@ -525,7 +525,7 @@ function App() {
             setShowCart(false);
             setShowMenuPage(true);
             setIsPageTransitioning(false);
-          }, 300);
+          }, 3500);
         }}
         cart={cart}
         updateQty={updateQty}
@@ -544,7 +544,7 @@ function App() {
             setShowMenuPage(false);
             setShowWelcome(true);
             setIsPageTransitioning(false);
-          }, 300);
+          }, 3500);
         }}
         goToCart={navigateToCart}
         cart={cart}
@@ -565,7 +565,7 @@ function App() {
             setShowBulkMenu(false);
             setShowWelcome(true);
             setIsPageTransitioning(false);
-          }, 300);
+          }, 3500);
         }}
       />
     );
