@@ -13,6 +13,9 @@ import BulkOrderModal from "./BulkOrderModal";
 import "./home.css";
 
 function App() {
+  // Check for existing session on mount
+  const [initializing, setInitializing] = useState(true);
+  
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
   const [selectedEvent] = useState("");
@@ -36,7 +39,7 @@ function App() {
   const [showBulkCart, setShowBulkCart] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false); // Changed to false initially
   // removed customer account UI/state per request
 
   // Order type and guest count for bulk orders
@@ -49,8 +52,24 @@ function App() {
   const [bulkOrderDetails, setBulkOrderDetails] = useState({});
 
   // Cart & Menu
-  const [cart, setCart] = useState({});
-  const [bulkCart, setBulkCart] = useState({});
+  const [cart, setCart] = useState(() => {
+    // Restore cart from sessionStorage on page load
+    try {
+      const savedCart = sessionStorage.getItem('_cart');
+      return savedCart ? JSON.parse(savedCart) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [bulkCart, setBulkCart] = useState(() => {
+    // Restore bulk cart from sessionStorage on page load
+    try {
+      const savedBulkCart = sessionStorage.getItem('_bulkCart');
+      return savedBulkCart ? JSON.parse(savedBulkCart) : {};
+    } catch {
+      return {};
+    }
+  });
   // eslint-disable-next-line no-unused-vars
   const [selectedMenuItems, setSelectedMenuItems] = useState([]);
   const [, setEventTypes] = useState([]);
@@ -81,6 +100,57 @@ function App() {
 
   // Initialize WebSocket connection on app mount
   useEffect(() => {
+    // Check for existing admin session
+    const adminToken = sessionStorage.getItem('_st');
+    if (adminToken) {
+      // Verify token is still valid
+      axios.get('/api/admin/verify', {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      })
+      .then(() => {
+        setIsAdminLoggedIn(true);
+        setShowWelcome(false);
+      })
+      .catch(() => {
+        // Token invalid, clear it
+        sessionStorage.removeItem('_st');
+        sessionStorage.removeItem('_au');
+      })
+      .finally(() => {
+        setInitializing(false);
+      });
+    } else {
+      // Restore bulk guest count if exists
+      const savedGuestCount = sessionStorage.getItem('_bulkGuestCount');
+      if (savedGuestCount) {
+        setBulkGuestCount(parseInt(savedGuestCount));
+      }
+      
+      // Check for saved page state (for customer flow)
+      const savedPage = sessionStorage.getItem('_currentPage');
+      if (savedPage) {
+        switch(savedPage) {
+          case 'menu':
+            setShowMenuPage(true);
+            break;
+          case 'cart':
+            setShowCart(true);
+            break;
+          case 'bulkMenu':
+            setShowBulkMenu(true);
+            break;
+          case 'bulkCart':
+            setShowBulkCart(true);
+            break;
+          default:
+            setShowWelcome(true);
+        }
+      } else {
+        setShowWelcome(true);
+      }
+      setInitializing(false);
+    }
+    
     const token = sessionStorage.getItem('_ct'); // Customer token in sessionStorage
     socketService.connect(token);
 
@@ -113,6 +183,42 @@ function App() {
       socketService.disconnect();
     };
   }, []);
+  
+  // Save current page state to persist across reloads
+  useEffect(() => {
+    if (initializing) return; // Don't save during initialization
+    
+    if (showMenuPage) {
+      sessionStorage.setItem('_currentPage', 'menu');
+    } else if (showCart) {
+      sessionStorage.setItem('_currentPage', 'cart');
+    } else if (showBulkMenu) {
+      sessionStorage.setItem('_currentPage', 'bulkMenu');
+    } else if (showBulkCart) {
+      sessionStorage.setItem('_currentPage', 'bulkCart');
+    } else if (showWelcome) {
+      sessionStorage.removeItem('_currentPage');
+    }
+  }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showWelcome, initializing]);
+  
+  // Persist cart state
+  useEffect(() => {
+    if (initializing) return;
+    sessionStorage.setItem('_cart', JSON.stringify(cart));
+  }, [cart, initializing]);
+  
+  // Persist bulk cart state
+  useEffect(() => {
+    if (initializing) return;
+    sessionStorage.setItem('_bulkCart', JSON.stringify(bulkCart));
+  }, [bulkCart, initializing]);
+  
+  // Save bulk guest count
+  useEffect(() => {
+    if (initializing) return;
+    sessionStorage.setItem('_bulkGuestCount', bulkGuestCount.toString());
+  }, [bulkGuestCount, initializing]);
+  
   const [paymentStatus, setPaymentStatus] = useState(null); // For payment feedback
   // Dashboard Stats (if needed)
   const [dashboardStats, setDashboardStats] = useState({});
@@ -321,6 +427,22 @@ function App() {
     }
   }, [isAdminLoggedIn]);
 
+  // Show loading while checking for existing session
+  if (initializing) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        fontSize: '1.5rem',
+        color: '#3399cc'
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
   // Conditional renders - Admin checks first (highest priority)
   if (isAdminLoggedIn) {
     return (
@@ -328,6 +450,8 @@ function App() {
         onLogout={() => {
           authService.logout();
           setIsAdminLoggedIn(false);
+          setShowWelcome(true);
+          sessionStorage.removeItem('_currentPage'); // Clear saved page state
         }}
         stats={dashboardStats}
       />
@@ -380,7 +504,10 @@ function App() {
   if (showMenuPage)
     return (
       <MenuPage
-        goBack={() => setShowMenuPage(false)}
+        goBack={() => {
+          setShowMenuPage(false);
+          setShowWelcome(true);
+        }}
         goToCart={navigateToCart}
         cart={cart}
         updateQty={updateQty}
@@ -394,7 +521,10 @@ function App() {
         bulkCart={bulkCart}
         setBulkCart={setBulkCart}
         goToCart={navigateToBulkCart}
-        goBack={() => setShowBulkMenu(false)}
+        goBack={() => {
+          setShowBulkMenu(false);
+          setShowWelcome(true);
+        }}
       />
     );
   if (showBulkCart)
