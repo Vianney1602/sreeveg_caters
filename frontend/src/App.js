@@ -22,6 +22,15 @@ function App() {
     const saved = sessionStorage.getItem('_orderCompleted');
     return saved === 'true' ? true : false;
   });
+  const [orderedItems, setOrderedItems] = useState(() => {
+    // Restore ordered items from sessionStorage
+    try {
+      const saved = sessionStorage.getItem('_orderedItems');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
@@ -243,6 +252,11 @@ function App() {
   useEffect(() => {
     sessionStorage.setItem('_orderCompleted', orderCompleted ? 'true' : 'false');
   }, [orderCompleted]);
+  
+  // Persist ordered items
+  useEffect(() => {
+    sessionStorage.setItem('_orderedItems', JSON.stringify(orderedItems));
+  }, [orderedItems]);
   
   // Persist cart state
   useEffect(() => {
@@ -545,6 +559,8 @@ function App() {
         clearPaymentStatus={() => setPaymentStatus(null)}
         orderCompleted={orderCompleted}
         setOrderCompleted={setOrderCompleted}
+        orderedItems={orderedItems}
+        setOrderedItems={setOrderedItems}
       />
     );
   if (showMenuPage)
@@ -659,7 +675,7 @@ function App() {
             <button onClick={() => setShowMenuPage(true)}>View Menu</button>
             <span className="nav-separator" aria-hidden="true">|</span>
             <button onClick={() => setShowCart(true)}>
-              Cart ({Object.keys(cart).length})
+              Cart
             </button>
             <span className="nav-separator" aria-hidden="true">|</span>
             <button onClick={() => setShowAdminLogin(true)}>Admin</button>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import "./cart.css";
 
-export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted }) {
+export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted, orderedItems, setOrderedItems }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -78,6 +78,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             message: 'Order placed successfully! You will pay cash on delivery.',
             orderId: res.data.order_id
           });
+          // Save ordered items before clearing cart
+          setOrderedItems(cartItems.map(item => ({
+            name: item.name,
+            qty: item.qty,
+            price: item.price,
+            image: item.image
+          })));
           setOrderCompleted(true);
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
@@ -116,6 +123,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           initiatePayment(razorpayOrderId, amount, customerDetails,
             (orderId) => {
               // Payment success callback - handled by App.js paymentStatus
+              // Save ordered items before clearing cart
+              setOrderedItems(cartItems.map(item => ({
+                name: item.name,
+                qty: item.qty,
+                price: item.price,
+                image: item.image
+              })));
               setOrderCompleted(true);
               setShowCheckout(false);
               setFormData({ name: '', phone: '', email: '', address: '' });
@@ -130,6 +144,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
               setPaymentMethod('online'); // Reset to default
             }
           );
+          // Save ordered items before clearing cart
+          setOrderedItems(cartItems.map(item => ({
+            name: item.name,
+            qty: item.qty,
+            price: item.price,
+            image: item.image
+          })));
           setOrderCompleted(true);
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
@@ -170,6 +191,48 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
               <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px'}}>
                 Our team is preparing your delicious meal with utmost care. Your food will arrive fresh and hot! 🍽️
               </p>
+              
+              {/* Ordered Items List */}
+              {orderedItems && orderedItems.length > 0 && (
+                <div style={{
+                  marginTop: '25px',
+                  padding: '20px',
+                  backgroundColor: 'rgba(255, 217, 102, 0.15)',
+                  borderRadius: '12px',
+                  border: '2px solid rgba(122, 0, 0, 0.2)'
+                }}>
+                  <h4 style={{color: '#7a0000', marginBottom: '15px', fontSize: '1.1rem'}}>📋 Your Ordered Items:</h4>
+                  {orderedItems.map((item, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '15px',
+                      padding: '12px',
+                      marginBottom: '10px',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    }}>
+                      <img 
+                        src={item.image} 
+                        alt={item.name} 
+                        style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '8px',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      <div style={{flex: 1}}>
+                        <p style={{color: '#7a0000', fontWeight: '600', margin: '0 0 5px 0'}}>{item.name}</p>
+                        <p style={{color: '#5c0000', fontSize: '0.9rem', margin: 0}}>Quantity: {item.qty} × ₹{item.price}</p>
+                      </div>
+                      <p style={{color: '#7a0000', fontWeight: '700', fontSize: '1rem'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div style={{
                 marginTop: '25px',
                 padding: '20px',
@@ -178,13 +241,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 borderLeft: '4px solid #7a0000'
               }}>
                 <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
-                  ✅ Order Confirmed
+                  ✔️ Order Confirmed
                 </p>
                 <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
-                  🚗 Preparing for Delivery
+                  🍳 Preparing Your Meal
                 </p>
                 <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
-                  📞 You will receive updates on your phone
+                  🔔 Updates on Your Phone
                 </p>
               </div>
               <p style={{color: '#7a0000', marginTop: '20px', fontSize: '0.9rem', fontWeight: '500'}}>
