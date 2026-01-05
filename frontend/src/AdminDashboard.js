@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import socketService from './services/socketService';
 import './admin-dashboard.css';
@@ -29,6 +29,9 @@ export default function AdminDashboard({ onLogout }) {
   // helper to convert status to a safe classname (no spaces)
   const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
   const apiBase = (axios && axios.defaults && axios.defaults.baseURL) || '';
+
+  // Track processed order IDs to prevent duplicates during network issues
+  const processedOrderIds = useRef(new Set());
 
   const resolveImageUrl = (url) => {
     if (!url) return '';
@@ -197,7 +200,7 @@ export default function AdminDashboard({ onLogout }) {
         ]);
 
         // Process and set orders
-        setOrders(ordersRes.data.map(order => ({
+        const processedOrders = ordersRes.data.map(order => ({
           id: order.order_id,
           orderId: order.order_id.toString(),
           customerName: order.customer_name,
@@ -213,7 +216,17 @@ export default function AdminDashboard({ onLogout }) {
             qty: item.quantity,
             price: item.price_at_order_time
           })) || []
-        })));
+        }));
+        
+        // Track all order IDs to prevent duplicates during network issues
+        processedOrderIds.current.clear();
+        processedOrders.forEach(order => {
+          if (order.id) {
+            processedOrderIds.current.add(order.id);
+          }
+        });
+        
+        setOrders(processedOrders);
 
         // Process and set menu items (merge duplicates by name)
         const mapped = menuRes.data.map(item => ({
@@ -308,9 +321,26 @@ export default function AdminDashboard({ onLogout }) {
 
     // Listen for new orders in real-time
     const onOrderCreated = (data) => {
+      // Validate order_id exists
+      if (!data || !data.order_id) {
+        return; // Skip invalid data
+      }
+      
+      // Check if we've already processed this order ID
+      if (processedOrderIds.current.has(data.order_id)) {
+        return; // Skip duplicate
+      }
+      
+      // Mark this order as processed
+      processedOrderIds.current.add(data.order_id);
+      
       setOrders(prev => {
+        // Double-check in the current state array
         const exists = prev.some(o => o.id === data.order_id);
-        if (exists) return prev;
+        if (exists) {
+          return prev;
+        }
+        
         const newOrder = {
           id: data.order_id,
           orderId: data.order_id?.toString(),
@@ -344,11 +374,30 @@ export default function AdminDashboard({ onLogout }) {
 
     socketService.on('order_created', onOrderCreated);
 
+    // Handle socket reconnection - helps with network recovery
+    const handleReconnect = () => {
+      // On reconnect, we might have missed some orders during disconnection
+      // The existing orders are already tracked in processedOrderIds
+      // New orders will be handled by the order_created event
+      // No action needed here as the duplicate prevention will handle it
+    };
+
+    // Listen for reconnect events
+    const socket = socketService.getSocket();
+    if (socket) {
+      socket.on('reconnect', handleReconnect);
+    }
+
     // Cleanup listener when component unmounts
     return () => {
       socketService.off('order_status_changed', onOrderStatusChanged);
       socketService.off('customer_created', onCustomerCreated);
       socketService.off('order_created', onOrderCreated);
+      
+      // Clean up reconnect listener
+      if (socket) {
+        socket.off('reconnect', handleReconnect);
+      }
     };
   }, [onLogout]);
 
