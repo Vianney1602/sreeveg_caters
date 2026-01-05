@@ -175,6 +175,9 @@ export default function AdminDashboard({ onLogout }) {
 
   // Fetch data on component mount
   useEffect(() => {
+    // Join admin room when socket connects
+    const handleConnect = () => socketService.joinRoom('admins');
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -184,7 +187,14 @@ export default function AdminDashboard({ onLogout }) {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
         // Ensure socket connection uses the admin token
-        socketService.connect(token);
+        const socket = socketService.connect(token);
+        if (socket) {
+          // If already connected, join immediately; otherwise on connect event
+          if (socket.connected) {
+            handleConnect();
+          }
+          socket.on('connect', handleConnect);
+        }
         
         // Verify admin token first
         const verifyRes = await axios.get('/api/admin/verify', { headers });
@@ -393,6 +403,12 @@ export default function AdminDashboard({ onLogout }) {
       socketService.off('order_status_changed', onOrderStatusChanged);
       socketService.off('customer_created', onCustomerCreated);
       socketService.off('order_created', onOrderCreated);
+      
+      // Clean up connect listener
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.off('connect', handleConnect);
+      }
       
       // Clean up reconnect listener
       if (socket) {
