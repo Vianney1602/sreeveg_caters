@@ -4,13 +4,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(122, 0, 0, 0.95) 0%, rgba(92, 0, 0, 0.95) 100%);
+  background: rgba(255, 255, 255, 0.05);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
   animation: fadeInOverlay 0.3s ease-in;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
 }
 
 @keyframes fadeInOverlay {
@@ -44,13 +44,14 @@
 .spinner {
   width: 100px;
   height: 100px;
-  border: 3px solid rgba(255, 217, 102, 0.2);
-  border-top: 3px solid #ffd966;
-  border-right: 3px solid rgba(255, 217, 102, 0.4);
+  border: 3px solid rgba(122, 0, 0, 0.2);
+  border-top: 3px solid #7a0000;
+  border-right: 3px solid rgba(122, 0, 0, 0.4);
   border-radius: 50%;
   animation: spin 1.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
   will-change: transform;
   transform: translateZ(0);
+  box-shadow: 0 0 20px rgba(122, 0, 0, 0.2);
 }
 
 @keyframes spin {
@@ -84,8 +85,8 @@
   font-size: 1.8rem;
   font-weight: 700;
   margin: 0;
-  color: #ffd966;
-  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+  color: #7a0000;
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.3);
   letter-spacing: 0.5px;
   font-family: 'Cinzel Decorative', serif;
 }
@@ -93,9 +94,9 @@
 .loading-subtitle {
   font-size: 1rem;
   margin: 12px 0 0 0;
-  color: rgba(255, 217, 102, 0.9);
+  color: #5c0000;
   font-weight: 300;
-  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8), 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Animated dots */
@@ -111,9 +112,10 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #ffd966;
+  background-color: #7a0000;
   animation: dotPulse 1.4s infinite;
   will-change: transform, opacity;
+  box-shadow: 0 0 8px rgba(122, 0, 0, 0.3);
 }
 
 .loading-dots span:nth-child(1) {
