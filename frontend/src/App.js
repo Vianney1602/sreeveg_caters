@@ -17,6 +17,11 @@ function App() {
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [orderCompleted, setOrderCompleted] = useState(() => {
+    // Restore order completion status from sessionStorage
+    const saved = sessionStorage.getItem('_orderCompleted');
+    return saved === 'true' ? true : false;
+  });
   
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
@@ -233,6 +238,11 @@ function App() {
       sessionStorage.removeItem('_currentPage');
     }
   }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showWelcome, initializing]);
+  
+  // Persist order completion status
+  useEffect(() => {
+    sessionStorage.setItem('_orderCompleted', orderCompleted ? 'true' : 'false');
+  }, [orderCompleted]);
   
   // Persist cart state
   useEffect(() => {
@@ -533,6 +543,8 @@ function App() {
         initiatePayment={initiatePayment}
         paymentStatus={paymentStatus}
         clearPaymentStatus={() => setPaymentStatus(null)}
+        orderCompleted={orderCompleted}
+        setOrderCompleted={setOrderCompleted}
       />
     );
   if (showMenuPage)

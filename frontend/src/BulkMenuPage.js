@@ -271,7 +271,7 @@ export default function BulkMenuPage({
           className="view-cart-btn"
           onClick={() => goToCart && goToCart()}
         >
-          View Cart 🛒
+          Cart 🛒
         </button>
       </div>
 

@@ -327,7 +327,7 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
           className="view-cart-btn"
           onClick={() => goToCart && goToCart()}
         >
-          View Cart 🛒
+          Cart 🛒
         </button>
 
       </div>

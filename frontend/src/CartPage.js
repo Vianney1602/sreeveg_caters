@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import "./cart.css";
 
-export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus }) {
+export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -78,13 +78,12 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             message: 'Order placed successfully! You will pay cash on delivery.',
             orderId: res.data.order_id
           });
+          setOrderCompleted(true);
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
           setPaymentMethod('online'); // Reset to default
           // Clear cart in parent if provided
           if (typeof clearCart === 'function') clearCart();
-          // Auto-hide success message after 5 seconds
-          setTimeout(() => setOrderStatus(null), 5000);
         })
         .catch(err => {
           setOrderStatus({
@@ -117,6 +116,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           initiatePayment(razorpayOrderId, amount, customerDetails,
             (orderId) => {
               // Payment success callback - handled by App.js paymentStatus
+              setOrderCompleted(true);
               setShowCheckout(false);
               setFormData({ name: '', phone: '', email: '', address: '' });
               setPaymentMethod('online'); // Reset to default
@@ -130,6 +130,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
               setPaymentMethod('online'); // Reset to default
             }
           );
+          setOrderCompleted(true);
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
           setPaymentMethod('online'); // Reset to default
@@ -159,7 +160,38 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         {/* LEFT SIDE */}
         <div className="cart-left">
 
-          {isEmpty ? (
+          {orderCompleted ? (
+            <div className="empty-cart-container success-container">
+              <div className="empty-cart-icon">🎉</div>
+              <h3 className="empty-cart-title" style={{color: '#7a0000'}}>Your Order is Preparing to Get Delivered!</h3>
+              <p className="empty-cart-description" style={{color: '#5c0000', fontSize: '1.1rem', marginTop: '15px'}}>
+                Thank you for your order! 🙏
+              </p>
+              <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px'}}>
+                Our team is preparing your delicious meal with utmost care. Your food will arrive fresh and hot! 🍽️
+              </p>
+              <div style={{
+                marginTop: '25px',
+                padding: '20px',
+                backgroundColor: 'rgba(122, 0, 0, 0.1)',
+                borderRadius: '12px',
+                borderLeft: '4px solid #7a0000'
+              }}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                  ✅ Order Confirmed
+                </p>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                  🚗 Preparing for Delivery
+                </p>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                  📞 You will receive updates on your phone
+                </p>
+              </div>
+              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '0.9rem', fontWeight: '500'}}>
+                Status: 🔄 In Progress
+              </p>
+            </div>
+          ) : isEmpty ? (
             <div className="empty-cart-container">
               <div className="empty-cart-icon">🛒</div>
               <h3 className="empty-cart-title">Your Cart is Empty</h3>
