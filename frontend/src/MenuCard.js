@@ -1,11 +1,11 @@
 import React from "react";
 
-export default function MenuCard({ item, cart, updateQty, addToCart }) {
+const MenuCard = React.memo(({ item, cart, updateQty, addToCart }) => {
   const qty = cart[item.id]?.qty || 0;
 
   return (
     <div className="menu-card">
-      <img src={item.image} alt={item.name} className="menu-img" />
+      <img src={item.image} alt={item.name} className="menu-img" loading="lazy" />
 
       <h3 className="menu-title">{item.name}</h3>
       <p className="menu-desc">{item.description}</p>
@@ -28,4 +28,6 @@ export default function MenuCard({ item, cart, updateQty, addToCart }) {
       </button>
     </div>
   );
-}
+});
+
+export default MenuCard;

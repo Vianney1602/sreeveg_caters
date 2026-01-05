@@ -4,12 +4,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #7a0000 0%, #5c0000 100%);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  animation: fadeInOverlay 0.5s ease-in;
+  animation: fadeInOverlay 0.3s ease-in;
 }
 
 @keyframes fadeInOverlay {
@@ -27,6 +27,7 @@
   align-items: center;
   justify-content: center;
   gap: 30px;
+  will-change: auto;
 }
 
 /* Chef Hat Animation */
@@ -35,6 +36,8 @@
   width: 100px;
   height: 100px;
   animation: bobbing 2.5s ease-in-out infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 @keyframes bobbing {
@@ -56,10 +59,10 @@
 .hat-top {
   width: 60px;
   height: 45px;
-  background: linear-gradient(145deg, #ff6b6b, #ee5a5a);
+  background: linear-gradient(145deg, #ffffff, #f5f5f5);
   border-radius: 50% 50% 0 0;
   margin: 0 auto;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
   animation: hatWave 2.5s ease-in-out infinite;
 }
 
@@ -75,7 +78,7 @@
 .hat-band {
   width: 80px;
   height: 10px;
-  background: linear-gradient(145deg, #ffd700, #ffed4e);
+  background: linear-gradient(145deg, #ffd966, #f5c542);
   margin-top: 2px;
   box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
 }
@@ -101,6 +104,8 @@
     inset 0 5px 15px rgba(255, 255, 255, 0.5);
   animation: plateSpin 4s linear infinite;
   position: relative;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 @keyframes plateSpin {
@@ -135,6 +140,8 @@
   align-items: center;
   animation: orbit 4s linear infinite;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2));
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .fork-utensil {
@@ -180,16 +187,18 @@
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  color: #ffd966;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
   letter-spacing: 1px;
 }
 
 .loading-subtitle {
   font-size: 1.1rem;
   margin: 10px 0 0 0;
-  opacity: 0.9;
+  color: #f5c542;
+  opacity: 0.95;
   font-weight: 300;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Animated dots */
@@ -205,8 +214,9 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.7);
+  background-color: #ffd966;
   animation: dotPulse 1.4s infinite;
+  will-change: transform, opacity;
 }
 
 .loading-dots span:nth-child(1) {
@@ -248,6 +258,8 @@
   animation: foodFloat 4s ease-in-out infinite;
   opacity: 0.8;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .food-item:nth-child(1) {

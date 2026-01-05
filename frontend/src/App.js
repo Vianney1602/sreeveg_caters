@@ -85,7 +85,7 @@ function App() {
       setShowBulkMenu(false);
       setShowCart(true);
       setIsPageTransitioning(false);
-    }, 500);
+    }, 300);
   };
 
   const navigateToMenu = () => {
@@ -95,7 +95,7 @@ function App() {
       setShowBulkCart(false);
       setShowMenuPage(true);
       setIsPageTransitioning(false);
-    }, 500);
+    }, 300);
   };
 
   const navigateToBulkCart = () => {
@@ -104,7 +104,7 @@ function App() {
       setShowBulkMenu(false);
       setShowBulkCart(true);
       setIsPageTransitioning(false);
-    }, 500);
+    }, 300);
   };
 
   const navigateToBulkMenu = () => {
@@ -118,6 +118,10 @@ function App() {
 
   // Initialize WebSocket connection on app mount
   useEffect(() => {
+    // Set minimum display time for loading animation (4.5 seconds)
+    const minLoadingTime = 4500;
+    const startTime = Date.now();
+
     // Check for existing admin session
     const adminToken = sessionStorage.getItem('_st');
     if (adminToken) {
@@ -135,7 +139,12 @@ function App() {
         sessionStorage.removeItem('_au');
       })
       .finally(() => {
-        setInitializing(false);
+        // Ensure minimum loading time is met
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+        setTimeout(() => {
+          setInitializing(false);
+        }, remainingTime);
       });
     } else {
       // Restore bulk guest count if exists
@@ -166,7 +175,13 @@ function App() {
       } else {
         setShowWelcome(true);
       }
-      setInitializing(false);
+      
+      // Ensure minimum loading time is met
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+      setTimeout(() => {
+        setInitializing(false);
+      }, remainingTime);
     }
     
     const token = sessionStorage.getItem('_ct'); // Customer token in sessionStorage
@@ -510,7 +525,7 @@ function App() {
             setShowCart(false);
             setShowMenuPage(true);
             setIsPageTransitioning(false);
-          }, 500);
+          }, 300);
         }}
         cart={cart}
         updateQty={updateQty}
@@ -529,7 +544,7 @@ function App() {
             setShowMenuPage(false);
             setShowWelcome(true);
             setIsPageTransitioning(false);
-          }, 500);
+          }, 300);
         }}
         goToCart={navigateToCart}
         cart={cart}
@@ -550,7 +565,7 @@ function App() {
             setShowBulkMenu(false);
             setShowWelcome(true);
             setIsPageTransitioning(false);
-          }, 500);
+          }, 300);
         }}
       />
     );
