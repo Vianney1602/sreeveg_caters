@@ -4,12 +4,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #7a0000 0%, #5c0000 100%);
+  background: linear-gradient(135deg, rgba(122, 0, 0, 0.95) 0%, rgba(92, 0, 0, 0.95) 100%);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
   animation: fadeInOverlay 0.3s ease-in;
+  backdrop-filter: blur(2px);
 }
 
 @keyframes fadeInOverlay {
@@ -26,142 +27,38 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 30px;
+  gap: 40px;
   will-change: auto;
 }
 
-/* Chef Hat Animation */
-.chef-hat-container {
+/* Simple Elegant Spinner */
+.spinner-wrapper {
   position: relative;
-  width: 100px;
-  height: 100px;
-  animation: bobbing 2.5s ease-in-out infinite;
-  will-change: transform;
-  transform: translateZ(0);
-}
-
-@keyframes bobbing {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-.chef-hat {
-  position: relative;
-  width: 80px;
-  height: 60px;
-  margin: 0 auto;
-}
-
-.hat-top {
-  width: 60px;
-  height: 45px;
-  background: linear-gradient(145deg, #ffffff, #f5f5f5);
-  border-radius: 50% 50% 0 0;
-  margin: 0 auto;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-  animation: hatWave 2.5s ease-in-out infinite;
-}
-
-@keyframes hatWave {
-  0%, 100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(1.05);
-  }
-}
-
-.hat-band {
-  width: 80px;
-  height: 10px;
-  background: linear-gradient(145deg, #ffd966, #f5c542);
-  margin-top: 2px;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-/* Plate Container */
-.plate-container {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.plate {
   width: 120px;
   height: 120px;
-  background: radial-gradient(circle at 30% 30%, #ffffff, #f5f5f5);
-  border-radius: 50%;
-  box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    inset 0 -5px 15px rgba(0, 0, 0, 0.1),
-    inset 0 5px 15px rgba(255, 255, 255, 0.5);
-  animation: plateSpin 4s linear infinite;
-  position: relative;
-  will-change: transform;
-  transform: translateZ(0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@keyframes plateSpin {
-  from {
-    transform: rotateZ(0deg);
-  }
-  to {
-    transform: rotateZ(360deg);
-  }
-}
-
-.plate-inner {
+.spinner {
   width: 100px;
   height: 100px;
-  background: radial-gradient(circle at 35% 35%, #fff9e6, #fff0cc);
+  border: 3px solid rgba(255, 217, 102, 0.2);
+  border-top: 3px solid #ffd966;
+  border-right: 3px solid rgba(255, 217, 102, 0.4);
   border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* Utensils orbiting around the plate */
-.utensil {
-  position: absolute;
-  font-size: 2rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  animation: orbit 4s linear infinite;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2));
+  animation: spin 1.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
   will-change: transform;
   transform: translateZ(0);
 }
 
-.fork-utensil {
-  animation: orbit 4s linear infinite 0s;
-}
-
-.spoon-utensil {
-  animation: orbit 4s linear infinite 1.3s;
-}
-
-.knife-utensil {
-  animation: orbit 4s linear infinite 2.6s;
-}
-
-@keyframes orbit {
+@keyframes spin {
   0% {
-    transform: rotateZ(0deg) translateX(90px) rotateZ(0deg);
+    transform: rotate(0deg);
   }
   100% {
-    transform: rotateZ(360deg) translateX(90px) rotateZ(-360deg);
+    transform: rotate(360deg);
   }
 }
 
@@ -169,7 +66,7 @@
 .loading-text-container {
   text-align: center;
   color: white;
-  animation: fadeInText 0.8s ease-in 0.3s both;
+  animation: fadeInText 0.8s ease-in 0.2s both;
 }
 
 @keyframes fadeInText {
@@ -184,21 +81,21 @@
 }
 
 .loading-title {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 700;
   margin: 0;
   color: #ffd966;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-  letter-spacing: 1px;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.5px;
+  font-family: 'Cinzel Decorative', serif;
 }
 
 .loading-subtitle {
-  font-size: 1.1rem;
-  margin: 10px 0 0 0;
-  color: #f5c542;
-  opacity: 0.95;
+  font-size: 1rem;
+  margin: 12px 0 0 0;
+  color: rgba(255, 217, 102, 0.9);
   font-weight: 300;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Animated dots */
@@ -207,12 +104,12 @@
   justify-content: center;
   align-items: center;
   gap: 8px;
-  margin-top: 15px;
+  margin-top: 20px;
 }
 
 .loading-dots span {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background-color: #ffd966;
   animation: dotPulse 1.4s infinite;
@@ -233,7 +130,7 @@
 
 @keyframes dotPulse {
   0%, 60%, 100% {
-    opacity: 0.5;
+    opacity: 0.4;
     transform: scale(0.8);
   }
   30% {
@@ -242,121 +139,23 @@
   }
 }
 
-/* Food items animation */
-.food-animation {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.food-item {
-  font-size: 2.5rem;
-  position: absolute;
-  animation: foodFloat 4s ease-in-out infinite;
-  opacity: 0.8;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
-  will-change: transform, opacity;
-  transform: translateZ(0);
-}
-
-.food-item:nth-child(1) {
-  animation-delay: 0s;
-  animation-name: foodFloat1;
-}
-
-.food-item:nth-child(2) {
-  animation-delay: 0.5s;
-  animation-name: foodFloat2;
-}
-
-.food-item:nth-child(3) {
-  animation-delay: 1s;
-  animation-name: foodFloat3;
-}
-
-.food-item:nth-child(4) {
-  animation-delay: 1.5s;
-  animation-name: foodFloat4;
-}
-
-@keyframes foodFloat1 {
-  0% {
-    transform: translate(-100px, 0) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-    transform: translate(0, -50px) scale(1);
-  }
-  100% {
-    transform: translate(100px, 0) scale(0.5);
-    opacity: 0;
-  }
-}
-
-@keyframes foodFloat2 {
-  0% {
-    transform: translate(100px, 0) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-    transform: translate(0, -50px) scale(1);
-  }
-  100% {
-    transform: translate(-100px, 0) scale(0.5);
-    opacity: 0;
-  }
-}
-
-@keyframes foodFloat3 {
-  0% {
-    transform: translate(0, 100px) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-    transform: translate(0, -50px) scale(1);
-  }
-  100% {
-    transform: translate(0, -100px) scale(0.5);
-    opacity: 0;
-  }
-}
-
-@keyframes foodFloat4 {
-  0% {
-    transform: translate(0, -100px) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-    transform: translate(0, -50px) scale(1);
-  }
-  100% {
-    transform: translate(0, 100px) scale(0.5);
-    opacity: 0;
-  }
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .loading-title {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 
   .loading-subtitle {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
-  .food-item {
-    font-size: 1.8rem;
+  .spinner {
+    width: 70px;
+    height: 70px;
+    border-width: 2px;
   }
 
-  .utensil {
-    font-size: 1.5rem;
+  .loading-container {
+    gap: 30px;
   }
 }
