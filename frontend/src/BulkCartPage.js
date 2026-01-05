@@ -18,8 +18,7 @@ export default function BulkCartPage({
     (sum, item) => sum + item.price * guestCount,
     0
   );
-  const tax = subtotal * 0.05;
-  const total = subtotal + tax;
+  const total = subtotal;
 
   const isEmpty = items.length === 0;
 
@@ -188,11 +187,6 @@ export default function BulkCartPage({
           <div className="summary-row">
             <span>Subtotal</span>
             <span>₹{subtotal.toFixed(2)}</span>
-          </div>
-
-          <div className="summary-row">
-            <span>Tax (5%)</span>
-            <span>₹{tax.toFixed(2)}</span>
           </div>
 
           <div className="summary-row total">

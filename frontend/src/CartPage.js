@@ -23,8 +23,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
     return sum + (price * qty);
   }, 0);
 
-  const tax = subtotal * 0.05;
-  const total = subtotal + tax;
+  const total = subtotal;
 
   const isEmpty = cartItems.length === 0;
 
@@ -236,11 +235,6 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             <span>₹{subtotal.toFixed(2)}</span>
           </div>
 
-          <div className="summary-row">
-            <span>Tax (5%)</span>
-            <span>₹{tax.toFixed(2)}</span>
-          </div>
-
           <div className="summary-row total">
             <span>Total</span>
             <span className="total-amt">₹{total.toFixed(2)}</span>
@@ -358,14 +352,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 </div>
 
                 <div className="checkout-summary">
-                  <div className="summary-line">
-                    <span>Subtotal</span>
-                    <span>₹{subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="summary-line">
-                    <span>Tax (5%)</span>
-                    <span>₹{tax.toFixed(2)}</span>
-                  </div>
+
                   <div className="summary-line total-line">
                     <span>Total Amount</span>
                     <span>₹{total.toFixed(2)}</span>
