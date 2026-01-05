@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import authService from "./services/authService";
 import socketService from "./services/socketService";
+import LoadingAnimation from "./components/LoadingAnimation";
 import MenuPage from "./MenuPage";
 import CartPage from "./CartPage";
 import BulkMenuPage from "./BulkMenuPage";
@@ -15,6 +16,7 @@ import "./home.css";
 function App() {
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
@@ -75,27 +77,43 @@ function App() {
   const [, setEventTypes] = useState([]);
   const [, setMenuCategories] = useState([]);
 
-  // Navigation helper functions
+  // Navigation helper functions with loading animation
   const navigateToCart = () => {
-    setShowMenuPage(false);
-    setShowBulkMenu(false);
-    setShowCart(true);
+    setIsPageTransitioning(true);
+    setTimeout(() => {
+      setShowMenuPage(false);
+      setShowBulkMenu(false);
+      setShowCart(true);
+      setIsPageTransitioning(false);
+    }, 500);
   };
 
   const navigateToMenu = () => {
-    setShowCart(false);
-    setShowBulkCart(false);
-    setShowMenuPage(true);
+    setIsPageTransitioning(true);
+    setTimeout(() => {
+      setShowCart(false);
+      setShowBulkCart(false);
+      setShowMenuPage(true);
+      setIsPageTransitioning(false);
+    }, 500);
   };
 
   const navigateToBulkCart = () => {
-    setShowBulkMenu(false);
-    setShowBulkCart(true);
+    setIsPageTransitioning(true);
+    setTimeout(() => {
+      setShowBulkMenu(false);
+      setShowBulkCart(true);
+      setIsPageTransitioning(false);
+    }, 500);
   };
 
   const navigateToBulkMenu = () => {
-    setShowBulkCart(false);
-    setShowBulkMenu(true);
+    setIsPageTransitioning(true);
+    setTimeout(() => {
+      setShowBulkCart(false);
+      setShowBulkMenu(true);
+      setIsPageTransitioning(false);
+    }, 500);
   };
 
   // Initialize WebSocket connection on app mount
@@ -427,20 +445,14 @@ function App() {
     }
   }, [isAdminLoggedIn]);
 
-  // Show loading while checking for existing session
+  // Show loading animation while checking for existing session
   if (initializing) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        fontSize: '1.5rem',
-        color: '#3399cc'
-      }}>
-        Loading...
-      </div>
-    );
+    return <LoadingAnimation />;
+  }
+
+  // Show loading animation during page transitions
+  if (isPageTransitioning) {
+    return <LoadingAnimation />;
   }
 
   // Conditional renders - Admin checks first (highest priority)
@@ -492,7 +504,14 @@ function App() {
   if (showCart)
     return (
       <CartPage
-        goBack={navigateToMenu}
+        goBack={() => {
+          setIsPageTransitioning(true);
+          setTimeout(() => {
+            setShowCart(false);
+            setShowMenuPage(true);
+            setIsPageTransitioning(false);
+          }, 500);
+        }}
         cart={cart}
         updateQty={updateQty}
         clearCart={() => setCart({})}
@@ -505,8 +524,12 @@ function App() {
     return (
       <MenuPage
         goBack={() => {
-          setShowMenuPage(false);
-          setShowWelcome(true);
+          setIsPageTransitioning(true);
+          setTimeout(() => {
+            setShowMenuPage(false);
+            setShowWelcome(true);
+            setIsPageTransitioning(false);
+          }, 500);
         }}
         goToCart={navigateToCart}
         cart={cart}
@@ -522,8 +545,12 @@ function App() {
         setBulkCart={setBulkCart}
         goToCart={navigateToBulkCart}
         goBack={() => {
-          setShowBulkMenu(false);
-          setShowWelcome(true);
+          setIsPageTransitioning(true);
+          setTimeout(() => {
+            setShowBulkMenu(false);
+            setShowWelcome(true);
+            setIsPageTransitioning(false);
+          }, 500);
         }}
       />
     );
