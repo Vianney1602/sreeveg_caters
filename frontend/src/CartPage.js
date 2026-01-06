@@ -185,11 +185,11 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           {showSuccess ? (
             <div className="empty-cart-container success-container">
               <div className="empty-cart-icon">🎉</div>
-              <h3 className="empty-cart-title" style={{color: '#7a0000'}}>Your Order is Preparing to Get Delivered!</h3>
-              <p className="empty-cart-description" style={{color: '#5c0000', fontSize: '1.1rem', marginTop: '15px'}}>
+              <h3 className="empty-cart-title" style={{color: '#7a0000', fontSize: '2rem', fontWeight: 'bold', letterSpacing: '0.5px'}}>Your Order is Preparing to Get Delivered!</h3>
+              <p className="empty-cart-description" style={{color: '#5c0000', fontSize: '1.3rem', fontWeight: '600', marginTop: '15px'}}>
                 Thank you for your order! 🙏
               </p>
-              <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px'}}>
+              <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px', fontSize: '1.05rem'}}>
                 Our team is preparing your delicious meal with utmost care. Your food will arrive fresh and hot! 🍽️
               </p>
               
@@ -241,17 +241,17 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 borderRadius: '12px',
                 borderLeft: '4px solid #7a0000'
               }}>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
                   ✔️ Order Confirmed
                 </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
                   🍳 Preparing Your Meal
                 </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '0.95rem'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
                   🔔 Updates on Your Phone
                 </p>
               </div>
-              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '0.9rem', fontWeight: '500'}}>
+              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '1.1rem', fontWeight: '700'}}>
                 Status: 🔄 In Progress
               </p>
             </div>
