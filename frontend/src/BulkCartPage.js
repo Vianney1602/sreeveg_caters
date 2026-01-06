@@ -378,21 +378,6 @@ export default function BulkCartPage({
                 ))}
               </div>
             )}
-
-            <div className="summary-row">
-              <span>Total Items</span>
-              <span>{totalQty}</span>
-            </div>
-
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span>₹{subtotal.toFixed(2)}</span>
-            </div>
-
-            <div className="summary-row total">
-              <span>Total</span>
-              <span className="total-amt">₹{total.toFixed(2)}</span>
-            </div>
           </div>
         )}
       </div>

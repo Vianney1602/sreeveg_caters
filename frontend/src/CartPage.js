@@ -357,21 +357,6 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 ))}
               </div>
             )}
-
-            <div className="summary-row">
-              <span>Total Items</span>
-              <span>{cartItems.reduce((sum, item) => sum + (item.qty || 0), 0)}</span>
-            </div>
-
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span>₹{subtotal.toFixed(2)}</span>
-            </div>
-
-            <div className="summary-row total">
-              <span>Total</span>
-              <span className="total-amt">₹{total.toFixed(2)}</span>
-            </div>
           </div>
         )}
       </div>
