@@ -185,11 +185,11 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           {showSuccess ? (
             <div className="empty-cart-container success-container">
               <div className="empty-cart-icon">🎉</div>
-              <h3 className="empty-cart-title" style={{color: '#7a0000', fontSize: '2rem', fontWeight: 'bold', letterSpacing: '0.5px'}}>Your Order is Preparing to Get Delivered!</h3>
-              <p className="empty-cart-description" style={{color: '#5c0000', fontSize: '1.3rem', fontWeight: '600', marginTop: '15px'}}>
+              <h3 className="empty-cart-title" style={{color: '#7a0000', fontSize: '2rem', fontWeight: 'bold', letterSpacing: '0.5px', fontFamily: "'Georgia', 'Garamond', serif"}}>Your Order is Preparing to Get Delivered!</h3>
+              <p className="empty-cart-description" style={{color: '#5c0000', fontSize: '1.3rem', fontWeight: '600', marginTop: '15px', fontFamily: "'Trebuchet MS', 'Lucida Grande', sans-serif"}}>
                 Thank you for your order! 🙏
               </p>
-              <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px', fontSize: '1.05rem'}}>
+              <p className="empty-cart-subtitle" style={{color: '#7a0000', marginTop: '10px', fontSize: '1.05rem', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
                 Our team is preparing your delicious meal with utmost care. Your food will arrive fresh and hot! 🍽️
               </p>
               
@@ -202,7 +202,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                   borderRadius: '12px',
                   border: '2px solid rgba(122, 0, 0, 0.2)'
                 }}>
-                  <h4 style={{color: '#7a0000', marginBottom: '15px', fontSize: '1.1rem'}}>📋 Your Ordered Items:</h4>
+                  <h4 style={{color: '#7a0000', marginBottom: '15px', fontSize: '1.1rem', fontFamily: "'Georgia', 'Garamond', serif", fontWeight: '600'}}>📋 Your Ordered Items:</h4>
                   {orderedItems.map((item, index) => (
                     <div key={index} style={{
                       display: 'flex',
@@ -241,17 +241,17 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 borderRadius: '12px',
                 borderLeft: '4px solid #7a0000'
               }}>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
                   ✔️ Order Confirmed
                 </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
                   🍳 Preparing Your Meal
                 </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600'}}>
+                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
                   🔔 Updates on Your Phone
                 </p>
               </div>
-              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '1.1rem', fontWeight: '700'}}>
+              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '1.1rem', fontWeight: '700', fontFamily: "'Trebuchet MS', 'Lucida Grande', sans-serif"}}>
                 Status: 🔄 In Progress
               </p>
             </div>
@@ -323,27 +323,67 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         </div>
 
         {/* SUMMARY SECTION (still shown even if empty) */}
-        <div className="cart-summary">
-          <h3>Order Summary</h3>
+        {!showSuccess && (
+          <div className="cart-summary">
+            <h3>Order Summary</h3>
 
-          <div className="summary-row">
-            <span>Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <span>₹{subtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="summary-row total">
+              <span>Total</span>
+              <span className="total-amt">₹{total.toFixed(2)}</span>
+            </div>
+
+            <button 
+              className="checkout-btn" 
+              disabled={isEmpty}
+              onClick={() => setShowCheckout(true)}
+            >
+              {isEmpty ? "No items to checkout" : "Proceed to Checkout"}
+            </button>
           </div>
+        )}
 
-          <div className="summary-row total">
-            <span>Total</span>
-            <span className="total-amt">₹{total.toFixed(2)}</span>
+        {/* SUMMARY ON SUCCESS */}
+        {showSuccess && (
+          <div className="cart-summary">
+            <h3>Order Summary</h3>
+
+            <div className="summary-row">
+              <span>Total Items</span>
+              <span>{cartItems.reduce((sum, item) => sum + (item.qty || 0), 0)}</span>
+            </div>
+
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <span>₹{subtotal.toFixed(2)}</span>
+            </div>
+
+            <div className="summary-row total">
+              <span>Total</span>
+              <span className="total-amt">₹{total.toFixed(2)}</span>
+            </div>
+
+            <div style={{
+              marginTop: '20px',
+              padding: '15px',
+              backgroundColor: 'rgba(122, 0, 0, 0.1)',
+              borderRadius: '8px',
+              textAlign: 'center',
+              borderLeft: '4px solid #7a0000'
+            }}>
+              <p style={{color: '#7a0000', margin: '0', fontSize: '0.95rem', fontWeight: '600'}}>
+                ✅ Order Confirmed
+              </p>
+              <p style={{color: '#5c0000', margin: '8px 0 0 0', fontSize: '0.9rem'}}>
+                Order ID will be sent via SMS/Email
+              </p>
+            </div>
           </div>
-
-          <button 
-            className="checkout-btn" 
-            disabled={isEmpty}
-            onClick={() => setShowCheckout(true)}
-          >
-            {isEmpty ? "No items to checkout" : "Proceed to Checkout"}
-          </button>
-        </div>
+        )}
       </div>
 
       {/* CHECKOUT MODAL */}
