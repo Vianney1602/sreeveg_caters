@@ -245,27 +245,6 @@ export default function BulkCartPage({
                   ))}
                 </div>
               )}
-              
-              <div style={{
-                marginTop: '25px',
-                padding: '20px',
-                backgroundColor: 'rgba(122, 0, 0, 0.1)',
-                borderRadius: '12px',
-                borderLeft: '4px solid #7a0000'
-              }}>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  ✔️ Order Confirmed
-                </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  🍳 Preparing Your Feast
-                </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  🔔 Updates on Your Phone
-                </p>
-              </div>
-              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '1.1rem', fontWeight: '700', fontFamily: "'Trebuchet MS', 'Lucida Grande', sans-serif"}}>
-                Status: 🔄 In Progress
-              </p>
             </div>
           ) : isEmpty ? (
             <div className="empty-cart-container">
