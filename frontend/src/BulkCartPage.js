@@ -387,22 +387,6 @@ export default function BulkCartPage({
               <span>Total</span>
               <span className="total-amt">₹{total.toFixed(2)}</span>
             </div>
-
-            <div style={{
-              marginTop: '20px',
-              padding: '15px',
-              backgroundColor: 'rgba(122, 0, 0, 0.1)',
-              borderRadius: '8px',
-              textAlign: 'center',
-              borderLeft: '4px solid #7a0000'
-            }}>
-              <p style={{color: '#7a0000', margin: '0', fontSize: '0.95rem', fontWeight: '600'}}>
-                ✅ Order Confirmed
-              </p>
-              <p style={{color: '#5c0000', margin: '8px 0 0 0', fontSize: '0.9rem'}}>
-                Order ID will be sent via SMS/Email
-              </p>
-            </div>
           </div>
         )}
       </div>
