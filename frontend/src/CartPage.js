@@ -233,27 +233,6 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                   ))}
                 </div>
               )}
-              
-              <div style={{
-                marginTop: '25px',
-                padding: '20px',
-                backgroundColor: 'rgba(122, 0, 0, 0.1)',
-                borderRadius: '12px',
-                borderLeft: '4px solid #7a0000'
-              }}>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  ✔️ Order Confirmed
-                </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  🍳 Preparing Your Meal
-                </p>
-                <p style={{color: '#5c0000', margin: '10px 0', fontSize: '1.05rem', fontWeight: '600', fontFamily: "'Segoe UI', Tahoma, sans-serif"}}>
-                  🔔 Updates on Your Phone
-                </p>
-              </div>
-              <p style={{color: '#7a0000', marginTop: '20px', fontSize: '1.1rem', fontWeight: '700', fontFamily: "'Trebuchet MS', 'Lucida Grande', sans-serif"}}>
-                Status: 🔄 In Progress
-              </p>
             </div>
           ) : isEmpty ? (
             <div className="empty-cart-container">
@@ -351,6 +330,33 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         {showSuccess && (
           <div className="cart-summary">
             <h3>Order Summary</h3>
+
+            {/* Ordered Items in Summary */}
+            {orderedItems && orderedItems.length > 0 && (
+              <div style={{
+                marginBottom: '20px',
+                paddingBottom: '20px',
+                borderBottom: '1px solid #e0e0e0'
+              }}>
+                <h4 style={{color: '#7a0000', fontSize: '0.95rem', fontWeight: '600', marginBottom: '12px', fontFamily: "'Georgia', 'Garamond', serif"}}>Items Ordered:</h4>
+                {orderedItems.map((item, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    fontSize: '0.9rem',
+                    borderBottom: index < orderedItems.length - 1 ? '1px solid #f0f0f0' : 'none'
+                  }}>
+                    <div style={{flex: 1}}>
+                      <p style={{color: '#5c0000', fontWeight: '600', margin: '0 0 3px 0'}}>{item.name}</p>
+                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {item.qty} × ₹{item.price}</p>
+                    </div>
+                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="summary-row">
               <span>Total Items</span>
