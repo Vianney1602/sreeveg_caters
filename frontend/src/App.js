@@ -31,6 +31,20 @@ function App() {
       return [];
     }
   });
+  const [bulkOrderCompleted, setBulkOrderCompleted] = useState(() => {
+    // Restore bulk order completion status from sessionStorage
+    const saved = sessionStorage.getItem('_bulkOrderCompleted');
+    return saved === 'true' ? true : false;
+  });
+  const [bulkOrderedItems, setBulkOrderedItems] = useState(() => {
+    // Restore bulk ordered items from sessionStorage
+    try {
+      const saved = sessionStorage.getItem('_bulkOrderedItems');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
@@ -257,6 +271,16 @@ function App() {
   useEffect(() => {
     sessionStorage.setItem('_orderedItems', JSON.stringify(orderedItems));
   }, [orderedItems]);
+  
+  // Persist bulk order completion status
+  useEffect(() => {
+    sessionStorage.setItem('_bulkOrderCompleted', bulkOrderCompleted ? 'true' : 'false');
+  }, [bulkOrderCompleted]);
+  
+  // Persist bulk ordered items
+  useEffect(() => {
+    sessionStorage.setItem('_bulkOrderedItems', JSON.stringify(bulkOrderedItems));
+  }, [bulkOrderedItems]);
   
   // Persist cart state
   useEffect(() => {
@@ -618,6 +642,10 @@ function App() {
         defaultPaymentMethod="online"
         paymentStatus={paymentStatus}
         clearPaymentStatus={() => setPaymentStatus(null)}
+        bulkOrderCompleted={bulkOrderCompleted}
+        setBulkOrderCompleted={setBulkOrderCompleted}
+        bulkOrderedItems={bulkOrderedItems}
+        setBulkOrderedItems={setBulkOrderedItems}
       />
     );
 
