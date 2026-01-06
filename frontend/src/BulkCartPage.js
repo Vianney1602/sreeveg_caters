@@ -352,6 +352,33 @@ export default function BulkCartPage({
           <div className="cart-summary">
             <h3>Order Summary</h3>
 
+            {/* Ordered Items in Summary */}
+            {bulkOrderedItems && bulkOrderedItems.length > 0 && (
+              <div style={{
+                marginBottom: '20px',
+                paddingBottom: '20px',
+                borderBottom: '1px solid #e0e0e0'
+              }}>
+                <h4 style={{color: '#7a0000', fontSize: '0.95rem', fontWeight: '600', marginBottom: '12px', fontFamily: "'Georgia', 'Garamond', serif"}}>Items Ordered:</h4>
+                {bulkOrderedItems.map((item, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 0',
+                    fontSize: '0.9rem',
+                    borderBottom: index < bulkOrderedItems.length - 1 ? '1px solid #f0f0f0' : 'none'
+                  }}>
+                    <div style={{flex: 1}}>
+                      <p style={{color: '#5c0000', fontWeight: '600', margin: '0 0 3px 0'}}>{item.name}</p>
+                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {item.qty} × ₹{item.price}</p>
+                    </div>
+                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="summary-row">
               <span>Total Items</span>
               <span>{totalQty}</span>
