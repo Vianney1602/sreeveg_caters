@@ -397,6 +397,15 @@ function App() {
     }));
   };
 
+  const updateBulkQty = (id, qty) => {
+    setBulkCart((prev) => {
+      if (!prev[id]) return prev;
+      const numericQty = parseInt(qty, 10);
+      const safeQty = Number.isFinite(numericQty) && numericQty > 0 ? numericQty : 1;
+      return { ...prev, [id]: { ...prev[id], qty: safeQty } };
+    });
+  };
+
   // Bulk order modal handlers
   const handleEventClick = (eventType) => {
     setSelectedEventType(eventType);
@@ -602,7 +611,7 @@ function App() {
       <BulkCartPage
         guestCount={bulkGuestCount}
         bulkCart={bulkCart}
-        setBulkCart={setBulkCart}
+        updateBulkQty={updateBulkQty}
         goBack={navigateToBulkMenu}
         clearCart={() => setBulkCart({})}
         initiatePayment={initiatePayment}

@@ -5,6 +5,7 @@ import "./cart.css";
 export default function BulkCartPage({
   bulkCart,
   guestCount,
+  updateBulkQty,
   goBack,
   clearCart,
   initiatePayment,
@@ -12,13 +13,17 @@ export default function BulkCartPage({
   paymentStatus,
   clearPaymentStatus,
 }) {
-  const items = Object.values(bulkCart);
+  const items = Object.values(bulkCart).map((item) => ({
+    ...item,
+    qty: item.qty || guestCount || 1,
+  }));
 
   const subtotal = items.reduce(
-    (sum, item) => sum + item.price * guestCount,
+    (sum, item) => sum + ((item.price || 0) * (item.qty || 0)),
     0
   );
   const total = subtotal;
+  const totalQty = items.reduce((sum, item) => sum + (item.qty || 0), 0);
 
   const isEmpty = items.length === 0;
 
@@ -33,6 +38,18 @@ export default function BulkCartPage({
   const [paymentMethod, setPaymentMethod] = useState(defaultPaymentMethod || "online"); // 'online' | 'cod'
   const [orderStatus, setOrderStatus] = useState(null); // { type, message, orderId }
   const [isSubmitting, setIsSubmitting] = useState(false); // Prevent duplicate submissions on slow network
+
+  const adjustQty = (id, delta) => {
+    const current = bulkCart[id]?.qty || guestCount || 1;
+    const nextQty = Math.max(1, current + delta);
+    if (typeof updateBulkQty === "function") updateBulkQty(id, nextQty);
+  };
+
+  const handleQtyInput = (id, value) => {
+    const parsed = parseInt(value, 10);
+    const nextQty = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    if (typeof updateBulkQty === "function") updateBulkQty(id, nextQty);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -57,7 +74,7 @@ export default function BulkCartPage({
     setIsSubmitting(true);
 
     // Build payload for backend
-    const menu_items = items.map((it) => ({ id: it.id, qty: guestCount, price: it.price }));
+    const menu_items = items.map((it) => ({ id: it.id, qty: it.qty, price: it.price }));
     const payload = {
       customer_name: name,
       phone_number: phone,
@@ -170,11 +187,34 @@ export default function BulkCartPage({
 
                 <div className="cart-item-info">
                   <h3>{item.name}</h3>
-                  <p>{guestCount} persons × ₹{item.price}</p>
+                  <p>{item.qty} persons × ₹{item.price}</p>
+                  <div className="qty-row">
+                    <button
+                      type="button"
+                      onClick={() => adjustQty(item.id, -1)}
+                      aria-label={`Decrease ${item.name} quantity`}
+                    >
+                      -
+                    </button>
+                    <input
+                      className="qty-input"
+                      type="number"
+                      min="1"
+                      value={item.qty}
+                      onChange={(e) => handleQtyInput(item.id, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustQty(item.id, 1)}
+                      aria-label={`Increase ${item.name} quantity`}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 <div className="cart-price">
-                  ₹{(item.price * guestCount).toFixed(2)}
+                  ₹{(((item.price || 0) * item.qty)).toFixed(2)}
                 </div>
               </div>
             ))}
@@ -295,7 +335,11 @@ export default function BulkCartPage({
 
               <div className="checkout-summary">
                 <div className="summary-line">
-                  <span>Total Guests</span>
+                  <span>Total Item Quantity</span>
+                  <span>{totalQty}</span>
+                </div>
+                <div className="summary-line">
+                  <span>Base Guest Count</span>
                   <span>{guestCount}</span>
                 </div>
                 <div className="summary-line total-line">

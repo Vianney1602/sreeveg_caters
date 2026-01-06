@@ -196,14 +196,19 @@ export default function BulkMenuPage({
   const toggleItem = (item) => {
     setBulkCart((prev) => {
       const copy = { ...prev };
-      if (copy[item.id]) delete copy[item.id];
-      else copy[item.id] = item;
+      const defaultQty = guestCount || 1;
+
+      if (copy[item.id]) {
+        delete copy[item.id];
+      } else {
+        copy[item.id] = { ...item, qty: defaultQty };
+      }
       return copy;
     });
   };
 
   const total = Object.values(bulkCart).reduce(
-    (sum, item) => sum + ((item.price || 0) * guestCount),
+    (sum, item) => sum + ((item.price || 0) * (item.qty || guestCount || 1)),
     0
   );
 
