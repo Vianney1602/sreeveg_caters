@@ -108,14 +108,18 @@ img {
   border-radius: 6px;
 }
 
-/* Desktop spacing to separate title and nav */
+/* Desktop layout: title hard-left, nav hard-right; keep mobile unchanged */
 @media (min-width: 1025px) {
   .header-content {
-    gap: 6rem;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 1rem 2.5rem;
+    gap: 1rem;
   }
 
   .header-left {
-    margin-right: 4rem;
+    margin-right: 0;
   }
 
   .header-nav {
