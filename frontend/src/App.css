@@ -47,14 +47,53 @@ img {
 }
 
 /* Header Flexbox Layout for Desktop */
+
+/* Header Flexbox Layout for Desktop */
 .header-content {
   display: flex;
-  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   width: 100%;
   padding: 0 24px;
   box-sizing: border-box;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+  text-align: left;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Responsive: Center header on mobile */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .header-left, .header-nav {
+    justify-content: center;
+    width: 100%;
+  }
+  .header-title {
+    text-align: center;
+    font-size: 1.5rem;
+  }
+  .header-nav {
+    gap: 8px;
+  }
 }
 
 .header-left {
