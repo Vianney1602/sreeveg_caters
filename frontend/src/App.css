@@ -108,6 +108,21 @@ img {
   border-radius: 6px;
 }
 
+/* Desktop spacing to separate title and nav */
+@media (min-width: 1025px) {
+  .header-content {
+    gap: 6rem;
+  }
+
+  .header-left {
+    margin-right: 4rem;
+  }
+
+  .header-nav {
+    margin-left: auto;
+  }
+}
+
 .nav-separator {
   color: #7a0000;
   font-weight: 400;
