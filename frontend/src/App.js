@@ -701,9 +701,6 @@ function App() {
       {/* Header */}
       <header className="header">
         <div className="header-content">
-          <div className="header-left">
-            <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
-          </div>
           <nav className="header-nav" aria-label="Primary">
             <button onClick={() => setShowMenuPage(true)}>View Menu</button>
             <span className="nav-separator" aria-hidden="true">|</span>
@@ -713,6 +710,9 @@ function App() {
             <span className="nav-separator" aria-hidden="true">|</span>
             <button onClick={() => setShowAdminLogin(true)}>Admin</button>
           </nav>
+          <div className="header-left">
+            <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
+          </div>
         </div>
       </header>
 
