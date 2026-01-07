@@ -703,10 +703,6 @@ function App() {
         <div className="header-content">
           <div className="header-left">
             <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
-            <div className="header-contact">
-              <span className="header-phone">📞 79044 79451</span>
-              <span className="header-email">📧 shanmugapriyaraja31@gmail.com</span>
-            </div>
           </div>
           <nav className="header-nav" aria-label="Primary">
             <button onClick={() => setShowMenuPage(true)}>View Menu</button>

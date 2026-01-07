@@ -767,6 +767,7 @@ body, .menu-container {
   gap: 18px;
   padding: 18px 22px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 /* ----- SEARCH BAR EXACT STYLE ----- */
@@ -809,11 +810,56 @@ body, .menu-container {
   outline: none;
   appearance: none;
   font-weight: 500;
+  min-width: 150px;
 
   /* yellow arrow */
   background-image: url("data:image/svg+xml;utf8,\ <svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%23f6c85f' viewBox='0 0 24 24'><path d='M7 10l5 5 5-5z'/></svg>");
   background-repeat: no-repeat;
   background-position: right 12px center;
+}
+
+/* Mobile responsive styles for menu controls */
+@media (max-width: 768px) {
+  .menu-controls {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 18px;
+  }
+
+  .menu-controls input {
+    width: 100%;
+    font-size: 14px;
+    padding: 12px 16px 12px 40px;
+  }
+
+  .menu-controls select {
+    width: 100%;
+    font-size: 14px;
+    padding: 12px 40px 12px 16px;
+    min-width: unset;
+  }
+}
+
+@media (max-width: 540px) {
+  .menu-controls {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .menu-controls input {
+    width: 100%;
+    font-size: 13px;
+    padding: 11px 16px 11px 40px;
+    height: 40px;
+  }
+
+  .menu-controls select {
+    width: 100%;
+    font-size: 13px;
+    padding: 11px 40px 11px 16px;
+    height: 40px;
+  }
 }
 
 /* ---------- GRID ---------- */
