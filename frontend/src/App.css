@@ -109,11 +109,12 @@ img {
   border-radius: 6px;
 }
 
-/* Desktop: Push title to left edge, nav to right edge */
+/* Desktop: Push title to left edge, nav to right edge with spacing */
 @media (min-width: 1025px) {
   .header-content {
     max-width: 100%;
     padding: 1rem 2.5rem;
+    gap: 0;
   }
 
   .header-left {
