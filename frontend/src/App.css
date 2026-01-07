@@ -88,6 +88,7 @@ img {
   gap: 0.5rem;
   padding: 0;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .header-nav button {
@@ -108,18 +109,15 @@ img {
   border-radius: 6px;
 }
 
-/* Desktop layout: title hard-left, nav hard-right; keep mobile unchanged */
+/* Desktop: Push title to left edge, nav to right edge */
 @media (min-width: 1025px) {
   .header-content {
-    max-width: none;
-    width: 100%;
-    margin: 0;
+    max-width: 100%;
     padding: 1rem 2.5rem;
-    gap: 1rem;
   }
 
   .header-left {
-    margin-right: 0;
+    margin-right: auto;
   }
 
   .header-nav {
