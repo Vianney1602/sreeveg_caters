@@ -180,30 +180,22 @@ function App() {
       if (savedGuestCount) {
         setBulkGuestCount(parseInt(savedGuestCount));
       }
-      
+
       // Check for saved page state (for customer flow)
       const savedPage = sessionStorage.getItem('_currentPage');
-      if (savedPage) {
-        switch(savedPage) {
-          case 'menu':
-            setShowMenuPage(true);
-            break;
-          case 'cart':
-            setShowCart(true);
-            break;
-          case 'bulkMenu':
-            setShowBulkMenu(true);
-            break;
-          case 'bulkCart':
-            setShowBulkCart(true);
-            break;
-          default:
-            setShowWelcome(true);
-        }
+      if (savedPage === 'menu') {
+        setShowMenuPage(true);
+      } else if (savedPage === 'cart') {
+        setShowCart(true);
+      } else if (savedPage === 'bulkMenu') {
+        setShowBulkMenu(true);
+      } else if (savedPage === 'bulkCart') {
+        setShowBulkCart(true);
       } else {
+          // Default to home page if no _currentPage is set
         setShowWelcome(true);
       }
-      
+
       // Ensure minimum loading time is met
       const elapsedTime = Date.now() - startTime;
       const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
@@ -258,7 +250,7 @@ function App() {
     } else if (showBulkCart) {
       sessionStorage.setItem('_currentPage', 'bulkCart');
     } else if (showWelcome) {
-      sessionStorage.removeItem('_currentPage');
+        sessionStorage.setItem('_currentPage', 'home');
     }
   }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showWelcome, initializing]);
   
