@@ -42,6 +42,7 @@ def get_menu():
         "price_per_plate": m.price_per_plate,
         "category": m.category,
         "is_vegetarian": m.is_vegetarian,
+        "is_speciality": m.is_speciality,
         "image_url": m.image_url,
         "description": m.description,
         "is_available": m.is_available,
@@ -60,6 +61,7 @@ def add_menu_item():
         category=categories,  # Store as JSON array
         price_per_plate=data["price"],
         is_vegetarian=data.get("veg", True),
+        is_speciality=data.get("is_speciality", False),
         image_url=data.get("image"),
         description=data.get("description")
     )
@@ -73,6 +75,7 @@ def add_menu_item():
         'price_per_plate': float(item.price_per_plate),
         'category': item.category,
         'is_vegetarian': item.is_vegetarian,
+        'is_speciality': item.is_speciality,
         'image_url': item.image_url,
         'description': item.description,
         'is_available': item.is_available,
@@ -108,6 +111,7 @@ def update_menu_item(id):
     
     item.price_per_plate = data.get("price", item.price_per_plate)
     item.is_vegetarian = data.get("veg", item.is_vegetarian)
+    item.is_speciality = data.get("is_speciality", item.is_speciality)
     item.image_url = data.get("image", item.image_url)
     item.description = data.get("description", item.description)
     item.is_available = data.get("is_available", item.is_available)
@@ -120,6 +124,7 @@ def update_menu_item(id):
         'price_per_plate': float(item.price_per_plate),
         'category': item.category,
         'is_vegetarian': item.is_vegetarian,
+        'is_speciality': item.is_speciality,
         'image_url': item.image_url,
         'description': item.description,
         'is_available': item.is_available,

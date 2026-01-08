@@ -246,7 +246,8 @@ export default function AdminDashboard({ onLogout }) {
           price: item.price_per_plate,
           description: item.description || '',
           available: item.is_available,
-          imageUrl: resolveImageUrl(item.image_url)
+          imageUrl: resolveImageUrl(item.image_url),
+          isSpeciality: item.is_speciality || false
         }));
 
         const merged = mapped.reduce((acc, curr) => {
@@ -462,6 +463,7 @@ export default function AdminDashboard({ onLogout }) {
         price: parseInt(formData.price, 10),
         description: formData.description,
         veg: true,
+        is_speciality: editingItem ? editForm.isSpeciality : newItem.isSpeciality || false
       };
       
       if (imageUrl) {
@@ -575,6 +577,7 @@ export default function AdminDashboard({ onLogout }) {
       price: item.price.toString(),
       description: item.description,
       image: item.imageUrl || '',
+      isSpeciality: item.isSpeciality || false
     });
     setEditImageFile(null);
     setShowAddForm(true);
@@ -585,7 +588,7 @@ export default function AdminDashboard({ onLogout }) {
     setEditingItem(null);
     setEditForm({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
     setEditImageFile(null);
-    setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
+    setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '', isSpeciality: false });
     setNewImageFile(null);
   };
 
@@ -954,6 +957,22 @@ export default function AdminDashboard({ onLogout }) {
                       </button>
                     )}
                   </div>
+                  <div className="speciality-toggle-row">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={editingItem ? editForm.isSpeciality : newItem.isSpeciality || false}
+                        onChange={e => {
+                          if (editingItem) {
+                            setEditForm({ ...editForm, isSpeciality: e.target.checked });
+                          } else {
+                            setNewItem({ ...newItem, isSpeciality: e.target.checked });
+                          }
+                        }}
+                      />
+                      <span>Mark as Speciality (show in "Our Specialities")</span>
+                    </label>
+                  </div>
                 </form>
               </div>
             )}
@@ -961,7 +980,7 @@ export default function AdminDashboard({ onLogout }) {
             {/* Menu Items List */}
             <div className="menu-list">
               {menuItems.map(item => (
-                <div key={item.id} className="menu-item-row">
+                <div key={item.id} className={`menu-item-row${item.isSpeciality ? ' special-row' : ''}`}>
                   <div className="item-image">
                     {item.imageUrl ? (
                       <img
@@ -978,6 +997,7 @@ export default function AdminDashboard({ onLogout }) {
                     )}
                   </div>
                   <div className="item-details">
+                    {item.isSpeciality && <span className="speciality-badge">🌟 Speciality</span>}
                     <div className="item-name">{item.name}</div>
                     <div className="item-categories">
                       {(item.categories || []).map((cat, idx) => (

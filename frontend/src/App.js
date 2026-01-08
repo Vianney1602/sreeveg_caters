@@ -798,28 +798,43 @@ function App() {
         </div>
       </section>
 
-      {/* Specialities Section */}
+      {/* Specialities Section (Admin-controlled) */}
       <section className="section">
         <h2>Our Specialities</h2>
         <div className="special-grid">
-          <div className="special-card">
-            <div className="special-img">
-              <img src="/images/biriyani.png" alt="Biryani" />
-            </div>
-            <span>Aromatic Biryani</span>
-          </div>
-          <div className="special-card">
-            <div className="special-img">
-              <img src="/images/panner_butter_masala.png" alt="Curries" />
-            </div>
-            <span>Rich Curries</span>
-          </div>
-          <div className="special-card">
-            <div className="special-img">
-              <img src="/images/gulab-jamun.jpg" alt="Desserts" />
-            </div>
-            <span>Sweet Delights</span>
-          </div>
+          {(() => {
+            // Try to get menu items from MenuPage cache or window if available
+            let menuItems = [];
+            if (window && window.__MENU_ITEMS__) {
+              menuItems = window.__MENU_ITEMS__;
+            } else if (window && window.menuData) {
+              menuItems = window.menuData;
+            }
+            // Fallback: try to get from sessionStorage if available
+            if (!menuItems.length) {
+              try {
+                const cached = sessionStorage.getItem('menu_items');
+                if (cached) menuItems = JSON.parse(cached);
+              } catch {}
+            }
+            // If still empty, show a message
+            if (!menuItems.length) {
+              return <div style={{ width: '100%', textAlign: 'center', color: '#b71c1c', fontWeight: 'bold', fontSize: '1.2rem', padding: '2rem 0' }}>Specialities will appear here once set by admin.</div>;
+            }
+            // Show up to 3 specialities
+            const specialities = menuItems.filter(item => item.is_speciality).slice(0, 3);
+            if (!specialities.length) {
+              return <div style={{ width: '100%', textAlign: 'center', color: '#b71c1c', fontWeight: 'bold', fontSize: '1.2rem', padding: '2rem 0' }}>No specialities have been set by admin yet.</div>;
+            }
+            return specialities.map(item => (
+              <div className="special-card" key={item.item_id || item.id}>
+                <div className="special-img">
+                  <img src={item.image_url || item.image || "/images/default-food.png"} alt={item.item_name || item.name} />
+                </div>
+                <span>{item.item_name || item.name}</span>
+              </div>
+            ));
+          })()}
         </div>
       </section>
 
