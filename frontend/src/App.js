@@ -700,20 +700,18 @@ function App() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <div className="header-content">
-          <div className="header-left">
-            <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
-          </div>
-          <nav className="header-nav" aria-label="Primary">
-            <button onClick={() => setShowMenuPage(true)}>View Menu</button>
-            <span className="nav-separator" aria-hidden="true">|</span>
-            <button onClick={() => setShowCart(true)}>
-              Cart
-            </button>
-            <span className="nav-separator" aria-hidden="true">|</span>
-            <button onClick={() => setShowAdminLogin(true)}>Admin</button>
-          </nav>
+        <div className="header-brand">
+          <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
         </div>
+        <nav className="header-nav" aria-label="Primary">
+          <button onClick={() => setShowMenuPage(true)}>View Menu</button>
+          <span className="nav-separator" aria-hidden="true">|</span>
+          <button onClick={() => setShowCart(true)}>
+            Cart
+          </button>
+          <span className="nav-separator" aria-hidden="true">|</span>
+          <button onClick={() => setShowAdminLogin(true)}>Admin</button>
+        </nav>
       </header>
 
       {/* Hero Section */}

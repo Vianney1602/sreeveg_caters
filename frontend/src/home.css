@@ -715,28 +715,33 @@
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-/* HEADER LEFT SECTION - Title and Contact */
-.header-left {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2rem;
+  justify-content: space-between;
+  padding: 0 2rem;
+  min-height: 70px;
 }
 
-/* HEADER CONTENT WRAPPER */
-.header-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 1rem 2rem;
+/* Brand (Hotel Name) on the left */
+.header-brand {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  justify-content: flex-start;
-  gap: 2rem;
-  flex-wrap: nowrap;
+  flex: 1 1 auto;
 }
+
+/* Nav (Buttons) on the right */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+
+
+
 
 .header-title {
   color: #7a0000;
