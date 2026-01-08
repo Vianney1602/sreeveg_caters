@@ -11,24 +11,31 @@ export default function AdminLogin({ goBack, onLoginSuccess }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
     if (!username || !password) {
-      setError('Username and password are required');
+      setError("Username and password are required");
       return;
     }
-    
     setLoading(true);
-    const result = await authService.login(username, password);
-    
-    if (result.success) {
-      setUsername('');
-      setPassword('');
-      onLoginSuccess();
-    } else {
-      setError(result.error);
+    try {
+      const result = await authService.login(username, password);
+      if (result.success) {
+        setUsername("");
+        setPassword("");
+        onLoginSuccess();
+      } else {
+        setError(result.error || "Login failed. Please check your credentials.");
+        // Log error for debugging
+        if (window && window.console) {
+          console.error("Admin login failed:", result.error);
+        }
+      }
+    } catch (err) {
+      setError("Network or server error. Please try again later.");
+      if (window && window.console) {
+        console.error("Admin login exception:", err);
+      }
     }
-    
     setLoading(false);
   };
 
