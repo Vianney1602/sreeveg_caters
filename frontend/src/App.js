@@ -804,21 +804,21 @@ function App() {
         <div className="special-grid">
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/tiffin items.png" alt="Tiffin" />
+              <img src="/images/tiffin-items.png" alt="Tiffin"/>
             </div>
-            <span>Tiffin</span>
+            <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Tiffin</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/lunch items.png" alt="Lunch Items" />
+              <img src="/images/Lunch-items.png" alt="Lunch"/>
             </div>
-            <span>Lunch</span>
+            <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Lunch</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/dinner items.png" alt="Dinner Items" />
+              <img src="/images/dinner-items.png" alt="Dinner"/>
             </div>
-            <span>Dinner</span>
+            <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Dinner</span>
           </div>
         </div>
       </section>
