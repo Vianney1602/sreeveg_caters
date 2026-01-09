@@ -800,7 +800,7 @@ function App() {
 
       {/* Specialities Section */}
       <section className="section">
-        <h2>Our Specialities</h2>
+        <h2 className="section-title">Our Specialities</h2>
         <div className="special-grid">
           <div className="special-card">
             <div className="special-img">
