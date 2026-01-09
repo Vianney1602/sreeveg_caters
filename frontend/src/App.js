@@ -595,7 +595,6 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowMenuPage(false);
-            setShowWelcome(true);
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -616,7 +615,6 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowBulkMenu(false);
-            setShowWelcome(true);
             setIsPageTransitioning(false);
           }, 3500);
         }}
