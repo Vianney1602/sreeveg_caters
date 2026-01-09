@@ -804,21 +804,21 @@ function App() {
         <div className="special-grid">
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/idli-sambar.jpg" alt="Idli Sambar" />
+              <img src="/images/tiffin items.png" alt="Tiffin" />
             </div>
-            <span>Idli Sambar (Tiffin)</span>
+            <span>Tiffin</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/biriyani.png" alt="Veg Biryani" />
+              <img src="/images/lunch items.png" alt="Lunch Items" />
             </div>
-            <span>Veg Biryani (Lunch)</span>
+            <span>Lunch</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/paneer-butter-masala.jpg" alt="Paneer Butter Masala" />
+              <img src="/images/dinner items.png" alt="Dinner Items" />
             </div>
-            <span>Paneer Butter Masala (Dinner)</span>
+            <span>Dinner</span>
           </div>
         </div>
       </section>
