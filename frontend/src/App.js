@@ -798,25 +798,25 @@ function App() {
         </div>
       </section>
 
-      {/* Specialities Section (Admin-controlled) */}
+      {/* Specialities Section */}
       <section className="section">
         <h2>Our Specialities</h2>
         <div className="special-grid">
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/tiffin-items.png"/>
+              <img src="/images/tiffin-items.png" alt="Tiffin Speciality"/>
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Tiffin</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/Lunch-items.png"/>
+              <img src="/images/Lunch-items.png" alt="Lunch Speciality"/>
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Lunch</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/dinner-items.png"/>
+              <img src="/images/dinner-items.png" alt="Dinner Speciality"/>
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Dinner</span>
           </div>
