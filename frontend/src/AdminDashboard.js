@@ -247,7 +247,6 @@ export default function AdminDashboard({ onLogout }) {
           description: item.description || '',
           available: item.is_available,
           imageUrl: resolveImageUrl(item.image_url),
-          isSpeciality: item.is_speciality || false
         }));
 
         const merged = mapped.reduce((acc, curr) => {
@@ -463,7 +462,6 @@ export default function AdminDashboard({ onLogout }) {
         price: parseInt(formData.price, 10),
         description: formData.description,
         veg: true,
-        is_speciality: editingItem ? editForm.isSpeciality : newItem.isSpeciality || false
       };
       
       if (imageUrl) {

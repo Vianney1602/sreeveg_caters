@@ -63,7 +63,6 @@ class MenuItem(db.Model):
     category = db.Column(db.JSON)  # Changed to JSON to support multiple categories
     price_per_plate = db.Column(db.Float)
     is_vegetarian = db.Column(db.Boolean, default=True)
-    is_speciality = db.Column(db.Boolean, default=False)  # Admin can mark as speciality
     image_url = db.Column(db.String(255))
     description = db.Column(db.String(255))
     total_orders_count = db.Column(db.Integer, default=0)
