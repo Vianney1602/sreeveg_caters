@@ -108,6 +108,9 @@ function App() {
   // Navigation helper functions with loading animation
   const navigateToCart = () => {
     setIsPageTransitioning(true);
+    // Reset order state for new order
+    setOrderCompleted(false);
+    setOrderedItems([]);
     setTimeout(() => {
       setShowMenuPage(false);
       setShowBulkMenu(false);
