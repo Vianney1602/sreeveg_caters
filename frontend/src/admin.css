@@ -190,6 +190,50 @@
   color: #a11a1a;
 }
 
+/* Order Placement Detail Form Styling */
+.order-form {
+  padding: 2rem 1.5rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.order-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.order-form input,
+.order-form textarea,
+.order-form select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.order-form .payment-method {
+  margin-bottom: 1.5rem;
+}
+
+.order-form .radio-group {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.order-form .radio-group label {
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
 /* Mobile adjustments without changing desktop styles */
 @media (max-width: 768px) {
   .admin-login-container {
@@ -238,5 +282,9 @@
 
   .back-link {
     font-size: 0.95rem;
+  }
+
+  .order-form {
+    padding: 1rem 0.5rem;
   }
 }
