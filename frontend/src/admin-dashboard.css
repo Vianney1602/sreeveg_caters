@@ -1488,3 +1488,53 @@
     width: 100%;
   }
 }
+
+/* Bulk Order Form Styling */
+.bulk-order-form {
+  padding: 2rem 1.5rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.bulk-order-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.bulk-order-form input,
+.bulk-order-form textarea,
+.bulk-order-form select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.bulk-order-form .payment-method {
+  margin-bottom: 1.5rem;
+}
+
+.bulk-order-form .radio-group {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.bulk-order-form .radio-group label {
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+@media (max-width: 600px) {
+  .bulk-order-form {
+    padding: 1rem 0.5rem;
+  }
+}

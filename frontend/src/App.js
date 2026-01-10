@@ -831,7 +831,7 @@ function App() {
           </div>
           <div>
             <h4>Experienced Chefs</h4>
-            <p>Our team of experienced chefs brings years of expertise in vegetarian cuisine.</p>
+            <p>Our team of experienced chefs brings years of expertise in vegetarian cuiHey isine.</p>
           </div>
           <div>
             <h4>Reliable Service</h4>
