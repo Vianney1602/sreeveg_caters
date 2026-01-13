@@ -384,6 +384,26 @@ export default function AdminDashboard({ onLogout }) {
 
     socketService.on('order_created', onOrderCreated);
 
+    // Listen for cancellation requests
+    const onCancellationRequested = (data) => {
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === data.order_id
+            ? { ...order, cancellationRequested: true, cancellationData: data }
+            : order
+        )
+      );
+
+      if (Notification.permission === 'granted') {
+        new Notification('Order Cancellation Request', {
+          body: `Customer ${data.customer_name} requested to cancel Order #${data.order_id}`,
+          icon: '/images/chef.png'
+        });
+      }
+    };
+
+    socketService.on('cancellation_requested', onCancellationRequested);
+
     // Handle socket reconnection - helps with network recovery
     const handleReconnect = () => {
       // On reconnect, we might have missed some orders during disconnection
@@ -403,6 +423,7 @@ export default function AdminDashboard({ onLogout }) {
       socketService.off('order_status_changed', onOrderStatusChanged);
       socketService.off('customer_created', onCustomerCreated);
       socketService.off('order_created', onOrderCreated);
+      socketService.off('cancellation_requested', onCancellationRequested);
       
       // Clean up connect listener
       const socket = socketService.getSocket();
@@ -651,6 +672,36 @@ export default function AdminDashboard({ onLogout }) {
       .catch(err => {
         alert('Failed to update order status');
       });
+  };
+
+  const handleCancellationApproval = async (orderId, approved) => {
+    try {
+      const token = sessionStorage.getItem('_st');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      await axios.post(`/api/orders/${orderId}/approve-cancel`, { approved }, { headers });
+      
+      if (approved) {
+        // Update local state immediately (will also be updated via socket)
+        setOrders(orders.map(order =>
+          order.id === orderId 
+            ? { ...order, status: 'Cancelled', cancellationRequested: false }
+            : order
+        ));
+        showToast('Order cancelled successfully', 'success');
+      } else {
+        // Remove cancellation request flag
+        setOrders(orders.map(order =>
+          order.id === orderId 
+            ? { ...order, cancellationRequested: false }
+            : order
+        ));
+        showToast('Cancellation request rejected', 'info');
+      }
+    } catch (err) {
+      showToast('Failed to process cancellation request', 'error');
+      console.error('Cancellation approval error:', err);
+    }
   };
 
   if (loading) {
@@ -1063,9 +1114,18 @@ export default function AdminDashboard({ onLogout }) {
                 <div key={order.id} className="order-card">
                   <div className="order-card-header">
                     <div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <strong>{order.orderId}</strong>
                         <span className={`status-badge ${statusToClass(order.status)}`}>{order.status}</span>
+                        {order.cancellationRequested && (
+                          <span className="status-badge" style={{ 
+                            background: '#fbbf24', 
+                            color: '#92400e',
+                            animation: 'pulse 2s infinite'
+                          }}>
+                            ⚠️ Cancellation Requested
+                          </span>
+                        )}
                       </div>
                       <div className="order-meta">{order.customerName} • {order.phone}</div>
                     </div>
@@ -1117,6 +1177,61 @@ export default function AdminDashboard({ onLogout }) {
                             ))}
                           </div>
                         </div>
+
+                        {order.cancellationRequested && (
+                          <div className="cancellation-approval-section" style={{
+                            marginTop: '1.5rem',
+                            padding: '1.5rem',
+                            background: 'linear-gradient(135deg, #fff8e6, #ffe6cc)',
+                            border: '2px solid #fbbf24',
+                            borderRadius: '12px'
+                          }}>
+                            <h4 style={{ color: '#92400e', marginTop: 0 }}>⚠️ Cancellation Request</h4>
+                            <p style={{ margin: '0.5rem 0 1rem', color: '#78350f' }}>
+                              Customer has requested to cancel this order. Please approve or reject the request.
+                            </p>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                              <button
+                                onClick={() => handleCancellationApproval(order.id, true)}
+                                style={{
+                                  flex: 1,
+                                  background: '#dc2626',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '0.75rem 1rem',
+                                  fontSize: '1rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease'
+                                }}
+                                onMouseOver={(e) => e.target.style.background = '#b91c1c'}
+                                onMouseOut={(e) => e.target.style.background = '#dc2626'}
+                              >
+                                ✓ Approve Cancellation
+                              </button>
+                              <button
+                                onClick={() => handleCancellationApproval(order.id, false)}
+                                style={{
+                                  flex: 1,
+                                  background: '#6b7280',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '0.75rem 1rem',
+                                  fontSize: '1rem',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.3s ease'
+                                }}
+                                onMouseOver={(e) => e.target.style.background = '#4b5563'}
+                                onMouseOut={(e) => e.target.style.background = '#6b7280'}
+                              >
+                                ✗ Reject Request
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -7,6 +7,9 @@ export default function OrderHistory({ goBack, user }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -59,8 +62,44 @@ export default function OrderHistory({ goBack, user }) {
     switch (status?.toLowerCase()) {
       case 'out for delivery': return '#f97316';
       case 'delivered': return '#059669';
+      case 'cancelled': return '#dc2626';
       default: return '#6b7280';
     }
+  };
+
+  const handleCancelClick = (order) => {
+    setSelectedOrder(order);
+    setShowCancelConfirm(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!selectedOrder) return;
+    
+    setCancelLoading(true);
+    setError('');
+    
+    try {
+      const token = sessionStorage.getItem('_userToken');
+      const response = await axios.post(
+        `/api/orders/${selectedOrder.order_id}/request-cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      alert(response.data.message || 'Cancellation request sent to admin. You will be notified once approved.');
+      setShowCancelConfirm(false);
+      setSelectedOrder(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to request cancellation');
+      alert(err.response?.data?.error || 'Failed to request cancellation');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const canCancelOrder = (order) => {
+    const status = order.status?.toLowerCase();
+    return status !== 'delivered' && status !== 'cancelled';
   };
 
   if (loading) {
@@ -165,8 +204,115 @@ export default function OrderHistory({ goBack, user }) {
               <div className="order-total">
                 <strong>Total Amount:</strong> ₹{order.total_amount.toFixed(2)}
               </div>
+
+              {canCancelOrder(order) && (
+                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                  <button
+                    onClick={() => handleCancelClick(order)}
+                    style={{
+                      background: '#dc2626',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '0.75rem 2rem',
+                      fontSize: '1rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.target.style.background = '#b91c1c';
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 6px 16px rgba(220, 38, 38, 0.4)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.background = '#dc2626';
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.3)';
+                    }}
+                  >
+                    Cancel Order
+                  </button>
+                </div>
+              )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Cancellation Confirmation Modal */}
+      {showCancelConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            border: '2px solid #d4af37'
+          }}>
+            <h3 style={{ color: '#7a0000', marginTop: 0, marginBottom: '1rem' }}>
+              Confirm Order Cancellation
+            </h3>
+            <p style={{ color: '#4a4a4a', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+              Are you sure you want to cancel Order #{selectedOrder?.order_id}?
+              <br /><br />
+              <strong>This request will be sent to admin for approval.</strong> You will be notified once the admin approves your cancellation request.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowCancelConfirm(false);
+                  setSelectedOrder(null);
+                }}
+                disabled={cancelLoading}
+                style={{
+                  background: '#6b7280',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                No, Keep Order
+              </button>
+              <button
+                onClick={handleCancelConfirm}
+                disabled={cancelLoading}
+                style={{
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.75rem 1.5rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: cancelLoading ? 'not-allowed' : 'pointer',
+                  opacity: cancelLoading ? 0.6 : 1,
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {cancelLoading ? 'Requesting...' : 'Yes, Cancel Order'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
