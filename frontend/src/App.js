@@ -681,7 +681,7 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
-          navigate('/');
+          navigate(-1);
         }}
         goToHome={() => {
           setShowUserSignUp(false);
@@ -705,7 +705,7 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
-          navigate('/');
+          navigate(-1);
         }}
         goToHome={() => {
           setShowUserSignIn(false);
