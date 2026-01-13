@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import authService from "./services/authService";
 import socketService from "./services/socketService";
@@ -19,10 +18,6 @@ import UserAccount from "./UserAccount";
 import "./home.css";
 
 function App() {
-  // React Router hooks for navigation and location
-  const navigate = useNavigate();
-  const location = useLocation();
-  
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
@@ -130,7 +125,6 @@ function App() {
       setShowMenuPage(false);
       setShowBulkMenu(false);
       setShowCart(true);
-      navigate('/cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -141,7 +135,6 @@ function App() {
       setShowCart(false);
       setShowBulkCart(false);
       setShowMenuPage(true);
-      navigate('/menu');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -151,7 +144,6 @@ function App() {
     setTimeout(() => {
       setShowBulkMenu(false);
       setShowBulkCart(true);
-      navigate('/bulk-cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -161,7 +153,6 @@ function App() {
     setTimeout(() => {
       setShowBulkCart(false);
       setShowBulkMenu(true);
-      navigate('/bulk-menu');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -218,47 +209,10 @@ function App() {
         setBulkGuestCount(parseInt(savedGuestCount));
       }
 
-      // Sync state with URL on initial load
-      const path = location.pathname;
-      if (path === '/menu') {
-        setShowMenuPage(true);
-        setShowWelcome(false);
-      } else if (path === '/cart') {
-        setShowCart(true);
-        setShowWelcome(false);
-      } else if (path === '/bulk-menu') {
-        setShowBulkMenu(true);
-        setShowWelcome(false);
-      } else if (path === '/bulk-cart') {
-        setShowBulkCart(true);
-        setShowWelcome(false);
-      } else if (path === '/admin-login') {
-        setShowAdminLogin(true);
-        setShowWelcome(false);
-      } else if (path === '/signup') {
-        setShowUserSignUp(true);
-        setShowWelcome(false);
-      } else if (path === '/signin') {
-        setShowUserSignIn(true);
-        setShowWelcome(false);
-      } else if (path === '/order-history') {
-        setShowOrderHistory(true);
-        setShowWelcome(false);
-      } else if (path === '/account') {
-        setShowUserAccount(true);
-        setShowWelcome(false);
-      } else {
-        // Default to home page
-        // Only show welcome page if never dismissed before
-        const hasSeenWelcome = sessionStorage.getItem('_showWelcome');
-        if (hasSeenWelcome === 'false') {
-          setShowWelcome(false);
-        } else {
-          setShowWelcome(true);
-        }
-        if (path !== '/') {
-          navigate('/', { replace: true });
-        }
+      // Check if welcome page has been seen
+      const hasSeenWelcome = sessionStorage.getItem('_showWelcome');
+      if (hasSeenWelcome !== 'false') {
+        setShowWelcome(true);
       }
 
       // Ensure minimum loading time is met
@@ -301,40 +255,6 @@ function App() {
       socketService.disconnect();
     };
   }, []);
-  
-  // Single unified effect to handle URL and state synchronization
-  useEffect(() => {
-    if (initializing) return;
-    
-    const path = location.pathname;
-    
-    // Determine which page should be shown based on URL
-    const shouldShow = {
-      welcome: path === '/',
-      menu: path === '/menu',
-      cart: path === '/cart',
-      bulkMenu: path === '/bulk-menu',
-      bulkCart: path === '/bulk-cart',
-      adminLogin: path === '/admin-login',
-      userSignUp: path === '/signup',
-      userSignIn: path === '/signin',
-      orderHistory: path === '/order-history',
-      userAccount: path === '/account'
-    };
-    
-    // Only update if state doesn't match URL (prevents loops)
-    if (showWelcome !== shouldShow.welcome) setShowWelcome(shouldShow.welcome);
-    if (showMenuPage !== shouldShow.menu) setShowMenuPage(shouldShow.menu);
-    if (showCart !== shouldShow.cart) setShowCart(shouldShow.cart);
-    if (showBulkMenu !== shouldShow.bulkMenu) setShowBulkMenu(shouldShow.bulkMenu);
-    if (showBulkCart !== shouldShow.bulkCart) setShowBulkCart(shouldShow.bulkCart);
-    if (showAdminLogin !== shouldShow.adminLogin) setShowAdminLogin(shouldShow.adminLogin);
-    if (showUserSignUp !== shouldShow.userSignUp) setShowUserSignUp(shouldShow.userSignUp);
-    if (showUserSignIn !== shouldShow.userSignIn) setShowUserSignIn(shouldShow.userSignIn);
-    if (showOrderHistory !== shouldShow.orderHistory) setShowOrderHistory(shouldShow.orderHistory);
-    if (showUserAccount !== shouldShow.userAccount) setShowUserAccount(shouldShow.userAccount);
-    
-  }, [location.pathname, initializing]);
   
   // Persist order completion status
   useEffect(() => {
@@ -532,7 +452,6 @@ function App() {
     setOrderType("bulk");
     setShowBulkOrderModal(false);
     setShowBulkMenu(true);
-    navigate('/bulk-menu');
   };
 
   const handleBulkOrderModalClose = () => {
@@ -626,7 +545,6 @@ function App() {
           authService.logout();
           setIsAdminLoggedIn(false);
           setShowWelcome(true);
-          navigate('/');
           sessionStorage.removeItem('_currentPage'); // Clear saved page state
         }}
         stats={dashboardStats}
@@ -640,7 +558,6 @@ function App() {
         goBack={() => {
           setShowAdminLogin(false);
           setShowWelcome(true);
-          navigate('/');
         }}
         onLoginSuccess={() => {
           // Reset all other UI states to ensure clean dashboard render
@@ -661,13 +578,11 @@ function App() {
       <WelcomePage
         goUser={() => {
           setShowWelcome(false);
-          sessionStorage.setItem('_showWelcome', 'false');
-          navigate('/', { replace: true });
+          setShowUserSignUp(true);
         }}
         goAdmin={() => {
           setShowWelcome(false);
           setShowAdminLogin(true);
-          navigate('/admin-login');
         }}
       />
     );
@@ -678,20 +593,19 @@ function App() {
         goToSignIn={() => {
           setShowUserSignUp(false);
           setShowUserSignIn(true);
-          navigate('/signin');
         }}
         goBack={() => {
-          navigate(-1);
+          setShowUserSignUp(false);
+          setShowWelcome(true);
         }}
         onSignUpSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
-          navigate(-1);
+          sessionStorage.setItem('_showWelcome', 'false');
         }}
         goToHome={() => {
           setShowUserSignUp(false);
-          navigate('/');
         }}
       />
     );
@@ -702,20 +616,19 @@ function App() {
         goToSignUp={() => {
           setShowUserSignIn(false);
           setShowUserSignUp(true);
-          navigate('/signup');
         }}
         goBack={() => {
-          navigate(-1);
+          setShowUserSignIn(false);
+          setShowWelcome(true);
         }}
         onSignInSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
-          navigate(-1);
+          sessionStorage.setItem('_showWelcome', 'false');
         }}
         goToHome={() => {
           setShowUserSignIn(false);
-          navigate('/');
         }}
       />
     );
@@ -725,7 +638,7 @@ function App() {
       <OrderHistory
         user={currentUser}
         goBack={() => {
-          navigate(-1);
+          setShowOrderHistory(false);
         }}
       />
     );
@@ -741,21 +654,17 @@ function App() {
           setCurrentUser(null);
           setShowUserAccount(false);
           setShowWelcome(true);
-          navigate('/');
         }}
         goToOrderHistory={() => {
           setShowUserAccount(false);
           setShowOrderHistory(true);
-          navigate('/order-history');
         }}
         goToMenu={() => {
           setShowUserAccount(false);
           setShowMenuPage(true);
-          navigate('/menu');
         }}
         goToHome={() => {
           setShowUserAccount(false);
-          navigate('/');
         }}
       />
     );
@@ -767,7 +676,6 @@ function App() {
           setTimeout(() => {
             setShowCart(false);
             setShowMenuPage(true);
-            navigate('/menu');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -790,7 +698,6 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowMenuPage(false);
-            navigate('/');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -811,7 +718,6 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowBulkMenu(false);
-            navigate('/');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -893,12 +799,10 @@ function App() {
         <nav className="header-nav" aria-label="Primary">
           <button onClick={() => {
             setShowMenuPage(true);
-            navigate('/menu');
           }}>View Menu</button>
           <span className="nav-separator" aria-hidden="true">|</span>
           <button onClick={() => {
             setShowCart(true);
-            navigate('/cart');
           }}>
             Cart
           </button>
@@ -907,16 +811,29 @@ function App() {
             <>
               <button onClick={() => {
                 setShowUserAccount(true);
-                navigate('/account');
               }}>
                 My Account
               </button>
               <span className="nav-separator" aria-hidden="true">|</span>
             </>
-          ) : null}
+          ) : (
+            <>
+              <button onClick={() => {
+                setShowUserSignIn(true);
+              }}>
+                Sign In
+              </button>
+              <span className="nav-separator" aria-hidden="true">|</span>
+              <button onClick={() => {
+                setShowUserSignUp(true);
+              }}>
+                Sign Up
+              </button>
+              <span className="nav-separator" aria-hidden="true">|</span>
+            </>
+          )}
           <button onClick={() => {
             setShowAdminLogin(true);
-            navigate('/admin-login');
           }}>Admin</button>
         </nav>
       </header>
@@ -963,10 +880,8 @@ function App() {
               onClick={() => {
                 if (orderType === "individual") {
                   setShowMenuPage(true);
-                  navigate('/menu');
                 } else {
                   setShowBulkMenu(true);
-                  navigate('/bulk-menu');
                 }
               }}
             >
@@ -1088,12 +1003,10 @@ function App() {
           <h3>Quick Links</h3>
           <button className="footer-link" onClick={() => {
             setShowMenuPage(true);
-            navigate('/menu');
           }}>Menu</button>
           <button className="footer-link" onClick={() => setOrderType("bulk")}>Bulk Orders</button>
           <button className="footer-link" onClick={() => {
             setShowAdminLogin(true);
-            navigate('/admin-login');
           }}>Admin</button>
         </div>
         <div>
