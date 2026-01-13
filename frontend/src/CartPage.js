@@ -14,6 +14,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
   const [orderResult, setOrderResult] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null); // { type: 'success'|'error', message: string }
   const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false); // Prevent duplicate submissions on slow network
 
   const cartItems = Object.values(cart);
 
@@ -38,11 +39,18 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
 
   const handleCheckout = (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions during network delay
+    if (isSubmitting) {
+      return;
+    }
+    
     if (!(formData.name && formData.phone && formData.email && formData.address)) {
       setFormError('Please fill all required fields');
       return;
     }
     setFormError(''); // Clear error if form is valid
+    setIsSubmitting(true);
 
     // Build payload to match backend expectations
     const payload = {
@@ -102,6 +110,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           });
           // Auto-hide error message after 5 seconds
           setTimeout(() => setOrderStatus(null), 5000);
+        })
+        .finally(() => {
+          setIsSubmitting(false);
         });
     } else {
       // Online Payment - proceed with Razorpay
@@ -168,6 +179,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           });
           // Auto-hide error message after 5 seconds
           setTimeout(() => setOrderStatus(null), 5000);
+        })
+        .finally(() => {
+          setIsSubmitting(false);
         });
     }
   };
@@ -472,8 +486,8 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                   </div>
                 </div>
 
-                <button type="submit" className="place-order-btn">
-                  Place Order
+                <button type="submit" className="place-order-btn" disabled={isSubmitting}>
+                  {isSubmitting ? 'Processing...' : 'Place Order'}
                 </button>
               </form>
             </div>

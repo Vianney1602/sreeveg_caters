@@ -346,6 +346,54 @@ function App() {
     }
   }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showAdminLogin, showUserSignUp, showUserSignIn, showOrderHistory, showUserAccount, showWelcome, initializing, location.pathname, navigate, isPageTransitioning]);
   
+  // Handle browser back button (including mobile back button)
+  useEffect(() => {
+    if (initializing) return;
+    
+    const handleLocationChange = () => {
+      const path = location.pathname;
+      
+      // Reset all page states first
+      setShowWelcome(false);
+      setShowMenuPage(false);
+      setShowCart(false);
+      setShowBulkMenu(false);
+      setShowBulkCart(false);
+      setShowAdminLogin(false);
+      setShowUserSignUp(false);
+      setShowUserSignIn(false);
+      setShowOrderHistory(false);
+      setShowUserAccount(false);
+      
+      // Then set the correct page based on URL
+      if (path === '/menu') {
+        setShowMenuPage(true);
+      } else if (path === '/cart') {
+        setShowCart(true);
+      } else if (path === '/bulk-menu') {
+        setShowBulkMenu(true);
+      } else if (path === '/bulk-cart') {
+        setShowBulkCart(true);
+      } else if (path === '/admin-login') {
+        setShowAdminLogin(true);
+      } else if (path === '/signup') {
+        setShowUserSignUp(true);
+      } else if (path === '/signin') {
+        setShowUserSignIn(true);
+      } else if (path === '/order-history') {
+        setShowOrderHistory(true);
+      } else if (path === '/account') {
+        setShowUserAccount(true);
+      } else {
+        // Default to home
+        setShowWelcome(true);
+      }
+    };
+    
+    // Call once on mount to sync with current location
+    handleLocationChange();
+  }, [location.pathname, initializing]);
+  
   // Persist order completion status
   useEffect(() => {
     sessionStorage.setItem('_orderCompleted', orderCompleted ? 'true' : 'false');
