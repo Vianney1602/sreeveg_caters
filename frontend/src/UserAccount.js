@@ -127,19 +127,19 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
         className="back-btn" 
         onClick={goToHome}
         style={{
-          marginBottom: '2.5rem',
-          padding: '0.75rem 1.5rem',
+          marginBottom: '1.5rem',
+          padding: '0.5rem 1rem',
           background: '#7a0000',
           color: '#f5c542',
           border: 'none',
-          borderRadius: '8px',
-          fontSize: '1rem',
+          borderRadius: '6px',
+          fontSize: '0.875rem',
           fontWeight: 600,
           cursor: 'pointer',
           transition: 'all 0.3s ease',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem',
+          gap: '0.4rem',
           width: 'fit-content'
         }}
         onMouseOver={(e) => {
