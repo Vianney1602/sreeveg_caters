@@ -602,6 +602,7 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
+          setShowWelcome(false);
           sessionStorage.setItem('_showWelcome', 'false');
         }}
         goToHome={() => {
@@ -625,6 +626,7 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
+          setShowWelcome(false);
           sessionStorage.setItem('_showWelcome', 'false');
         }}
         goToHome={() => {
@@ -788,6 +790,12 @@ function App() {
     },
   ];
 
+  // Require authentication - show welcome page if not logged in
+  if (!isUserLoggedIn && !showWelcome && !showUserSignIn && !showUserSignUp && !showAdminLogin && !isAdminLoggedIn) {
+    setShowWelcome(true);
+    return null;
+  }
+
   // Main return (UI intact)
   return (
     <div className="app">
@@ -807,31 +815,12 @@ function App() {
             Cart
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          {isUserLoggedIn && currentUser ? (
-            <>
-              <button onClick={() => {
-                setShowUserAccount(true);
-              }}>
-                My Account
-              </button>
-              <span className="nav-separator" aria-hidden="true">|</span>
-            </>
-          ) : (
-            <>
-              <button onClick={() => {
-                setShowUserSignIn(true);
-              }}>
-                Sign In
-              </button>
-              <span className="nav-separator" aria-hidden="true">|</span>
-              <button onClick={() => {
-                setShowUserSignUp(true);
-              }}>
-                Sign Up
-              </button>
-              <span className="nav-separator" aria-hidden="true">|</span>
-            </>
-          )}
+          <button onClick={() => {
+            setShowUserAccount(true);
+          }}>
+            My Account
+          </button>
+          <span className="nav-separator" aria-hidden="true">|</span>
           <button onClick={() => {
             setShowAdminLogin(true);
           }}>Admin</button>
