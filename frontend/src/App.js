@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import authService from "./services/authService";
 import socketService from "./services/socketService";
@@ -18,6 +19,10 @@ import UserAccount from "./UserAccount";
 import "./home.css";
 
 function App() {
+  // React Router hooks for navigation and location
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
