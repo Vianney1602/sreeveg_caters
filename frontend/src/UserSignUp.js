@@ -4,7 +4,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import './home.css';
 
-export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess }) {
+export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHome }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +49,11 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess }) {
       // Call success callback
       if (onSignUpSuccess) {
         onSignUpSuccess(response.data.user);
+      }
+      
+      // Redirect to home page
+      if (goToHome) {
+        goToHome();
       }
     } catch (err) {
       setError('Google sign-in failed. Please try again.');

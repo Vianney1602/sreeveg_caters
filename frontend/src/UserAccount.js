@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import axios from "axios";
 import "./home.css";
 
-export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu }) {
+export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu, goToHome }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ otp: '', newPassword: '' });
+  const [profileForm, setProfileForm] = useState({ name: user.name, phone: user.phone || '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -57,6 +59,8 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
         setShowChangePassword(false);
         setOtpSent(false);
         setPasswordForm({ otp: '', newPassword: '' });
+        setError('');
+        setSuccess('');
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to change password');
@@ -65,8 +69,52 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
     }
   };
 
+  const handleEditProfile = async () => {
+    if (!profileForm.name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const token = sessionStorage.getItem('_userToken');
+      await axios.put('/api/users/profile', {
+        name: profileForm.name,
+        phone: profileForm.phone
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update user data in sessionStorage
+      const updatedUser = { ...user, name: profileForm.name, phone: profileForm.phone };
+      sessionStorage.setItem('_user', JSON.stringify(updatedUser));
+      
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => {
+        setShowEditProfile(false);
+        setError('');
+        setSuccess('');
+        window.location.reload(); // Refresh to show updated data
+      }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="account-container">
+      {/* Global Success/Error Popup */}
+      {(error || success) && (
+        <div className={`popup-notification ${success ? 'success' : 'error'}`}>
+          {success || error}
+        </div>
+      )}
+      
       <div className="account-header">
         <h2>My Account</h2>
         <button className="logout-btn" onClick={onLogout}>
@@ -77,22 +125,100 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       <div className="account-grid">
         <div className="account-card">
           <h3>Profile Information</h3>
-          <div className="account-info">
-            <div className="account-info-item">
-              <span className="account-info-label">Name:</span>
-              <span className="account-info-value">{user.name}</span>
-            </div>
-            <div className="account-info-item">
-              <span className="account-info-label">Email:</span>
-              <span className="account-info-value">{user.email}</span>
-            </div>
-            {user.phone && (
-              <div className="account-info-item">
-                <span className="account-info-label">Phone:</span>
-                <span className="account-info-value">{user.phone}</span>
+          {!showEditProfile ? (
+            <>
+              <div className="account-info">
+                <div className="account-info-item">
+                  <span className="account-info-label">Name:</span>
+                  <span className="account-info-value">{user.name}</span>
+                </div>
+                <div className="account-info-item">
+                  <span className="account-info-label">Email:</span>
+                  <span className="account-info-value">{user.email}</span>
+                </div>
+                {user.phone && (
+                  <div className="account-info-item">
+                    <span className="account-info-label">Phone:</span>
+                    <span className="account-info-value">{user.phone}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              <button 
+                className="account-btn secondary" 
+                onClick={() => setShowEditProfile(true)}
+                style={{ marginTop: '1rem' }}
+              >
+                Edit Profile
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', color: '#7a0000', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                    style={{ 
+                      width: '100%',
+                      padding: '0.875rem',
+                      borderRadius: '8px',
+                      border: '1px solid #e6d3a3',
+                      fontSize: '1rem'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', color: '#7a0000', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    Phone:
+                  </label>
+                  <input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    style={{ 
+                      width: '100%',
+                      padding: '0.875rem',
+                      borderRadius: '8px',
+                      border: '1px solid #e6d3a3',
+                      fontSize: '1rem'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', color: '#6b7280', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                    Email: {user.email} (cannot be changed)
+                  </label>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button 
+                  className="account-btn" 
+                  onClick={handleEditProfile}
+                  disabled={loading}
+                  style={{ flex: 1 }}
+                >
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button 
+                  className="account-btn secondary" 
+                  onClick={() => {
+                    setShowEditProfile(false);
+                    setProfileForm({ name: user.name, phone: user.phone || '' });
+                    setError('');
+                    setSuccess('');
+                  }}
+                  disabled={loading}
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="account-card">
@@ -175,9 +301,6 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
               </button>
             </>
           )}
-          
-          {error && <div className="auth-error" style={{ marginTop: '1rem' }}>{error}</div>}
-          {success && <div className="auth-success" style={{ marginTop: '1rem' }}>{success}</div>}
         </div>
       )}
     </div>

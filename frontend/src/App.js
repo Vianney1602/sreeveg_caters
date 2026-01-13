@@ -612,7 +612,11 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
-          setShowMenuPage(true);
+          setShowWelcome(true);
+        }}
+        goToHome={() => {
+          setShowUserSignUp(false);
+          setShowWelcome(true);
         }}
       />
     );
@@ -632,7 +636,11 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
-          setShowMenuPage(true);
+          setShowWelcome(true);
+        }}
+        goToHome={() => {
+          setShowUserSignIn(false);
+          setShowWelcome(true);
         }}
       />
     );
@@ -667,6 +675,10 @@ function App() {
         goToMenu={() => {
           setShowUserAccount(false);
           setShowMenuPage(true);
+        }}
+        goToHome={() => {
+          setShowUserAccount(false);
+          setShowWelcome(true);
         }}
       />
     );
