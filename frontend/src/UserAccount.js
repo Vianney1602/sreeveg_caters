@@ -5,7 +5,7 @@ import "./home.css";
 export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu, goToHome }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ otp: '', newPassword: '' });
+  const [passwordForm, setPasswordForm] = useState({ otp: '', newPassword: '', confirmPassword: '' });
   const [profileForm, setProfileForm] = useState({ name: user.name, phone: user.phone || '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,8 +34,13 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
   };
 
   const handleChangePassword = async () => {
-    if (!passwordForm.otp || !passwordForm.newPassword) {
-      setError('Please enter OTP and new password');
+    if (!passwordForm.otp || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setError('Please enter OTP, new password, and confirm password');
+      return;
+    }
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
     
@@ -61,7 +66,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       setTimeout(() => {
         setShowChangePassword(false);
         setOtpSent(false);
-        setPasswordForm({ otp: '', newPassword: '' });
+        setPasswordForm({ otp: '', newPassword: '', confirmPassword: '' });
         setError('');
         setSuccess('');
       }, 2000);
@@ -122,7 +127,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
         className="back-btn" 
         onClick={goToHome}
         style={{
-          marginBottom: '1.5rem',
+          marginBottom: '2.5rem',
           padding: '0.75rem 1.5rem',
           background: '#7a0000',
           color: '#f5c542',
@@ -134,7 +139,8 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
           transition: 'all 0.3s ease',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.5rem'
+          gap: '0.5rem',
+          width: 'fit-content'
         }}
         onMouseOver={(e) => {
           e.target.style.background = '#5c0000';
@@ -314,6 +320,21 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                 placeholder="Enter new password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                minLength="6"
+                style={{ 
+                  width: '100%',
+                  padding: '0.875rem',
+                  marginBottom: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid #e6d3a3',
+                  fontSize: '1rem'
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 minLength="6"
                 style={{ 
                   width: '100%',
