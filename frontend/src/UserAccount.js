@@ -115,6 +115,36 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
         </div>
       )}
       
+      <button 
+        className="back-btn" 
+        onClick={goToHome}
+        style={{
+          marginBottom: '1.5rem',
+          padding: '0.75rem 1.5rem',
+          background: '#7a0000',
+          color: '#f5c542',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '1rem',
+          fontWeight: 600,
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}
+        onMouseOver={(e) => {
+          e.target.style.background = '#5c0000';
+          e.target.style.transform = 'translateX(-4px)';
+        }}
+        onMouseOut={(e) => {
+          e.target.style.background = '#7a0000';
+          e.target.style.transform = 'translateX(0)';
+        }}
+      >
+        ← Back to Home
+      </button>
+      
       <div className="account-header">
         <h2>My Account</h2>
         <button className="logout-btn" onClick={onLogout}>

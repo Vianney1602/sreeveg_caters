@@ -3,7 +3,7 @@ import logging
 
 from flask import Flask, jsonify, request
 from config import Config
-from extensions import db, migrate, socketio
+from extensions import db, migrate, socketio, mail
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
 from logging_config import setup_logging
@@ -25,6 +25,7 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
+    mail.init_app(app)  # Initialize Flask-Mail
     # initialize JWT manager
     jwt = JWTManager()
     jwt.init_app(app)

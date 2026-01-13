@@ -43,7 +43,7 @@ class Order(db.Model):
     venue_address = db.Column(db.Text)
     special_requirements = db.Column(db.Text)
 
-    status = db.Column(db.String(20), default="Pending")
+    status = db.Column(db.String(20), default="Out for Delivery")
     total_amount = db.Column(db.Float, default=0.0)
     razorpay_order_id = db.Column(db.String(100))
     payment_method = db.Column(db.String(20), default="online")  # 'online' or 'cod'

@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from extensions import db
+from extensions import db, mail
 from models import Customer, Order, OrderMenuItem
 from datetime import datetime, timedelta
 import jwt
 import os
 import random
 import string
-from flask_mail import Mail, Message
+from flask_mail import Message
 
 users_bp = Blueprint("users", __name__)
 
@@ -20,6 +20,78 @@ otp_storage = {}
 def generate_otp():
     """Generate a 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
+
+def send_otp_email(email, otp):
+    """Send OTP via email"""
+    try:
+        # Check if mail is configured
+        from flask import current_app
+        if not current_app.config.get('MAIL_USERNAME'):
+            print(f"⚠️  Email not configured. OTP for {email}: {otp}")
+            return False
+            
+        msg = Message(
+            subject="Your OTP for Password Reset - Hotel Shanmuga Bhavaan",
+            recipients=[email],
+            body=f"""
+Hello,
+
+You have requested to reset your password for your Hotel Shanmuga Bhavaan account.
+
+Your One-Time Password (OTP) is: {otp}
+
+This OTP is valid for 10 minutes. Please do not share this code with anyone.
+
+If you did not request this password reset, please ignore this email.
+
+Best regards,
+Hotel Shanmuga Bhavaan Team
+            """,
+            html=f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #7a0000, #d4af37); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+        .content {{ background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; }}
+        .otp-box {{ background: #f5f5f5; border: 2px solid #7a0000; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }}
+        .otp {{ font-size: 32px; font-weight: bold; color: #7a0000; letter-spacing: 8px; }}
+        .footer {{ background: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 8px 8px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ Hotel Shanmuga Bhavaan</h1>
+            <p>Password Reset Request</p>
+        </div>
+        <div class="content">
+            <p>Hello,</p>
+            <p>You have requested to reset your password for your Hotel Shanmuga Bhavaan account.</p>
+            <div class="otp-box">
+                <p style="margin: 0; font-size: 14px; color: #666;">Your One-Time Password:</p>
+                <div class="otp">{otp}</div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">Valid for 10 minutes</p>
+            </div>
+            <p><strong>Important:</strong> Please do not share this code with anyone.</p>
+            <p>If you did not request this password reset, please ignore this email or contact our support team.</p>
+        </div>
+        <div class="footer">
+            <p>© 2026 Hotel Shanmuga Bhavaan. All rights reserved.</p>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>
+            """
+        )
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send email: {str(e)}")
+        return False
 
 @users_bp.route("/register", methods=["POST"])
 def register():
@@ -170,16 +242,28 @@ def forgot_password():
             "expires": datetime.utcnow() + timedelta(minutes=10)
         }
         
-        # TODO: Send OTP via email (implement email service)
-        # For now, return OTP in response (remove in production)
-        print(f"OTP for {email}: {otp}")
+        # Try to send OTP via email
+        email_sent = send_otp_email(email, otp)
         
-        return jsonify({
-            "message": "OTP sent to your email",
-            "otp": otp  # Remove this in production
-        }), 200
+        if email_sent:
+            # Email sent successfully - no console logging for security
+            return jsonify({"message": "OTP sent to your email"}), 200
+        else:
+            # Email not configured - print to console for development only
+            print("\n" + "="*60)
+            print(f"🔐 PASSWORD RESET OTP (Development Mode)")
+            print(f"📧 Email: {email}")
+            print(f"🔢 OTP Code: {otp}")
+            print(f"⏰ Valid for: 10 minutes")
+            print(f"⚠️  Configure email in .env to stop console logging")
+            print("="*60 + "\n")
+            
+            return jsonify({
+                "message": "OTP generated successfully. Check server console for OTP code."
+            }), 200
         
     except Exception as e:
+        print(f"❌ Error in forgot-password: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @users_bp.route("/verify-otp", methods=["POST"])

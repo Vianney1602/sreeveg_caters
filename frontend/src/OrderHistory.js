@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import socketService from "./services/socketService";
 import "./home.css";
 
 export default function OrderHistory({ goBack, user }) {
@@ -9,7 +10,29 @@ export default function OrderHistory({ goBack, user }) {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+    
+    // Connect to socket and listen for order status changes
+    socketService.connect();
+    
+    const handleStatusChange = (data) => {
+      // Update order status in real-time if it belongs to this user
+      if (user && data.customer_id === user.id) {
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.order_id === data.order_id 
+              ? { ...order, status: data.new_status }
+              : order
+          )
+        );
+      }
+    };
+    
+    socketService.on('order_status_changed', handleStatusChange);
+    
+    return () => {
+      socketService.off('order_status_changed', handleStatusChange);
+    };
+  }, [user]);
 
   const fetchOrders = async () => {
     try {
@@ -34,13 +57,8 @@ export default function OrderHistory({ goBack, user }) {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return '#fbbf24';
-      case 'confirmed': return '#3b82f6';
-      case 'preparing': return '#f97316';
-      case 'ready': return '#10b981';
+      case 'out for delivery': return '#f97316';
       case 'delivered': return '#059669';
-      case 'completed': return '#16a34a';
-      case 'cancelled': return '#ef4444';
       default: return '#6b7280';
     }
   };
