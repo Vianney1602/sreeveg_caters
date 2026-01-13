@@ -22,6 +22,16 @@ class Config:
         SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(BASE_DIR, "database.db")
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Database connection pool settings for better performance
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,              # Number of connections to keep open
+        'pool_recycle': 3600,         # Recycle connections after 1 hour
+        'pool_pre_ping': True,        # Verify connections before using
+        'max_overflow': 20,           # Extra connections when pool is full
+        'pool_timeout': 30,           # Timeout for getting connection from pool
+    }
+    
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret")
     
     # Session configuration for production

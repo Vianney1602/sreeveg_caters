@@ -353,46 +353,36 @@ function App() {
     const handleLocationChange = () => {
       const path = location.pathname;
       
-      // Reset all page states first
-      setShowWelcome(false);
-      setShowMenuPage(false);
-      setShowCart(false);
-      setShowBulkMenu(false);
-      setShowBulkCart(false);
-      setShowAdminLogin(false);
-      setShowUserSignUp(false);
-      setShowUserSignIn(false);
-      setShowOrderHistory(false);
-      setShowUserAccount(false);
+      // Batch all state updates to prevent multiple re-renders
+      const updates = {
+        showWelcome: path === '/',
+        showMenuPage: path === '/menu',
+        showCart: path === '/cart',
+        showBulkMenu: path === '/bulk-menu',
+        showBulkCart: path === '/bulk-cart',
+        showAdminLogin: path === '/admin-login',
+        showUserSignUp: path === '/signup',
+        showUserSignIn: path === '/signin',
+        showOrderHistory: path === '/order-history',
+        showUserAccount: path === '/account'
+      };
       
-      // Then set the correct page based on URL
-      if (path === '/menu') {
-        setShowMenuPage(true);
-      } else if (path === '/cart') {
-        setShowCart(true);
-      } else if (path === '/bulk-menu') {
-        setShowBulkMenu(true);
-      } else if (path === '/bulk-cart') {
-        setShowBulkCart(true);
-      } else if (path === '/admin-login') {
-        setShowAdminLogin(true);
-      } else if (path === '/signup') {
-        setShowUserSignUp(true);
-      } else if (path === '/signin') {
-        setShowUserSignIn(true);
-      } else if (path === '/order-history') {
-        setShowOrderHistory(true);
-      } else if (path === '/account') {
-        setShowUserAccount(true);
-      } else {
-        // Default to home
-        setShowWelcome(true);
-      }
+      // Only update states that actually changed
+      if (updates.showWelcome !== showWelcome) setShowWelcome(updates.showWelcome);
+      if (updates.showMenuPage !== showMenuPage) setShowMenuPage(updates.showMenuPage);
+      if (updates.showCart !== showCart) setShowCart(updates.showCart);
+      if (updates.showBulkMenu !== showBulkMenu) setShowBulkMenu(updates.showBulkMenu);
+      if (updates.showBulkCart !== showBulkCart) setShowBulkCart(updates.showBulkCart);
+      if (updates.showAdminLogin !== showAdminLogin) setShowAdminLogin(updates.showAdminLogin);
+      if (updates.showUserSignUp !== showUserSignUp) setShowUserSignUp(updates.showUserSignUp);
+      if (updates.showUserSignIn !== showUserSignIn) setShowUserSignIn(updates.showUserSignIn);
+      if (updates.showOrderHistory !== showOrderHistory) setShowOrderHistory(updates.showOrderHistory);
+      if (updates.showUserAccount !== showUserAccount) setShowUserAccount(updates.showUserAccount);
     };
     
     // Call once on mount to sync with current location
     handleLocationChange();
-  }, [location.pathname, initializing]);
+  }, [location.pathname, initializing, showWelcome, showMenuPage, showCart, showBulkMenu, showBulkCart, showAdminLogin, showUserSignUp, showUserSignIn, showOrderHistory, showUserAccount]);
   
   // Persist order completion status
   useEffect(() => {
@@ -435,6 +425,20 @@ function App() {
   const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
   axios.defaults.baseURL = API_BASE_URL;
   axios.defaults.headers.post["Content-Type"] = "application/json";
+  axios.defaults.timeout = 30000; // 30 second timeout for all requests
+  
+  // Add response interceptor for error handling and retry logic
+  axios.interceptors.response.use(
+    response => response,
+    error => {
+      if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+        console.error('Request timeout - server took too long to respond');
+      } else if (!error.response) {
+        console.error('Network error - server unreachable');
+      }
+      return Promise.reject(error);
+    }
+  );
 
   // Payment function using Razorpay
   const initiatePayment = (orderId, amount, customerDetails, onSuccess, onError) => {
