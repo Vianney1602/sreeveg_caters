@@ -1324,6 +1324,7 @@ section h2::after {
   margin-bottom: 3rem;
   padding-bottom: 1.5rem;
   border-bottom: 3px solid #d4af37;
+  flex-wrap: wrap;
 }
 
 .order-history-header h2 {
@@ -1332,19 +1333,23 @@ section h2::after {
   font-weight: 700;
   letter-spacing: 0.5px;
   margin: 0;
+  flex: 1;
+  min-width: 250px;
 }
 
 .back-btn {
   background: #7a0000;
   color: #d4af37;
   border: 2px solid #d4af37;
-  border-radius: 12px;
-  padding: 0.875rem 2rem;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.8rem;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(122, 0, 0, 0.2);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .back-btn:hover {

@@ -69,7 +69,11 @@ function App() {
   const [showBulkCart, setShowBulkCart] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false); // Changed to false initially
+  const [showWelcome, setShowWelcome] = useState(() => {
+    // Restore the welcome page state from sessionStorage
+    const saved = sessionStorage.getItem('_showWelcome');
+    return saved === 'true';
+  });
   const [showUserSignUp, setShowUserSignUp] = useState(false);
   const [showUserSignIn, setShowUserSignIn] = useState(false);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
@@ -121,6 +125,7 @@ function App() {
       setShowMenuPage(false);
       setShowBulkMenu(false);
       setShowCart(true);
+      navigate('/cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -131,6 +136,7 @@ function App() {
       setShowCart(false);
       setShowBulkCart(false);
       setShowMenuPage(true);
+      navigate('/menu');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -140,6 +146,7 @@ function App() {
     setTimeout(() => {
       setShowBulkMenu(false);
       setShowBulkCart(true);
+      navigate('/bulk-cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -149,6 +156,7 @@ function App() {
     setTimeout(() => {
       setShowBulkCart(false);
       setShowBulkMenu(true);
+      navigate('/bulk-menu');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -205,19 +213,41 @@ function App() {
         setBulkGuestCount(parseInt(savedGuestCount));
       }
 
-      // Check for saved page state (for customer flow)
-      const savedPage = sessionStorage.getItem('_currentPage');
-      if (savedPage === 'menu') {
+      // Sync state with URL on initial load
+      const path = location.pathname;
+      if (path === '/menu') {
         setShowMenuPage(true);
-      } else if (savedPage === 'cart') {
+        setShowWelcome(false);
+      } else if (path === '/cart') {
         setShowCart(true);
-      } else if (savedPage === 'bulkMenu') {
+        setShowWelcome(false);
+      } else if (path === '/bulk-menu') {
         setShowBulkMenu(true);
-      } else if (savedPage === 'bulkCart') {
+        setShowWelcome(false);
+      } else if (path === '/bulk-cart') {
         setShowBulkCart(true);
+        setShowWelcome(false);
+      } else if (path === '/admin-login') {
+        setShowAdminLogin(true);
+        setShowWelcome(false);
+      } else if (path === '/signup') {
+        setShowUserSignUp(true);
+        setShowWelcome(false);
+      } else if (path === '/signin') {
+        setShowUserSignIn(true);
+        setShowWelcome(false);
+      } else if (path === '/order-history') {
+        setShowOrderHistory(true);
+        setShowWelcome(false);
+      } else if (path === '/account') {
+        setShowUserAccount(true);
+        setShowWelcome(false);
       } else {
-          // Default to home page if no _currentPage is set
+        // Default to home page
         setShowWelcome(true);
+        if (path !== '/') {
+          navigate('/', { replace: true });
+        }
       }
 
       // Ensure minimum loading time is met
@@ -261,22 +291,55 @@ function App() {
     };
   }, []);
   
-  // Save current page state to persist across reloads
+  // Sync state changes with URL (for programmatic navigation)
   useEffect(() => {
-    if (initializing) return; // Don't save during initialization
+    if (initializing) return;
     
-    if (showMenuPage) {
-      sessionStorage.setItem('_currentPage', 'menu');
-    } else if (showCart) {
-      sessionStorage.setItem('_currentPage', 'cart');
-    } else if (showBulkMenu) {
-      sessionStorage.setItem('_currentPage', 'bulkMenu');
-    } else if (showBulkCart) {
-      sessionStorage.setItem('_currentPage', 'bulkCart');
-    } else if (showWelcome) {
-        sessionStorage.setItem('_currentPage', 'home');
+    const currentPath = location.pathname;
+    
+    if (showMenuPage && currentPath !== '/menu') {
+      // Don't navigate if we're already transitioning
+      if (!isPageTransitioning) {
+        navigate('/menu', { replace: true });
+      }
+    } else if (showCart && currentPath !== '/cart') {
+      if (!isPageTransitioning) {
+        navigate('/cart', { replace: true });
+      }
+    } else if (showBulkMenu && currentPath !== '/bulk-menu') {
+      if (!isPageTransitioning) {
+        navigate('/bulk-menu', { replace: true });
+      }
+    } else if (showBulkCart && currentPath !== '/bulk-cart') {
+      if (!isPageTransitioning) {
+        navigate('/bulk-cart', { replace: true });
+      }
+    } else if (showAdminLogin && currentPath !== '/admin-login') {
+      if (!isPageTransitioning) {
+        navigate('/admin-login', { replace: true });
+      }
+    } else if (showUserSignUp && currentPath !== '/signup') {
+      if (!isPageTransitioning) {
+        navigate('/signup', { replace: true });
+      }
+    } else if (showUserSignIn && currentPath !== '/signin') {
+      if (!isPageTransitioning) {
+        navigate('/signin', { replace: true });
+      }
+    } else if (showOrderHistory && currentPath !== '/order-history') {
+      if (!isPageTransitioning) {
+        navigate('/order-history', { replace: true });
+      }
+    } else if (showUserAccount && currentPath !== '/account') {
+      if (!isPageTransitioning) {
+        navigate('/account', { replace: true });
+      }
+    } else if (showWelcome && currentPath !== '/') {
+      if (!isPageTransitioning) {
+        navigate('/', { replace: true });
+      }
     }
-  }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showWelcome, initializing]);
+  }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showAdminLogin, showUserSignUp, showUserSignIn, showOrderHistory, showUserAccount, showWelcome, initializing, location.pathname, navigate, isPageTransitioning]);
   
   // Persist order completion status
   useEffect(() => {
@@ -453,6 +516,7 @@ function App() {
     setOrderType("bulk");
     setShowBulkOrderModal(false);
     setShowBulkMenu(true);
+    navigate('/bulk-menu');
   };
 
   const handleBulkOrderModalClose = () => {
@@ -546,6 +610,7 @@ function App() {
           authService.logout();
           setIsAdminLoggedIn(false);
           setShowWelcome(true);
+          navigate('/');
           sessionStorage.removeItem('_currentPage'); // Clear saved page state
         }}
         stats={dashboardStats}
@@ -559,6 +624,7 @@ function App() {
         goBack={() => {
           setShowAdminLogin(false);
           setShowWelcome(true);
+          navigate('/');
         }}
         onLoginSuccess={() => {
           // Reset all other UI states to ensure clean dashboard render
@@ -580,10 +646,12 @@ function App() {
         goUser={() => {
           setShowWelcome(false);
           setShowUserSignUp(true);
+          navigate('/signup');
         }}
         goAdmin={() => {
           setShowWelcome(false);
           setShowAdminLogin(true);
+          navigate('/admin-login');
         }}
       />
     );
@@ -594,18 +662,20 @@ function App() {
         goToSignIn={() => {
           setShowUserSignUp(false);
           setShowUserSignIn(true);
+          navigate('/signin');
         }}
         goBack={() => {
-          setShowUserSignUp(false);
-          setShowWelcome(true);
+          navigate(-1);
         }}
         onSignUpSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
+          navigate('/');
         }}
         goToHome={() => {
           setShowUserSignUp(false);
+          navigate('/');
         }}
       />
     );
@@ -616,18 +686,20 @@ function App() {
         goToSignUp={() => {
           setShowUserSignIn(false);
           setShowUserSignUp(true);
+          navigate('/signup');
         }}
         goBack={() => {
-          setShowUserSignIn(false);
-          setShowWelcome(true);
+          navigate(-1);
         }}
         onSignInSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
+          navigate('/');
         }}
         goToHome={() => {
           setShowUserSignIn(false);
+          navigate('/');
         }}
       />
     );
@@ -637,8 +709,7 @@ function App() {
       <OrderHistory
         user={currentUser}
         goBack={() => {
-          setShowOrderHistory(false);
-          setShowUserAccount(true);
+          navigate(-1);
         }}
       />
     );
@@ -654,17 +725,21 @@ function App() {
           setCurrentUser(null);
           setShowUserAccount(false);
           setShowWelcome(true);
+          navigate('/');
         }}
         goToOrderHistory={() => {
           setShowUserAccount(false);
           setShowOrderHistory(true);
+          navigate('/order-history');
         }}
         goToMenu={() => {
           setShowUserAccount(false);
           setShowMenuPage(true);
+          navigate('/menu');
         }}
         goToHome={() => {
           setShowUserAccount(false);
+          navigate('/');
         }}
       />
     );
@@ -676,6 +751,7 @@ function App() {
           setTimeout(() => {
             setShowCart(false);
             setShowMenuPage(true);
+            navigate('/menu');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -698,6 +774,7 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowMenuPage(false);
+            navigate('/');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -718,6 +795,7 @@ function App() {
           setIsPageTransitioning(true);
           setTimeout(() => {
             setShowBulkMenu(false);
+            navigate('/');
             setIsPageTransitioning(false);
           }, 3500);
         }}
@@ -797,21 +875,33 @@ function App() {
           <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
         </div>
         <nav className="header-nav" aria-label="Primary">
-          <button onClick={() => setShowMenuPage(true)}>View Menu</button>
+          <button onClick={() => {
+            setShowMenuPage(true);
+            navigate('/menu');
+          }}>View Menu</button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => setShowCart(true)}>
+          <button onClick={() => {
+            setShowCart(true);
+            navigate('/cart');
+          }}>
             Cart
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
           {isUserLoggedIn && currentUser ? (
             <>
-              <button onClick={() => setShowUserAccount(true)}>
+              <button onClick={() => {
+                setShowUserAccount(true);
+                navigate('/account');
+              }}>
                 My Account
               </button>
               <span className="nav-separator" aria-hidden="true">|</span>
             </>
           ) : null}
-          <button onClick={() => setShowAdminLogin(true)}>Admin</button>
+          <button onClick={() => {
+            setShowAdminLogin(true);
+            navigate('/admin-login');
+          }}>Admin</button>
         </nav>
       </header>
 
@@ -857,8 +947,10 @@ function App() {
               onClick={() => {
                 if (orderType === "individual") {
                   setShowMenuPage(true);
+                  navigate('/menu');
                 } else {
                   setShowBulkMenu(true);
+                  navigate('/bulk-menu');
                 }
               }}
             >
@@ -978,9 +1070,15 @@ function App() {
         </div>
         <div>
           <h3>Quick Links</h3>
-          <button className="footer-link" onClick={() => setShowMenuPage(true)}>Menu</button>
+          <button className="footer-link" onClick={() => {
+            setShowMenuPage(true);
+            navigate('/menu');
+          }}>Menu</button>
           <button className="footer-link" onClick={() => setOrderType("bulk")}>Bulk Orders</button>
-          <button className="footer-link" onClick={() => setShowAdminLogin(true)}>Admin</button>
+          <button className="footer-link" onClick={() => {
+            setShowAdminLogin(true);
+            navigate('/admin-login');
+          }}>Admin</button>
         </div>
         <div>
           <h3>Contact Us</h3>
