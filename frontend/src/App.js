@@ -223,7 +223,7 @@ function App() {
       }, remainingTime);
     }
     
-    const token = sessionStorage.getItem('_ct'); // Customer token in sessionStorage
+    const token = sessionStorage.getItem('_userToken'); // User token in sessionStorage
     socketService.connect(token);
 
     // Global debug: log any incoming socket events

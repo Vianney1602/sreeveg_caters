@@ -70,14 +70,12 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
 
     // attach customer_id and Authorization header when user is logged in
     const customer = (() => {
-      try { return JSON.parse(sessionStorage.getItem('_cu')); } catch { return null; }
+      try { return JSON.parse(sessionStorage.getItem('_user')); } catch { return null; }
     })();
     if (customer && customer.customer_id) payload.customer_id = customer.customer_id;
 
     const headers = {};
-    const token = sessionStorage.getItem('_ct'); // Customer token in sessionStorage
-    const userToken = sessionStorage.getItem('_userToken'); // New user auth token
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const userToken = sessionStorage.getItem('_userToken'); // User auth token
     if (userToken) headers.Authorization = `Bearer ${userToken}`;
 
     if (paymentMethod === 'cod') {
@@ -104,9 +102,11 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           if (typeof clearCart === 'function') clearCart();
         })
         .catch(err => {
+          console.error('Order placement error:', err);
+          const errorMsg = err.response?.data?.error || err.message || 'Error placing order. Please try again.';
           setOrderStatus({
             type: 'error',
-            message: 'Error placing order. Please try again.'
+            message: errorMsg
           });
           // Auto-hide error message after 5 seconds
           setTimeout(() => setOrderStatus(null), 5000);
@@ -173,9 +173,11 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           if (typeof clearCart === 'function') clearCart();
         })
         .catch(err => {
+          console.error('Payment order creation error:', err);
+          const errorMsg = err.response?.data?.error || err.message || 'Error placing order or creating payment. Please try again.';
           setOrderStatus({
             type: 'error',
-            message: 'Error placing order or creating payment. Please try again.'
+            message: errorMsg
           });
           // Auto-hide error message after 5 seconds
           setTimeout(() => setOrderStatus(null), 5000);

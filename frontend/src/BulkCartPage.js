@@ -98,8 +98,8 @@ export default function BulkCartPage({
     // Optional auth header if customer token exists
     const headers = {};
     try {
-      const token = sessionStorage.getItem("_ct");
-      if (token) headers.Authorization = `Bearer ${token}`;
+      const userToken = sessionStorage.getItem("_userToken");
+      if (userToken) headers.Authorization = `Bearer ${userToken}`;
     } catch {}
 
     // COD flow
@@ -128,8 +128,10 @@ export default function BulkCartPage({
           if (typeof clearCart === "function") clearCart();
           setTimeout(() => setOrderStatus(null), 5000);
         })
-        .catch(() => {
-          setOrderStatus({ type: "error", message: "Error placing order. Please try again." });
+        .catch((err) => {
+          console.error('Bulk order placement error:', err);
+          const errorMsg = err.response?.data?.error || err.message || 'Error placing order. Please try again.';
+          setOrderStatus({ type: "error", message: errorMsg });
           setTimeout(() => setOrderStatus(null), 5000);
         })
         .finally(() => {
@@ -172,8 +174,10 @@ export default function BulkCartPage({
         setPaymentMethod("online");
         if (typeof clearCart === "function") clearCart();
       })
-      .catch(() => {
-        setOrderStatus({ type: "error", message: "Error creating payment. Please try again." });
+      .catch((err) => {
+        console.error('Bulk payment order creation error:', err);
+        const errorMsg = err.response?.data?.error || err.message || 'Error creating payment. Please try again.';
+        setOrderStatus({ type: "error", message: errorMsg });
         setTimeout(() => setOrderStatus(null), 5000);
       })
       .finally(() => {
