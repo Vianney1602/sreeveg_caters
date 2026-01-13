@@ -296,93 +296,39 @@ function App() {
     };
   }, []);
   
-  // Sync state changes with URL (for programmatic navigation)
+  // Single unified effect to handle URL and state synchronization
   useEffect(() => {
     if (initializing) return;
     
-    const currentPath = location.pathname;
+    const path = location.pathname;
     
-    if (showMenuPage && currentPath !== '/menu') {
-      // Don't navigate if we're already transitioning
-      if (!isPageTransitioning) {
-        navigate('/menu', { replace: true });
-      }
-    } else if (showCart && currentPath !== '/cart') {
-      if (!isPageTransitioning) {
-        navigate('/cart', { replace: true });
-      }
-    } else if (showBulkMenu && currentPath !== '/bulk-menu') {
-      if (!isPageTransitioning) {
-        navigate('/bulk-menu', { replace: true });
-      }
-    } else if (showBulkCart && currentPath !== '/bulk-cart') {
-      if (!isPageTransitioning) {
-        navigate('/bulk-cart', { replace: true });
-      }
-    } else if (showAdminLogin && currentPath !== '/admin-login') {
-      if (!isPageTransitioning) {
-        navigate('/admin-login', { replace: true });
-      }
-    } else if (showUserSignUp && currentPath !== '/signup') {
-      if (!isPageTransitioning) {
-        navigate('/signup', { replace: true });
-      }
-    } else if (showUserSignIn && currentPath !== '/signin') {
-      if (!isPageTransitioning) {
-        navigate('/signin', { replace: true });
-      }
-    } else if (showOrderHistory && currentPath !== '/order-history') {
-      if (!isPageTransitioning) {
-        navigate('/order-history', { replace: true });
-      }
-    } else if (showUserAccount && currentPath !== '/account') {
-      if (!isPageTransitioning) {
-        navigate('/account', { replace: true });
-      }
-    } else if (showWelcome && currentPath !== '/') {
-      if (!isPageTransitioning) {
-        navigate('/', { replace: true });
-      }
-    }
-  }, [showMenuPage, showCart, showBulkMenu, showBulkCart, showAdminLogin, showUserSignUp, showUserSignIn, showOrderHistory, showUserAccount, showWelcome, initializing, location.pathname, navigate, isPageTransitioning]);
-  
-  // Handle browser back button (including mobile back button)
-  useEffect(() => {
-    if (initializing) return;
-    
-    const handleLocationChange = () => {
-      const path = location.pathname;
-      
-      // Batch all state updates to prevent multiple re-renders
-      const updates = {
-        showWelcome: path === '/',
-        showMenuPage: path === '/menu',
-        showCart: path === '/cart',
-        showBulkMenu: path === '/bulk-menu',
-        showBulkCart: path === '/bulk-cart',
-        showAdminLogin: path === '/admin-login',
-        showUserSignUp: path === '/signup',
-        showUserSignIn: path === '/signin',
-        showOrderHistory: path === '/order-history',
-        showUserAccount: path === '/account'
-      };
-      
-      // Only update states that actually changed
-      if (updates.showWelcome !== showWelcome) setShowWelcome(updates.showWelcome);
-      if (updates.showMenuPage !== showMenuPage) setShowMenuPage(updates.showMenuPage);
-      if (updates.showCart !== showCart) setShowCart(updates.showCart);
-      if (updates.showBulkMenu !== showBulkMenu) setShowBulkMenu(updates.showBulkMenu);
-      if (updates.showBulkCart !== showBulkCart) setShowBulkCart(updates.showBulkCart);
-      if (updates.showAdminLogin !== showAdminLogin) setShowAdminLogin(updates.showAdminLogin);
-      if (updates.showUserSignUp !== showUserSignUp) setShowUserSignUp(updates.showUserSignUp);
-      if (updates.showUserSignIn !== showUserSignIn) setShowUserSignIn(updates.showUserSignIn);
-      if (updates.showOrderHistory !== showOrderHistory) setShowOrderHistory(updates.showOrderHistory);
-      if (updates.showUserAccount !== showUserAccount) setShowUserAccount(updates.showUserAccount);
+    // Determine which page should be shown based on URL
+    const shouldShow = {
+      welcome: path === '/',
+      menu: path === '/menu',
+      cart: path === '/cart',
+      bulkMenu: path === '/bulk-menu',
+      bulkCart: path === '/bulk-cart',
+      adminLogin: path === '/admin-login',
+      userSignUp: path === '/signup',
+      userSignIn: path === '/signin',
+      orderHistory: path === '/order-history',
+      userAccount: path === '/account'
     };
     
-    // Call once on mount to sync with current location
-    handleLocationChange();
-  }, [location.pathname, initializing, showWelcome, showMenuPage, showCart, showBulkMenu, showBulkCart, showAdminLogin, showUserSignUp, showUserSignIn, showOrderHistory, showUserAccount]);
+    // Only update if state doesn't match URL (prevents loops)
+    if (showWelcome !== shouldShow.welcome) setShowWelcome(shouldShow.welcome);
+    if (showMenuPage !== shouldShow.menu) setShowMenuPage(shouldShow.menu);
+    if (showCart !== shouldShow.cart) setShowCart(shouldShow.cart);
+    if (showBulkMenu !== shouldShow.bulkMenu) setShowBulkMenu(shouldShow.bulkMenu);
+    if (showBulkCart !== shouldShow.bulkCart) setShowBulkCart(shouldShow.bulkCart);
+    if (showAdminLogin !== shouldShow.adminLogin) setShowAdminLogin(shouldShow.adminLogin);
+    if (showUserSignUp !== shouldShow.userSignUp) setShowUserSignUp(shouldShow.userSignUp);
+    if (showUserSignIn !== shouldShow.userSignIn) setShowUserSignIn(shouldShow.userSignIn);
+    if (showOrderHistory !== shouldShow.orderHistory) setShowOrderHistory(shouldShow.orderHistory);
+    if (showUserAccount !== shouldShow.userAccount) setShowUserAccount(shouldShow.userAccount);
+    
+  }, [location.pathname, initializing]);
   
   // Persist order completion status
   useEffect(() => {
@@ -421,24 +367,31 @@ function App() {
   // Dashboard Stats (if needed)
   const [dashboardStats, setDashboardStats] = useState({});
 
-  // Axios default config - supports both dev and production
-  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
-  axios.defaults.baseURL = API_BASE_URL;
-  axios.defaults.headers.post["Content-Type"] = "application/json";
-  axios.defaults.timeout = 30000; // 30 second timeout for all requests
-  
-  // Add response interceptor for error handling and retry logic
-  axios.interceptors.response.use(
-    response => response,
-    error => {
-      if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-        console.error('Request timeout - server took too long to respond');
-      } else if (!error.response) {
-        console.error('Network error - server unreachable');
+  // Configure axios once on mount
+  useEffect(() => {
+    const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+    axios.defaults.baseURL = API_BASE_URL;
+    axios.defaults.headers.post["Content-Type"] = "application/json";
+    axios.defaults.timeout = 30000; // 30 second timeout for all requests
+    
+    // Add response interceptor for error handling
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+          console.error('Request timeout - server took too long to respond');
+        } else if (!error.response) {
+          console.error('Network error - server unreachable');
+        }
+        return Promise.reject(error);
       }
-      return Promise.reject(error);
-    }
-  );
+    );
+    
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
 
   // Payment function using Razorpay
   const initiatePayment = (orderId, amount, customerDetails, onSuccess, onError) => {
