@@ -18,12 +18,15 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
     setSuccess('');
     
     try {
+      console.log('Sending OTP request for:', user.email);
       const response = await axios.post('/api/users/forgot-password', { 
         email: user.email 
       });
-      setSuccess('OTP sent to your email!');
+      console.log('OTP response:', response.data);
+      setSuccess(response.data.message || 'OTP sent to your email!');
       setOtpSent(true);
     } catch (err) {
+      console.error('OTP request failed:', err);
       setError(err.response?.data?.error || 'Failed to send OTP');
     } finally {
       setLoading(false);

@@ -1479,7 +1479,7 @@ section h2::after {
 /* USER ACCOUNT PAGE STYLES */
 .account-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e3e6e8 100%);
+  background: linear-gradient(135deg, #fff5e6 0%, #ffe6cc 50%, #fff0db 100%);
   padding: 2rem;
 }
 
@@ -1522,13 +1522,15 @@ section h2::after {
   background: #fff;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 16px rgba(122, 0, 0, 0.1);
+  border: 2px solid rgba(212, 175, 55, 0.2);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .account-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 24px rgba(122, 0, 0, 0.15);
+  border-color: rgba(212, 175, 55, 0.4);
 }
 
 .account-card h3 {
@@ -1588,11 +1590,13 @@ section h2::after {
 }
 
 .account-btn.secondary {
-  background: #3b82f6;
+  background: #d4af37;
+  color: #7a0000;
 }
 
 .account-btn.secondary:hover {
-  background: #2563eb;
+  background: #b8941f;
+  color: #5c0000;
 }
 
 .popup-notification {
