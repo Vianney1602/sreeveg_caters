@@ -249,7 +249,13 @@ function App() {
         setShowWelcome(false);
       } else {
         // Default to home page
-        setShowWelcome(true);
+        // Only show welcome page if never dismissed before
+        const hasSeenWelcome = sessionStorage.getItem('_showWelcome');
+        if (hasSeenWelcome === 'false') {
+          setShowWelcome(false);
+        } else {
+          setShowWelcome(true);
+        }
         if (path !== '/') {
           navigate('/', { replace: true });
         }
@@ -655,8 +661,8 @@ function App() {
       <WelcomePage
         goUser={() => {
           setShowWelcome(false);
-          setShowUserSignUp(true);
-          navigate('/signup');
+          sessionStorage.setItem('_showWelcome', 'false');
+          navigate('/', { replace: true });
         }}
         goAdmin={() => {
           setShowWelcome(false);
