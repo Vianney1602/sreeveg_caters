@@ -80,6 +80,7 @@ def create_app():
     from api.admin import admin_bp
     from api.payments import payments_bp
     from api.uploads import uploads_bp
+    from api.users import users_bp
 
     app.register_blueprint(customers_bp, url_prefix="/api/customers")
     app.register_blueprint(orders_bp, url_prefix="/api/orders")
@@ -89,6 +90,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(payments_bp, url_prefix="/api/payments")
     app.register_blueprint(uploads_bp, url_prefix="/api/uploads")
+    app.register_blueprint(users_bp, url_prefix="/api/users")
 
     # Compatibility aliases: expose common POST login/register endpoints
     # so clients that expect app-level routes still work.

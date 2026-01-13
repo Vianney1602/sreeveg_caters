@@ -68,7 +68,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
 
     const headers = {};
     const token = sessionStorage.getItem('_ct'); // Customer token in sessionStorage
+    const userToken = sessionStorage.getItem('_userToken'); // New user auth token
     if (token) headers.Authorization = `Bearer ${token}`;
+    if (userToken) headers.Authorization = `Bearer ${userToken}`;
 
     if (paymentMethod === 'cod') {
       // Cash on Delivery - place order directly

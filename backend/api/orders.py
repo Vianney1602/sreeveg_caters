@@ -5,6 +5,7 @@ from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_requ
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
 import hashlib
+import os
 
 orders_bp = Blueprint("orders", __name__)
 
@@ -93,6 +94,18 @@ def create_order():
             identity = get_jwt_identity()
         except:
             pass
+        
+        # Also check for user token from our new auth system
+        user_token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        user_customer_id = None
+        if user_token and not identity:
+            try:
+                import jwt
+                SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+                decoded = jwt.decode(user_token, SECRET_KEY, algorithms=["HS256"])
+                user_customer_id = decoded.get('user_id')
+            except:
+                pass
 
         # Handle customer_id from JWT - FIX: handle both string and dict
         payload_customer_id = data.get("customer_id")
@@ -107,6 +120,10 @@ def create_order():
                     identity_customer_id = int(identity)
                 except (ValueError, TypeError):
                     identity_customer_id = None
+        
+        # Use user_customer_id if available
+        if user_customer_id and not identity_customer_id:
+            identity_customer_id = user_customer_id
         
         # Check authorization if both are present
         if payload_customer_id and identity_customer_id:

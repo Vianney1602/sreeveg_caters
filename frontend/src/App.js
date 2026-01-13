@@ -11,6 +11,10 @@ import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import WelcomePage from "./WelcomePage";
 import BulkOrderModal from "./BulkOrderModal";
+import UserSignUp from "./UserSignUp";
+import UserSignIn from "./UserSignIn";
+import OrderHistory from "./OrderHistory";
+import UserAccount from "./UserAccount";
 import "./home.css";
 
 function App() {
@@ -70,6 +74,12 @@ function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false); // Changed to false initially
+  const [showUserSignUp, setShowUserSignUp] = useState(false);
+  const [showUserSignIn, setShowUserSignIn] = useState(false);
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
+  const [showUserAccount, setShowUserAccount] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   // removed customer account UI/state per request
 
   // Order type and guest count for bulk orders
@@ -178,6 +188,21 @@ function App() {
         }, remainingTime);
       });
     } else {
+      // Check for existing user session
+      const userToken = sessionStorage.getItem('_userToken');
+      const savedUser = sessionStorage.getItem('_user');
+      if (userToken && savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          setCurrentUser(user);
+          setIsUserLoggedIn(true);
+        } catch (e) {
+          // Invalid user data, clear it
+          sessionStorage.removeItem('_userToken');
+          sessionStorage.removeItem('_user');
+        }
+      }
+      
       // Restore bulk guest count if exists
       const savedGuestCount = sessionStorage.getItem('_bulkGuestCount');
       if (savedGuestCount) {
@@ -561,10 +586,87 @@ function App() {
   if (showWelcome)
     return (
       <WelcomePage
-        goUser={() => setShowWelcome(false)}
+        goUser={() => {
+          setShowWelcome(false);
+          setShowUserSignUp(true);
+        }}
         goAdmin={() => {
           setShowWelcome(false);
           setShowAdminLogin(true);
+        }}
+      />
+    );
+
+  if (showUserSignUp)
+    return (
+      <UserSignUp
+        goToSignIn={() => {
+          setShowUserSignUp(false);
+          setShowUserSignIn(true);
+        }}
+        goBack={() => {
+          setShowUserSignUp(false);
+          setShowWelcome(true);
+        }}
+        onSignUpSuccess={(user) => {
+          setCurrentUser(user);
+          setIsUserLoggedIn(true);
+          setShowUserSignUp(false);
+          setShowMenuPage(true);
+        }}
+      />
+    );
+
+  if (showUserSignIn)
+    return (
+      <UserSignIn
+        goToSignUp={() => {
+          setShowUserSignIn(false);
+          setShowUserSignUp(true);
+        }}
+        goBack={() => {
+          setShowUserSignIn(false);
+          setShowWelcome(true);
+        }}
+        onSignInSuccess={(user) => {
+          setCurrentUser(user);
+          setIsUserLoggedIn(true);
+          setShowUserSignIn(false);
+          setShowMenuPage(true);
+        }}
+      />
+    );
+  
+  if (showOrderHistory)
+    return (
+      <OrderHistory
+        user={currentUser}
+        goBack={() => {
+          setShowOrderHistory(false);
+          setShowUserAccount(true);
+        }}
+      />
+    );
+  
+  if (showUserAccount)
+    return (
+      <UserAccount
+        user={currentUser}
+        onLogout={() => {
+          sessionStorage.removeItem('_userToken');
+          sessionStorage.removeItem('_user');
+          setIsUserLoggedIn(false);
+          setCurrentUser(null);
+          setShowUserAccount(false);
+          setShowWelcome(true);
+        }}
+        goToOrderHistory={() => {
+          setShowUserAccount(false);
+          setShowOrderHistory(true);
+        }}
+        goToMenu={() => {
+          setShowUserAccount(false);
+          setShowMenuPage(true);
         }}
       />
     );
@@ -703,6 +805,14 @@ function App() {
             Cart
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
+          {isUserLoggedIn && currentUser ? (
+            <>
+              <button onClick={() => setShowUserAccount(true)}>
+                My Account
+              </button>
+              <span className="nav-separator" aria-hidden="true">|</span>
+            </>
+          ) : null}
           <button onClick={() => setShowAdminLogin(true)}>Admin</button>
         </nav>
       </header>
