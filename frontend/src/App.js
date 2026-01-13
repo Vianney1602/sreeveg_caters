@@ -612,11 +612,9 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignUp(false);
-          setShowWelcome(true);
         }}
         goToHome={() => {
           setShowUserSignUp(false);
-          setShowWelcome(true);
         }}
       />
     );
@@ -636,11 +634,9 @@ function App() {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
           setShowUserSignIn(false);
-          setShowWelcome(true);
         }}
         goToHome={() => {
           setShowUserSignIn(false);
-          setShowWelcome(true);
         }}
       />
     );
@@ -678,7 +674,6 @@ function App() {
         }}
         goToHome={() => {
           setShowUserAccount(false);
-          setShowWelcome(true);
         }}
       />
     );
