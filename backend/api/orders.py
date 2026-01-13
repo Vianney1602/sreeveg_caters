@@ -7,12 +7,25 @@ from datetime import datetime, timedelta
 from flask_mail import Message
 import hashlib
 import os
+import threading
 
 orders_bp = Blueprint("orders", __name__)
 
 # Track recent order requests to prevent duplicates during network issues
 # Key: hash(email + timestamp), Value: order_id
 _order_request_cache = {}
+
+def send_order_confirmation_email_async(app, order_data, menu_items_details):
+    """Send order confirmation email in background thread"""
+    with app.app_context():
+        try:
+            # Reload order from database in this thread's context
+            order = Order.query.get(order_data['order_id'])
+            if not order:
+                return False
+            send_order_confirmation_email(order, menu_items_details)
+        except Exception as e:
+            print(f"Background email error: {str(e)}")
 
 def send_order_confirmation_email(order, menu_items_details):
     """Send order confirmation email to customer"""
@@ -328,14 +341,22 @@ def create_order():
         )
 
         db.session.add(order)
-        db.session.commit()
+        db.session.flush()  # Get order_id without full commit
         
         # Cache this order to prevent duplicates from rapid submissions
         if email:
             request_hash = hashlib.md5(email.encode()).hexdigest()
             _order_request_cache[request_hash] = (datetime.utcnow(), order.order_id)
 
-        # Save menu items and update stock
+        # Bulk load all menu items to avoid N+1 queries
+        menu_item_ids = [item.get("id") for item in menu_items]
+        menu_items_map = {mi.item_id: mi for mi in MenuItem.query.filter(MenuItem.item_id.in_(menu_item_ids)).all()}
+        
+        # Prepare batch operations
+        order_menu_items = []
+        inventory_updates = []
+        
+        # Save menu items and prepare stock updates
         for item in menu_items:
             om = OrderMenuItem(
                 order_id=order.order_id,
@@ -344,9 +365,10 @@ def create_order():
                 price_at_order_time=item.get("price", 0)
             )
             db.session.add(om)
+            order_menu_items.append(om)
             
             # Decrease stock quantity
-            menu_item = MenuItem.query.get(item.get("id"))
+            menu_item = menu_items_map.get(item.get("id"))
             if menu_item and menu_item.stock_quantity is not None:
                 old_stock = menu_item.stock_quantity
                 menu_item.stock_quantity = max(0, menu_item.stock_quantity - item.get("qty", 1))
@@ -355,74 +377,100 @@ def create_order():
                 if menu_item.stock_quantity == 0:
                     menu_item.is_available = False
                 
-                # Emit inventory change event
-                try:
-                    socketio.emit('inventory_changed', {
-                        'item_id': menu_item.item_id,
-                        'item_name': menu_item.item_name,
-                        'old_stock': old_stock,
-                        'new_stock': menu_item.stock_quantity,
-                        'is_available': menu_item.is_available,
-                        'low_stock': menu_item.stock_quantity < 10
-                    })
-                except Exception as e:
-                    pass
+                inventory_updates.append({
+                    'item_id': menu_item.item_id,
+                    'item_name': menu_item.item_name,
+                    'old_stock': old_stock,
+                    'new_stock': menu_item.stock_quantity,
+                    'is_available': menu_item.is_available,
+                    'low_stock': menu_item.stock_quantity < 10
+                })
 
+        # Single commit for all database operations
         db.session.commit()
+        
+        # Prepare data for background tasks
+        order_data = {
+            'order_id': order.order_id,
+            'customer_name': order.customer_name,
+            'phone_number': order.phone_number,
+            'email': order.email,
+            'event_type': order.event_type,
+            'number_of_guests': order.number_of_guests,
+            'event_date': order.event_date,
+            'event_time': order.event_time,
+            'status': order.status,
+            'total_amount': float(order.total_amount) if order.total_amount else 0,
+            'venue_address': order.venue_address,
+            'created_at': order.created_at.isoformat() if order.created_at else None,
+        }
         
         # Prepare menu items details for email
         menu_items_details = []
-        for item in order.menu_items:
+        for om in order_menu_items:
+            menu_item = menu_items_map.get(om.menu_item_id)
             menu_items_details.append({
-                'name': item.menu_item.item_name if item.menu_item else 'Unknown Item',
-                'quantity': item.quantity,
-                'price': float(item.price_at_order_time)
+                'name': menu_item.item_name if menu_item else 'Unknown Item',
+                'quantity': om.quantity,
+                'price': float(om.price_at_order_time)
             })
         
-        # Send order confirmation email
-        if order.email:
-            try:
-                send_order_confirmation_email(order, menu_items_details)
-            except Exception as e:
-                print(f"Warning: Failed to send order confirmation email: {str(e)}")
-
-        # Update customer order count
-        if customer_id:
-            customer = Customer.query.get(customer_id)
-            if customer:
-                customer.total_orders_count = Order.query.filter_by(customer_id=customer_id).count()
-                db.session.commit()
-
-                # Emit real-time event to admin room for new order
+        # Send immediate response to client
+        response = jsonify({"message": "Order Created", "order_id": order.order_id})
+        
+        # Background tasks: email, socketio, customer stats
+        def background_tasks():
+            with current_app.app_context():
                 try:
-                    socketio.emit(
-                        'order_created',
-                        {
-                            'order_id': order.order_id,
-                            'customer_name': order.customer_name,
-                            'phone_number': order.phone_number,
-                            'email': order.email,
-                            'event_type': order.event_type,
-                            'number_of_guests': order.number_of_guests,
-                            'event_date': order.event_date,
-                            'event_time': order.event_time,
-                            'status': order.status,
-                            'total_amount': float(order.total_amount) if order.total_amount else 0,
-                            'venue_address': order.venue_address,
-                            'items': [{
-                                'menu_item_id': item.menu_item_id,
-                                'quantity': item.quantity,
-                                'item_name': item.menu_item.item_name if item.menu_item else "Unknown"
-                            } for item in order.menu_items],
-                            'created_at': order.created_at.isoformat() if order.created_at else None,
-                        },
-                        room='admins'
-                    )
-                except Exception:
-                    # Avoid failing the request if socket broadcast fails
-                    pass
+                    # Send order confirmation email
+                    if order.email:
+                        try:
+                            send_order_confirmation_email(order, menu_items_details)
+                        except Exception as e:
+                            print(f"Background email error: {str(e)}")
+                    
+                    # Emit inventory changes
+                    for inv_update in inventory_updates:
+                        try:
+                            socketio.emit('inventory_changed', inv_update)
+                        except Exception as e:
+                            pass
+                    
+                    # Update customer order count
+                    if customer_id:
+                        try:
+                            customer = Customer.query.get(customer_id)
+                            if customer:
+                                customer.total_orders_count = Order.query.filter_by(customer_id=customer_id).count()
+                                db.session.commit()
+                        except Exception as e:
+                            print(f"Customer stats update error: {str(e)}")
+                    
+                    # Emit order created event
+                    try:
+                        socketio.emit(
+                            'order_created',
+                            {
+                                **order_data,
+                                'items': [{
+                                    'menu_item_id': om.menu_item_id,
+                                    'quantity': om.quantity,
+                                    'item_name': menu_items_map.get(om.menu_item_id).item_name if menu_items_map.get(om.menu_item_id) else "Unknown"
+                                } for om in order_menu_items]
+                            },
+                            room='admins'
+                        )
+                    except Exception as e:
+                        pass
+                except Exception as e:
+                    print(f"Background tasks error: {str(e)}")
+        
+        # Start background thread
+        thread = threading.Thread(target=background_tasks)
+        thread.daemon = True
+        thread.start()
 
-        return jsonify({"message": "Order Created", "order_id": order.order_id}), 201
+        return response, 201
         
     except Exception as e:
         db.session.rollback()

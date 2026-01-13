@@ -498,6 +498,19 @@ export default function BulkCartPage({
         </div>
       )}
 
+      {/* PROCESSING OVERLAY - Show while order is being placed */}
+      {isSubmitting && (
+        <div className="processing-overlay">
+          <div className="processing-popup">
+            <div className="spinner-container">
+              <div className="spinner"></div>
+            </div>
+            <h3 className="processing-title">Processing Your Bulk Order...</h3>
+            <p className="processing-message">Please wait while we confirm your order</p>
+          </div>
+        </div>
+      )}
+
       {/* ORDER / PAYMENT STATUS POPUP */}
       {(orderStatus || paymentStatus) && (
         <div className="order-status-overlay">
