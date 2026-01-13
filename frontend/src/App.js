@@ -995,7 +995,6 @@ function App() {
           <button className="footer-link" onClick={() => {
             setShowMenuPage(true);
           }}>Menu</button>
-          <button className="footer-link" onClick={() => setOrderType("bulk")}>Bulk Orders</button>
           <button className="footer-link" onClick={() => {
             setShowAdminLogin(true);
           }}>Admin</button>

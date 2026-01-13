@@ -385,7 +385,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           <div className="checkout-backdrop" onClick={() => setShowCheckout(false)} />
           <div className="checkout-modal">
             <div className="checkout-header">
-              <h2>Complete Your Order</h2>
+              <h2>Order Details</h2>
               <button 
                 className="close-checkout-btn"
                 onClick={() => setShowCheckout(false)}
