@@ -35,11 +35,7 @@ function App() {
       return [];
     }
   });
-  const [bulkOrderCompleted, setBulkOrderCompleted] = useState(() => {
-    // Restore bulk order completion status from sessionStorage
-    const saved = sessionStorage.getItem('_bulkOrderCompleted');
-    return saved === 'true' ? true : false;
-  });
+  const [bulkOrderCompleted, setBulkOrderCompleted] = useState(false);
   const [bulkOrderedItems, setBulkOrderedItems] = useState(() => {
     // Restore bulk ordered items from sessionStorage
     try {
@@ -291,11 +287,6 @@ function App() {
   useEffect(() => {
     sessionStorage.setItem('_orderedItems', JSON.stringify(orderedItems));
   }, [orderedItems]);
-  
-  // Persist bulk order completion status
-  useEffect(() => {
-    sessionStorage.setItem('_bulkOrderCompleted', bulkOrderCompleted ? 'true' : 'false');
-  }, [bulkOrderCompleted]);
   
   // Persist bulk ordered items
   useEffect(() => {
