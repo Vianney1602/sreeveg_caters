@@ -163,11 +163,21 @@ export default function AdminDashboard({ onLogout }) {
 
   // Toast notification state
   const [toast, setToast] = useState(null);
+  const [showAdminPopupState, setShowAdminPopupState] = useState(false);
+  const [adminPopupMessage, setAdminPopupMessage] = useState('');
+  const [adminPopupType, setAdminPopupType] = useState('success');
 
   // Toast helper function
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000); // Auto-hide after 4 seconds
+  };
+
+  // Admin Popup helper (more prominent than toast)
+  const showAdminPopup = (message, type = 'success') => {
+    setAdminPopupMessage(message);
+    setAdminPopupType(type);
+    setShowAdminPopupState(true);
   };
 
   // Confirmation modal state
@@ -688,7 +698,7 @@ export default function AdminDashboard({ onLogout }) {
             ? { ...order, status: 'Cancelled', cancellationRequested: false }
             : order
         ));
-        showToast('Order cancelled successfully', 'success');
+        showAdminPopup(`Order #${orderId} has been cancelled successfully. Customer will be notified.`, 'success');
       } else {
         // Remove cancellation request flag
         setOrders(orders.map(order =>
@@ -696,10 +706,10 @@ export default function AdminDashboard({ onLogout }) {
             ? { ...order, cancellationRequested: false }
             : order
         ));
-        showToast('Cancellation request rejected', 'info');
+        showAdminPopup(`Cancellation request for Order #${orderId} has been rejected. Customer will be notified.`, 'info');
       }
     } catch (err) {
-      showToast('Failed to process cancellation request', 'error');
+      showAdminPopup('Failed to process cancellation request. Please try again.', 'error');
       console.error('Cancellation approval error:', err);
     }
   };
@@ -1446,6 +1456,96 @@ export default function AdminDashboard({ onLogout }) {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Admin Popup Notification */}
+        {showAdminPopupState && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(128, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            animation: 'fadeIn 0.3s ease-out'
+          }}>
+            <div style={{
+              background: '#fff',
+              borderRadius: '16px',
+              padding: '2.5rem',
+              maxWidth: '500px',
+              width: '90%',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+              border: '3px solid #d4af37',
+              textAlign: 'center',
+              animation: 'slideUp 0.3s ease-out'
+            }}>
+              <div style={{
+                width: '70px',
+                height: '70px',
+                borderRadius: '50%',
+                background: adminPopupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' 
+                          : adminPopupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                          : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                margin: '0 auto 1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem',
+                color: '#fff',
+                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+              }}>
+                {adminPopupType === 'success' ? '✓' : adminPopupType === 'error' ? '✕' : 'ℹ'}
+              </div>
+              <h3 style={{ 
+                color: '#7a0000', 
+                marginTop: 0, 
+                marginBottom: '1rem',
+                fontSize: '1.5rem',
+                fontWeight: '700'
+              }}>
+                {adminPopupType === 'success' ? 'Success!' : adminPopupType === 'error' ? 'Error' : 'Information'}
+              </h3>
+              <p style={{ 
+                color: '#4a4a4a', 
+                lineHeight: '1.6', 
+                marginBottom: '2rem',
+                fontSize: '1.05rem'
+              }}>
+                {adminPopupMessage}
+              </p>
+              <button
+                onClick={() => setShowAdminPopupState(false)}
+                style={{
+                  background: 'linear-gradient(135deg, #d4af37, #f4d03f)',
+                  color: '#7a0000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '0.875rem 2.5rem',
+                  fontSize: '1.05rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(212, 175, 55, 0.4)',
+                  transition: 'all 0.3s ease',
+                  width: '100%'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 6px 20px rgba(212, 175, 55, 0.6)';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.4)';
+                }}
+              >
+                OK
+              </button>
             </div>
           </div>
         )}

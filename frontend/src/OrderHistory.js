@@ -10,6 +10,9 @@ export default function OrderHistory({ goBack, user }) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
+  const [popupType, setPopupType] = useState('success'); // 'success', 'error', 'info'
 
   useEffect(() => {
     fetchOrders();
@@ -29,11 +32,31 @@ export default function OrderHistory({ goBack, user }) {
         );
       }
     };
+
+    const handleCancellationApproved = (data) => {
+      if (user && data.customer_id === user.id) {
+        setPopupType('success');
+        setPopupMessage(`Your cancellation request for Order #${data.order_id} has been approved by the admin.`);
+        setShowPopup(true);
+      }
+    };
+
+    const handleCancellationRejected = (data) => {
+      if (user && data.customer_id === user.id) {
+        setPopupType('error');
+        setPopupMessage(`Your cancellation request for Order #${data.order_id} has been rejected by the admin.`);
+        setShowPopup(true);
+      }
+    };
     
     socketService.on('order_status_changed', handleStatusChange);
+    socketService.on('cancellation_approved', handleCancellationApproved);
+    socketService.on('cancellation_rejected', handleCancellationRejected);
     
     return () => {
       socketService.off('order_status_changed', handleStatusChange);
+      socketService.off('cancellation_approved', handleCancellationApproved);
+      socketService.off('cancellation_rejected', handleCancellationRejected);
     };
   }, [user]);
 
@@ -86,12 +109,16 @@ export default function OrderHistory({ goBack, user }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      alert(response.data.message || 'Cancellation request sent to admin. You will be notified once approved.');
+      setPopupType('success');
+      setPopupMessage(response.data.message || 'Cancellation request sent to admin. You will be notified once approved.');
+      setShowPopup(true);
       setShowCancelConfirm(false);
       setSelectedOrder(null);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to request cancellation');
-      alert(err.response?.data?.error || 'Failed to request cancellation');
+      setPopupType('error');
+      setPopupMessage(err.response?.data?.error || 'Failed to request cancellation');
+      setShowPopup(true);
     } finally {
       setCancelLoading(false);
     }
@@ -312,6 +339,96 @@ export default function OrderHistory({ goBack, user }) {
                 {cancelLoading ? 'Requesting...' : 'Yes, Cancel Order'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Popup Notification */}
+      {showPopup && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(128, 0, 0, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '16px',
+            padding: '2.5rem',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+            border: '3px solid #d4af37',
+            textAlign: 'center',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{
+              width: '70px',
+              height: '70px',
+              borderRadius: '50%',
+              background: popupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' 
+                        : popupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                        : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              margin: '0 auto 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              color: '#fff',
+              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+            }}>
+              {popupType === 'success' ? '✓' : popupType === 'error' ? '✕' : 'ℹ'}
+            </div>
+            <h3 style={{ 
+              color: '#7a0000', 
+              marginTop: 0, 
+              marginBottom: '1rem',
+              fontSize: '1.5rem',
+              fontWeight: '700'
+            }}>
+              {popupType === 'success' ? 'Success!' : popupType === 'error' ? 'Error' : 'Information'}
+            </h3>
+            <p style={{ 
+              color: '#4a4a4a', 
+              lineHeight: '1.6', 
+              marginBottom: '2rem',
+              fontSize: '1.05rem'
+            }}>
+              {popupMessage}
+            </p>
+            <button
+              onClick={() => setShowPopup(false)}
+              style={{
+                background: 'linear-gradient(135deg, #d4af37, #f4d03f)',
+                color: '#7a0000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.875rem 2.5rem',
+                fontSize: '1.05rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(212, 175, 55, 0.4)',
+                transition: 'all 0.3s ease',
+                width: '100%'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px rgba(212, 175, 55, 0.6)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.4)';
+              }}
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
