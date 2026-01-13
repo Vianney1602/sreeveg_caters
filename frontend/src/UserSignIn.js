@@ -251,7 +251,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
           shape="rectangular"
           theme="filled_blue"
           size="large"
-          width="100%"
+          width="400"
         />
         
         <div className="auth-links">

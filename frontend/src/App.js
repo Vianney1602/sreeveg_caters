@@ -298,16 +298,18 @@ function App() {
     const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
     axios.defaults.baseURL = API_BASE_URL;
     axios.defaults.headers.post["Content-Type"] = "application/json";
-    axios.defaults.timeout = 30000; // 30 second timeout for all requests
+    axios.defaults.timeout = 60000; // 60 second timeout for all requests
     
     // Add response interceptor for error handling
     const interceptor = axios.interceptors.response.use(
       response => response,
       error => {
         if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-          console.error('Request timeout - server took too long to respond');
+          console.error('Request timeout - server took too long to respond. Please check if backend is running.');
         } else if (!error.response) {
-          console.error('Network error - server unreachable');
+          console.error('Network error - server unreachable. Please ensure backend server is running on', API_BASE_URL);
+        } else if (error.response.status >= 500) {
+          console.error('Server error:', error.response.status, error.response.data);
         }
         return Promise.reject(error);
       }
