@@ -1116,7 +1116,6 @@ function App() {
         <div>
           <h3>Quick Links</h3>
           <button className="footer-link" onClick={() => navigate('/menu')}>Menu</button>
-          <button className="footer-link" onClick={() => navigate('/admin-login')}>Admin</button>
         </div>
         <div>
           <h3>Contact Us</h3>
