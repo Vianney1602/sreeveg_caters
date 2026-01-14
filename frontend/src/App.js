@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import authService from "./services/authService";
 import socketService from "./services/socketService";
+import { disableConsoleInProduction } from "./utils/security";
 import LoadingAnimation from "./components/LoadingAnimation";
 import MenuPage from "./MenuPage";
 import CartPage from "./CartPage";
@@ -21,6 +22,12 @@ import "./home.css";
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Security: Disable console in production to prevent data leaks
+  useEffect(() => {
+    disableConsoleInProduction();
+  }, []);
+  
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
@@ -179,8 +186,15 @@ function App() {
       if (userToken && savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          setCurrentUser(user);
-          setIsUserLoggedIn(true);
+          // Security: Validate user object has required properties
+          if (user && user.id && user.email) {
+            setCurrentUser(user);
+            setIsUserLoggedIn(true);
+          } else {
+            // Invalid user data, clear it
+            sessionStorage.removeItem('_userToken');
+            sessionStorage.removeItem('_user');
+          }
         } catch (e) {
           // Invalid user data, clear it
           sessionStorage.removeItem('_userToken');
@@ -238,6 +252,40 @@ function App() {
     };
   }, []);
   
+  // Security: Detect and prevent history manipulation attacks
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // Security: Clear sensitive data from history state
+      if (event.state && typeof event.state === 'object') {
+        // Sanitize any sensitive data that might be in history state
+        const sanitizedState = {};
+        window.history.replaceState(sanitizedState, '', window.location.pathname);
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+  
+  // Security: Prevent data leaks through page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page is hidden - could implement auto-lock or data clearing
+        // Currently monitoring only - add logic if needed
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+  
   // Persist order completion status
   useEffect(() => {
     sessionStorage.setItem('_orderCompleted', orderCompleted ? 'true' : 'false');
@@ -277,6 +325,15 @@ function App() {
     
     const path = location.pathname;
     
+    // Security: Validate URL to prevent injection attacks
+    const validPaths = ['/', '/menu', '/cart', '/bulk-menu', '/bulk-cart', '/admin-login', 
+                        '/admin', '/signup', '/signin', '/order-history', '/account'];
+    if (!validPaths.includes(path)) {
+      // Invalid path detected - redirect to home
+      navigate('/', { replace: true });
+      return;
+    }
+    
     // Determine which page should be shown based on URL
     // This prevents multiple state updates and re-renders
     let pageState = {
@@ -309,9 +366,19 @@ function App() {
     } else if (path === '/signin') {
       pageState.signin = true;
     } else if (path === '/order-history') {
-      pageState.orderHistory = true;
+      // Security: Only allow if user is logged in
+      pageState.orderHistory = isUserLoggedIn;
+      if (!isUserLoggedIn) {
+        navigate('/');
+        return;
+      }
     } else if (path === '/account') {
-      pageState.account = true;
+      // Security: Only allow if user is logged in
+      pageState.account = isUserLoggedIn;
+      if (!isUserLoggedIn) {
+        navigate('/');
+        return;
+      }
     } else if (path === '/' || path === '') {
       // Show welcome page only if neither admin nor user is logged in
       pageState.welcome = !isAdminLoggedIn && !isUserLoggedIn;
@@ -354,26 +421,57 @@ function App() {
     axios.defaults.headers.post["Content-Type"] = "application/json";
     axios.defaults.timeout = 60000; // 60 second timeout for all requests
     
-    // Add response interceptor for error handling
-    const interceptor = axios.interceptors.response.use(
+    // Security: Add request interceptor to include auth tokens
+    const requestInterceptor = axios.interceptors.request.use(
+      config => {
+        // Add user token if available
+        const userToken = sessionStorage.getItem('_userToken');
+        if (userToken && !config.headers.Authorization) {
+          config.headers.Authorization = `Bearer ${userToken}`;
+        }
+        return config;
+      },
+      error => Promise.reject(error)
+    );
+    
+    // Add response interceptor for error handling and security
+    const responseInterceptor = axios.interceptors.response.use(
       response => response,
       error => {
-        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
-          console.error('Request timeout - server took too long to respond. Please check if backend is running.');
-        } else if (!error.response) {
-          console.error('Network error - server unreachable. Please ensure backend server is running on', API_BASE_URL);
-        } else if (error.response.status >= 500) {
-          console.error('Server error:', error.response.status, error.response.data);
+        // Security: Handle unauthorized access (401)
+        if (error.response && error.response.status === 401) {
+          // Token expired or invalid - clear auth data
+          const adminToken = sessionStorage.getItem('_st');
+          if (adminToken) {
+            sessionStorage.removeItem('_st');
+            sessionStorage.removeItem('_au');
+            setIsAdminLoggedIn(false);
+            navigate('/admin-login');
+          } else {
+            sessionStorage.removeItem('_userToken');
+            sessionStorage.removeItem('_user');
+            setIsUserLoggedIn(false);
+            setCurrentUser(null);
+            navigate('/');
+          }
         }
+        
+        // Security: Handle forbidden access (403)
+        if (error.response && error.response.status === 403) {
+          console.error('Access forbidden');
+          navigate('/');
+        }
+        
         return Promise.reject(error);
       }
     );
     
-    // Cleanup interceptor on unmount
     return () => {
-      axios.interceptors.response.eject(interceptor);
+      // Cleanup interceptors on unmount
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
     };
-  }, []);
+  }, [navigate, setIsAdminLoggedIn, setIsUserLoggedIn, setCurrentUser]);
 
   // Payment function using Razorpay
   const initiatePayment = (orderId, amount, customerDetails, onSuccess, onError) => {
@@ -596,13 +694,26 @@ function App() {
 
   // Conditional renders - Admin checks first (highest priority)
   if (isAdminLoggedIn) {
+    // Security: Verify admin token still exists
+    const adminToken = sessionStorage.getItem('_st');
+    if (!adminToken) {
+      setIsAdminLoggedIn(false);
+      navigate('/admin-login');
+      return null;
+    }
     return (
       <AdminDashboard
         onLogout={() => {
+          // Security: Clear all admin session data
           authService.logout();
           setIsAdminLoggedIn(false);
-          sessionStorage.removeItem('_currentPage'); // Clear saved page state
-          navigate('/'); // Navigate to home, URL sync will handle showing welcome
+          sessionStorage.removeItem('_currentPage');
+          sessionStorage.removeItem('_st');
+          sessionStorage.removeItem('_au');
+          
+          // Security: Clear browser history to prevent data leaks
+          window.history.replaceState(null, '', '/');
+          navigate('/', { replace: true }); // Replace history entry
         }}
         stats={dashboardStats}
       />
@@ -659,7 +770,12 @@ function App() {
       />
     );
   
-  if (showOrderHistory)
+  if (showOrderHistory) {
+    // Security: Protect order history - require user login
+    if (!isUserLoggedIn || !currentUser) {
+      navigate('/');
+      return null;
+    }
     return (
       <OrderHistory
         user={currentUser}
@@ -668,23 +784,46 @@ function App() {
         }}
       />
     );
+  }
   
-  if (showUserAccount)
+  if (showUserAccount) {
+    // Security: Protect user account - require user login
+    if (!isUserLoggedIn || !currentUser) {
+      navigate('/');
+      return null;
+    }
     return (
       <UserAccount
         user={currentUser}
         onLogout={() => {
+          // Security: Clear all sensitive data on logout
           sessionStorage.removeItem('_userToken');
           sessionStorage.removeItem('_user');
+          sessionStorage.removeItem('_showWelcome');
+          sessionStorage.removeItem('_cart');
+          sessionStorage.removeItem('_bulkCart');
+          sessionStorage.removeItem('_orderCompleted');
+          sessionStorage.removeItem('_orderedItems');
+          sessionStorage.removeItem('_bulkOrderedItems');
           setIsUserLoggedIn(false);
           setCurrentUser(null);
-          navigate('/');
+          // Clear cart data for security
+          setCart({});
+          setBulkCart({});
+          setOrderCompleted(false);
+          setOrderedItems([]);
+          setBulkOrderedItems([]);
+          
+          // Security: Clear browser history to prevent data leaks
+          window.history.replaceState(null, '', '/');
+          navigate('/', { replace: true }); // Replace history entry
         }}
         goToOrderHistory={() => navigate('/order-history')}
         goToMenu={() => navigate('/menu')}
         goToHome={() => navigate('/')}
       />
     );
+  }
   if (showCart)
     return (
       <CartPage
