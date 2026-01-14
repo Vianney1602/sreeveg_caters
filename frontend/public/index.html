@@ -13,10 +13,16 @@
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; 
                    img-src 'self' data: https: blob:; 
                    font-src 'self' data: https://fonts.gstatic.com; 
-                   connect-src 'self' http://127.0.0.1:5000 http://localhost:5000 https://checkout.razorpay.com https://sreeveg-caters.onrender.com https://sreeveg-caters-1.onrender.com https://accounts.google.com https://www.googleapis.com wss://sreeveg-caters.onrender.com wss://sreeveg-caters-1.onrender.com ws://localhost:5000 ws://127.0.0.1:5000; 
+                   connect-src 'self' http://127.0.0.1:5000 http://localhost:5000 https://checkout.razorpay.com https://lumberjack.razorpay.com https://sreeveg-caters.onrender.com https://sreeveg-caters-1.onrender.com https://accounts.google.com https://www.googleapis.com wss://sreeveg-caters.onrender.com wss://sreeveg-caters-1.onrender.com ws://localhost:5000 ws://127.0.0.1:5000; 
                    frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://api.razorpay.com;
                    object-src 'none';
                    base-uri 'self';">
+    
+    <!-- Security: Cross-Origin-Opener-Policy for OAuth -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+    
+    <!-- Security: Cross-Origin-Embedder-Policy (unsafe-none to allow third-party resources) -->
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="unsafe-none">
     
     <!-- Security: XSS Protection -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
@@ -24,8 +30,8 @@
     <!-- Security: Prevent MIME sniffing -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     
-    <!-- Security: Referrer Policy -->
-    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <!-- Security: Referrer Policy (no-referrer-when-downgrade for OAuth compatibility) -->
+    <meta name="referrer" content="no-referrer-when-downgrade">
     
     <meta
       name="description"

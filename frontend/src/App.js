@@ -650,7 +650,6 @@ function App() {
   //       setSelectedMenuItems([]);
   //     })
   //     .catch(err => {
-  //       console.error(err);
   //       alert('Error submitting booking.');
   //     });
   // };
