@@ -9,12 +9,14 @@
     <!-- Security: Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://accounts.google.com https://apis.google.com; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://accounts.google.com https://apis.google.com https://www.gstatic.com; 
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; 
-                   img-src 'self' data: https:; 
+                   img-src 'self' data: https: blob:; 
                    font-src 'self' data: https://fonts.gstatic.com; 
-                   connect-src 'self' http://127.0.0.1:5000 http://localhost:5000 https://checkout.razorpay.com https://sreeveg-caters.onrender.com https://sreeveg-caters-1.onrender.com wss://sreeveg-caters.onrender.com wss://sreeveg-caters-1.onrender.com ws://localhost:5000 ws://127.0.0.1:5000; 
-                   frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://api.razorpay.com;">
+                   connect-src 'self' http://127.0.0.1:5000 http://localhost:5000 https://checkout.razorpay.com https://sreeveg-caters.onrender.com https://sreeveg-caters-1.onrender.com https://accounts.google.com https://www.googleapis.com wss://sreeveg-caters.onrender.com wss://sreeveg-caters-1.onrender.com ws://localhost:5000 ws://127.0.0.1:5000; 
+                   frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://api.razorpay.com;
+                   object-src 'none';
+                   base-uri 'self';">
     
     <!-- Security: XSS Protection -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
