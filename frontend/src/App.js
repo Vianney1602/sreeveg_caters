@@ -1116,6 +1116,8 @@ function App() {
         <div>
           <h3>Quick Links</h3>
           <button className="footer-link" onClick={() => navigate('/menu')}>Menu</button>
+          <button className="footer-link" onClick={() => navigate('/cart')}>Cart</button>
+          <button className="footer-link" onClick={() => navigate('/account')}>My Account</button>
         </div>
         <div>
           <h3>Contact Us</h3>
