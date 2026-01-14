@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import authService from "./services/authService";
 import socketService from "./services/socketService";
@@ -18,6 +19,8 @@ import UserAccount from "./UserAccount";
 import "./home.css";
 
 function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
@@ -69,11 +72,7 @@ function App() {
   const [showBulkCart, setShowBulkCart] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(() => {
-    // Restore the welcome page state from sessionStorage
-    const saved = sessionStorage.getItem('_showWelcome');
-    return saved === 'true';
-  });
+  const [showWelcome, setShowWelcome] = useState(false); // Will be set by URL sync or initialization
   const [showUserSignUp, setShowUserSignUp] = useState(false);
   const [showUserSignIn, setShowUserSignIn] = useState(false);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
@@ -122,19 +121,7 @@ function App() {
     setOrderCompleted(false);
     setOrderedItems([]);
     setTimeout(() => {
-      setShowMenuPage(false);
-      setShowBulkMenu(false);
-      setShowCart(true);
-      setIsPageTransitioning(false);
-    }, 3500);
-  };
-
-  const navigateToMenu = () => {
-    setIsPageTransitioning(true);
-    setTimeout(() => {
-      setShowCart(false);
-      setShowBulkCart(false);
-      setShowMenuPage(true);
+      navigate('/cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -142,8 +129,7 @@ function App() {
   const navigateToBulkCart = () => {
     setIsPageTransitioning(true);
     setTimeout(() => {
-      setShowBulkMenu(false);
-      setShowBulkCart(true);
+      navigate('/bulk-cart');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -151,8 +137,7 @@ function App() {
   const navigateToBulkMenu = () => {
     setIsPageTransitioning(true);
     setTimeout(() => {
-      setShowBulkCart(false);
-      setShowBulkMenu(true);
+      navigate('/bulk-menu');
       setIsPageTransitioning(false);
     }, 3500);
   };
@@ -172,7 +157,7 @@ function App() {
       })
       .then(() => {
         setIsAdminLoggedIn(true);
-        setShowWelcome(false);
+        // Don't manually set page states - let URL sync handle it
       })
       .catch(() => {
         // Token invalid, clear it
@@ -209,11 +194,8 @@ function App() {
         setBulkGuestCount(parseInt(savedGuestCount));
       }
 
-      // Check if welcome page has been seen
-      const hasSeenWelcome = sessionStorage.getItem('_showWelcome');
-      if (hasSeenWelcome !== 'false') {
-        setShowWelcome(true);
-      }
+      // Don't set showWelcome here - let the URL sync effect handle it
+      // This prevents conflicts with browser navigation
 
       // Ensure minimum loading time is met
       const elapsedTime = Date.now() - startTime;
@@ -288,6 +270,78 @@ function App() {
     if (initializing) return;
     sessionStorage.setItem('_bulkGuestCount', bulkGuestCount.toString());
   }, [bulkGuestCount, initializing]);
+  
+  // Synchronize page state with URL for browser back/forward button support
+  useEffect(() => {
+    if (initializing) return; // Don't sync during initialization
+    
+    const path = location.pathname;
+    
+    // Determine which page should be shown based on URL
+    // This prevents multiple state updates and re-renders
+    let pageState = {
+      menu: false,
+      cart: false,
+      bulkMenu: false,
+      bulkCart: false,
+      adminLogin: false,
+      signup: false,
+      signin: false,
+      orderHistory: false,
+      account: false,
+      welcome: false
+    };
+    
+    if (path === '/menu') {
+      pageState.menu = true;
+    } else if (path === '/cart') {
+      pageState.cart = true;
+    } else if (path === '/bulk-menu') {
+      pageState.bulkMenu = true;
+    } else if (path === '/bulk-cart') {
+      pageState.bulkCart = true;
+    } else if (path === '/admin-login') {
+      pageState.adminLogin = true;
+    } else if (path === '/admin' && isAdminLoggedIn) {
+      // Admin dashboard - all false
+    } else if (path === '/signup') {
+      pageState.signup = true;
+    } else if (path === '/signin') {
+      pageState.signin = true;
+    } else if (path === '/order-history') {
+      pageState.orderHistory = true;
+    } else if (path === '/account') {
+      pageState.account = true;
+    } else if (path === '/' || path === '') {
+      // Show welcome page only if neither admin nor user is logged in
+      pageState.welcome = !isAdminLoggedIn && !isUserLoggedIn;
+    }
+    
+    // Update all states in one batch to prevent glitching
+    setShowMenuPage(pageState.menu);
+    setShowCart(pageState.cart);
+    setShowBulkMenu(pageState.bulkMenu);
+    setShowBulkCart(pageState.bulkCart);
+    setShowAdminLogin(pageState.adminLogin);
+    setShowUserSignUp(pageState.signup);
+    setShowUserSignIn(pageState.signin);
+    setShowOrderHistory(pageState.orderHistory);
+    setShowUserAccount(pageState.account);
+    setShowWelcome(pageState.welcome);
+  }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing]);
+  
+  // Require authentication - redirect to welcome if not logged in and not on auth pages
+  useEffect(() => {
+    if (initializing) return; // Don't redirect during initialization
+    
+    const path = location.pathname;
+    const isOnAuthPage = path === '/' || path === '/signup' || path === '/signin' || 
+                         path === '/admin-login' || path === '/admin';
+    
+    if (!isUserLoggedIn && !isAdminLoggedIn && !isOnAuthPage) {
+      navigate('/');
+    }
+  }, [isUserLoggedIn, isAdminLoggedIn, location.pathname, initializing, navigate]);
   
   const [paymentStatus, setPaymentStatus] = useState(null); // For payment feedback
   // Dashboard Stats (if needed)
@@ -453,7 +507,7 @@ function App() {
     setBulkGuestCount(parseInt(formData.numberOfPersons));
     setOrderType("bulk");
     setShowBulkOrderModal(false);
-    setShowBulkMenu(true);
+    navigate('/bulk-menu');
   };
 
   const handleBulkOrderModalClose = () => {
@@ -503,7 +557,8 @@ function App() {
   //     });
   // };
 
-  // Admin login
+  // Admin login (legacy - not currently used)
+  // eslint-disable-next-line no-unused-vars
   const handleAdminLogin = (username, password) => {
     axios
       .post("/api/admin/login", { username, password })
@@ -546,8 +601,8 @@ function App() {
         onLogout={() => {
           authService.logout();
           setIsAdminLoggedIn(false);
-          setShowWelcome(true);
           sessionStorage.removeItem('_currentPage'); // Clear saved page state
+          navigate('/'); // Navigate to home, URL sync will handle showing welcome
         }}
         stats={dashboardStats}
       />
@@ -557,19 +612,10 @@ function App() {
   if (showAdminLogin) {
     return (
       <AdminLogin
-        goBack={() => {
-          setShowAdminLogin(false);
-          setShowWelcome(true);
-        }}
+        goBack={() => navigate(-1)}
         onLoginSuccess={() => {
-          // Reset all other UI states to ensure clean dashboard render
-          setShowAdminLogin(false);
-          setShowWelcome(false);
-          setShowMenuPage(false);
-          setShowCart(false);
-          setShowBulkMenu(false);
-          setShowBulkCart(false);
           setIsAdminLoggedIn(true);
+          navigate('/admin');
         }}
       />
     );
@@ -578,62 +624,38 @@ function App() {
   if (showWelcome)
     return (
       <WelcomePage
-        goUser={() => {
-          setShowWelcome(false);
-          setShowUserSignUp(true);
-        }}
-        goAdmin={() => {
-          setShowWelcome(false);
-          setShowAdminLogin(true);
-        }}
+        goUser={() => navigate('/signup')}
+        goAdmin={() => navigate('/admin-login')}
       />
     );
 
   if (showUserSignUp)
     return (
       <UserSignUp
-        goToSignIn={() => {
-          setShowUserSignUp(false);
-          setShowUserSignIn(true);
-        }}
-        goBack={() => {
-          setShowUserSignUp(false);
-          setShowWelcome(true);
-        }}
+        goToSignIn={() => navigate('/signin')}
+        goBack={() => navigate(-1)}
         onSignUpSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
-          setShowUserSignUp(false);
-          setShowWelcome(false);
           sessionStorage.setItem('_showWelcome', 'false');
+          navigate('/');
         }}
-        goToHome={() => {
-          setShowUserSignUp(false);
-        }}
+        goToHome={() => navigate('/')}
       />
     );
 
   if (showUserSignIn)
     return (
       <UserSignIn
-        goToSignUp={() => {
-          setShowUserSignIn(false);
-          setShowUserSignUp(true);
-        }}
-        goBack={() => {
-          setShowUserSignIn(false);
-          setShowWelcome(true);
-        }}
+        goToSignUp={() => navigate('/signup')}
+        goBack={() => navigate(-1)}
         onSignInSuccess={(user) => {
           setCurrentUser(user);
           setIsUserLoggedIn(true);
-          setShowUserSignIn(false);
-          setShowWelcome(false);
           sessionStorage.setItem('_showWelcome', 'false');
+          navigate('/');
         }}
-        goToHome={() => {
-          setShowUserSignIn(false);
-        }}
+        goToHome={() => navigate('/')}
       />
     );
   
@@ -642,7 +664,7 @@ function App() {
       <OrderHistory
         user={currentUser}
         goBack={() => {
-          setShowOrderHistory(false);
+          navigate(-1);
         }}
       />
     );
@@ -656,32 +678,18 @@ function App() {
           sessionStorage.removeItem('_user');
           setIsUserLoggedIn(false);
           setCurrentUser(null);
-          setShowUserAccount(false);
-          setShowWelcome(true);
+          navigate('/');
         }}
-        goToOrderHistory={() => {
-          setShowUserAccount(false);
-          setShowOrderHistory(true);
-        }}
-        goToMenu={() => {
-          setShowUserAccount(false);
-          setShowMenuPage(true);
-        }}
-        goToHome={() => {
-          setShowUserAccount(false);
-        }}
+        goToOrderHistory={() => navigate('/order-history')}
+        goToMenu={() => navigate('/menu')}
+        goToHome={() => navigate('/')}
       />
     );
   if (showCart)
     return (
       <CartPage
         goBack={() => {
-          setIsPageTransitioning(true);
-          setTimeout(() => {
-            setShowCart(false);
-            setShowMenuPage(true);
-            setIsPageTransitioning(false);
-          }, 3500);
+          navigate(-1);
         }}
         cart={cart}
         updateQty={updateQty}
@@ -699,11 +707,7 @@ function App() {
     return (
       <MenuPage
         goBack={() => {
-          setIsPageTransitioning(true);
-          setTimeout(() => {
-            setShowMenuPage(false);
-            setIsPageTransitioning(false);
-          }, 3500);
+          navigate(-1);
         }}
         goToCart={navigateToCart}
         cart={cart}
@@ -719,11 +723,7 @@ function App() {
         setBulkCart={setBulkCart}
         goToCart={navigateToBulkCart}
         goBack={() => {
-          setIsPageTransitioning(true);
-          setTimeout(() => {
-            setShowBulkMenu(false);
-            setIsPageTransitioning(false);
-          }, 3500);
+          navigate(-1);
         }}
       />
     );
@@ -746,7 +746,8 @@ function App() {
       />
     );
 
-  // Packages hardcoded (can also fetch from backend if needed)
+  // Packages hardcoded (can also fetch from backend if needed - legacy)
+  // eslint-disable-next-line no-unused-vars
   const packages = [
     {
       id: "silver",
@@ -792,12 +793,6 @@ function App() {
     },
   ];
 
-  // Require authentication - show welcome page if not logged in
-  if (!isUserLoggedIn && !showWelcome && !showUserSignIn && !showUserSignUp && !showAdminLogin && !isAdminLoggedIn) {
-    setShowWelcome(true);
-    return null;
-  }
-
   // Main return (UI intact)
   return (
     <div className="app">
@@ -807,25 +802,17 @@ function App() {
           <h2 className="header-title">Hotel Shanmuga Bhavaan</h2>
         </div>
         <nav className="header-nav" aria-label="Primary">
-          <button onClick={() => {
-            setShowMenuPage(true);
-          }}>View Menu</button>
+          <button onClick={() => navigate('/menu')}>View Menu</button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => {
-            setShowCart(true);
-          }}>
+          <button onClick={() => navigate('/cart')}>
             Cart
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => {
-            setShowUserAccount(true);
-          }}>
+          <button onClick={() => navigate('/account')}>
             My Account
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => {
-            setShowAdminLogin(true);
-          }}>Admin</button>
+          <button onClick={() => navigate('/admin-login')}>Admin</button>
         </nav>
       </header>
 
@@ -870,9 +857,9 @@ function App() {
               className="view-menu-btn"
               onClick={() => {
                 if (orderType === "individual") {
-                  setShowMenuPage(true);
+                  navigate('/menu');
                 } else {
-                  setShowBulkMenu(true);
+                  navigate('/bulk-menu');
                 }
               }}
             >
@@ -992,12 +979,8 @@ function App() {
         </div>
         <div>
           <h3>Quick Links</h3>
-          <button className="footer-link" onClick={() => {
-            setShowMenuPage(true);
-          }}>Menu</button>
-          <button className="footer-link" onClick={() => {
-            setShowAdminLogin(true);
-          }}>Admin</button>
+          <button className="footer-link" onClick={() => navigate('/menu')}>Menu</button>
+          <button className="footer-link" onClick={() => navigate('/admin-login')}>Admin</button>
         </div>
         <div>
           <h3>Contact Us</h3>
