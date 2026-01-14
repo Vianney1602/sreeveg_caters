@@ -949,8 +949,6 @@ function App() {
           <button onClick={() => navigate('/account')}>
             My Account
           </button>
-          <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/admin-login')}>Admin</button>
         </nav>
       </header>
 
