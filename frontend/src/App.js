@@ -734,8 +734,22 @@ function App() {
   if (showWelcome)
     return (
       <WelcomePage
-        goUser={() => navigate('/signup')}
-        goAdmin={() => navigate('/admin-login')}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setIsUserLoggedIn(true);
+          sessionStorage.setItem('_showWelcome', 'false');
+          // Check if user is admin by email
+          const adminEmails = [
+            'admin@example.com', // Replace with actual admin email(s)
+            'shanmugapriyaraja31@gmail.com'
+          ];
+          if (adminEmails.includes(user.email)) {
+            setIsAdminLoggedIn(true);
+            navigate('/admin');
+          } else {
+            navigate('/');
+          }
+        }}
       />
     );
 
