@@ -681,17 +681,9 @@ function App() {
     }
   }, [isAdminLoggedIn]);
 
-  // Show loading animation while checking for existing session
-  if (initializing) {
-    return <LoadingAnimation />;
-  }
-
-  // Show loading animation during page transitions
-  if (isPageTransitioning) {
-    return <LoadingAnimation />;
-  }
-
-  // Conditional renders - Admin checks first (highest priority)
+  // --- Conditional renders ---
+  if (initializing) return <LoadingAnimation />;
+  if (isPageTransitioning) return <LoadingAnimation />;
   if (isAdminLoggedIn) {
     // Security: Verify admin token still exists
     const adminToken = sessionStorage.getItem('_st');
@@ -703,22 +695,18 @@ function App() {
     return (
       <AdminDashboard
         onLogout={() => {
-          // Security: Clear all admin session data
           authService.logout();
           setIsAdminLoggedIn(false);
           sessionStorage.removeItem('_currentPage');
           sessionStorage.removeItem('_st');
           sessionStorage.removeItem('_au');
-          
-          // Security: Clear browser history to prevent data leaks
           window.history.replaceState(null, '', '/');
-          navigate('/', { replace: true }); // Replace history entry
+          navigate('/', { replace: true });
         }}
         stats={dashboardStats}
       />
     );
   }
-  
   if (showAdminLogin) {
     return (
       <AdminLogin
@@ -730,115 +718,62 @@ function App() {
       />
     );
   }
-  
-  if (showWelcome)
-    return (
-      <WelcomePage
-        onGetStarted={() => navigate('/signin')}
-      />
-    );
-
-  if (showUserSignUp)
-    return (
-      <UserSignUp
-        goToSignIn={() => navigate('/signin')}
-        goBack={() => navigate(-1)}
-        onSignUpSuccess={(user) => {
-          const adminEmails = ['admin@shanmugabhavaan.com'];
-          if (adminEmails.includes(user.email)) {
-            setIsAdminLoggedIn(true);
-            setIsUserLoggedIn(false);
-            setCurrentUser(null);
-            sessionStorage.removeItem('_userToken');
-            sessionStorage.removeItem('_user');
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/admin');
-          } else {
-            setCurrentUser(user);
-            setIsUserLoggedIn(true);
-            setShowUserAccount(true);
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/account');
-          }
-        }}
-        goToHome={() => navigate('/')}
-      />
-    );
-
-  if (showUserSignIn)
-    return (
-      <UserSignIn
-        goToSignUp={() => navigate('/signup')}
-        goBack={() => navigate(-1)}
-        onSignInSuccess={(user) => {
-          const adminEmails = ['admin@shanmugabhavaan.com'];
-          if (adminEmails.includes(user.email)) {
-            setIsAdminLoggedIn(true);
-            setIsUserLoggedIn(false);
-            setCurrentUser(null);
-            sessionStorage.removeItem('_userToken');
-            sessionStorage.removeItem('_user');
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/admin');
-          } else {
-            setCurrentUser(user);
-            setIsUserLoggedIn(true);
-            setShowUserAccount(true);
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/order-history');
-          }
-        }}
-        goToHome={() => navigate('/')}
-      />
-    );
-  
+  if (showWelcome) return <WelcomePage onGetStarted={() => navigate('/signin')} />;
+  if (showUserSignUp) return <UserSignUp goToSignIn={() => navigate('/signin')} goBack={() => navigate(-1)} onSignUpSuccess={(user) => {
+    const adminEmails = ['admin@shanmugabhavaan.com'];
+    if (adminEmails.includes(user.email)) {
+      setIsAdminLoggedIn(true);
+      setIsUserLoggedIn(false);
+      setCurrentUser(null);
+      sessionStorage.removeItem('_userToken');
+      sessionStorage.removeItem('_user');
+      sessionStorage.setItem('_showWelcome', 'false');
+      navigate('/admin');
+    } else {
+      setCurrentUser(user);
+      setIsUserLoggedIn(true);
+      setShowUserAccount(true);
+      sessionStorage.setItem('_showWelcome', 'false');
+      navigate('/account');
+    }
+  }} goToHome={() => navigate('/')} />;
+  if (showUserSignIn) return <UserSignIn goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
+    const adminEmails = ['admin@shanmugabhavaan.com'];
+    if (adminEmails.includes(user.email)) {
+      setIsAdminLoggedIn(true);
+      setIsUserLoggedIn(false);
+      setCurrentUser(null);
+      sessionStorage.removeItem('_userToken');
+      sessionStorage.removeItem('_user');
+      sessionStorage.setItem('_showWelcome', 'false');
+      navigate('/admin');
+    } else {
+      setCurrentUser(user);
+      setIsUserLoggedIn(true);
+      setShowUserAccount(true);
+      sessionStorage.setItem('_showWelcome', 'false');
+      navigate('/account');
+    }
+  }} goToHome={() => navigate('/')} />;
   if (showOrderHistory) {
-    // Security: Protect order history - require user login
     if (!isUserLoggedIn || !currentUser) {
-      navigate('/');
+      navigate('/signin');
       return null;
     }
-    return (
-      <OrderHistory
-        user={currentUser}
-        goBack={() => {
-          navigate(-1);
-        }}
-      />
-    );
+    return <OrderHistory user={currentUser} goBack={() => navigate(-1)} />;
   }
-  
   if (showUserAccount) {
-    // Security: Protect user account - require user login
     if (!isUserLoggedIn || !currentUser) {
-      navigate('/');
+      navigate('/signin');
       return null;
     }
-    return (
-      <UserSignUp
-        goToSignIn={() => navigate('/signin')}
-        goBack={() => navigate(-1)}
-        onSignUpSuccess={(user) => {
-          const adminEmails = ['admin@shanmugabhavaan.com'];
-          if (adminEmails.includes(user.email)) {
-            setIsAdminLoggedIn(true);
-            setIsUserLoggedIn(false);
-            setCurrentUser(null);
-            sessionStorage.removeItem('_userToken');
-            sessionStorage.removeItem('_user');
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/admin');
-          } else {
-            setCurrentUser(user);
-            setIsUserLoggedIn(true);
-            setShowUserAccount(true);
-            sessionStorage.setItem('_showWelcome', 'false');
-            navigate('/account');
-          }
-        }}
-        goToHome={() => navigate('/')}
-      />
-    );
+    return <UserAccount user={currentUser} onLogout={() => {
+      setIsUserLoggedIn(false);
+      setCurrentUser(null);
+      sessionStorage.removeItem('_userToken');
+      sessionStorage.removeItem('_user');
+      navigate('/signin');
+    }} goToOrderHistory={() => navigate('/order-history')} goToMenu={() => navigate('/menu')} goToHome={() => navigate('/')} />;
   }
   if (showCart)
     return (
