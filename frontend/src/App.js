@@ -373,9 +373,9 @@ function App() {
         return;
       }
     } else if (path === '/account') {
-      // Security: Only allow if user is logged in
-      pageState.account = isUserLoggedIn;
-      if (!isUserLoggedIn) {
+      // Allow if user is logged in or currentUser exists
+      pageState.account = isUserLoggedIn || !!currentUser;
+      if (!isUserLoggedIn && !currentUser) {
         navigate('/');
         return;
       }
@@ -734,22 +734,7 @@ function App() {
   if (showWelcome)
     return (
       <WelcomePage
-        onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          setIsUserLoggedIn(true);
-          sessionStorage.setItem('_showWelcome', 'false');
-          // Check if user is admin by email
-          const adminEmails = [
-            'admin@example.com', // Replace with actual admin email(s)
-            'shanmugapriyaraja31@gmail.com'
-          ];
-          if (adminEmails.includes(user.email)) {
-            setIsAdminLoggedIn(true);
-            navigate('/admin');
-          } else {
-            navigate('/');
-          }
-        }}
+        onGetStarted={() => navigate('/signin')}
       />
     );
 
@@ -759,10 +744,22 @@ function App() {
         goToSignIn={() => navigate('/signin')}
         goBack={() => navigate(-1)}
         onSignUpSuccess={(user) => {
-          setCurrentUser(user);
-          setIsUserLoggedIn(true);
-          sessionStorage.setItem('_showWelcome', 'false');
-          navigate('/');
+          const adminEmails = ['admin@shanmugabhavaan.com'];
+          if (adminEmails.includes(user.email)) {
+            setIsAdminLoggedIn(true);
+            setIsUserLoggedIn(false);
+            setCurrentUser(null);
+            sessionStorage.removeItem('_userToken');
+            sessionStorage.removeItem('_user');
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/admin');
+          } else {
+            setCurrentUser(user);
+            setIsUserLoggedIn(true);
+            setShowUserAccount(true);
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/account');
+          }
         }}
         goToHome={() => navigate('/')}
       />
@@ -774,10 +771,22 @@ function App() {
         goToSignUp={() => navigate('/signup')}
         goBack={() => navigate(-1)}
         onSignInSuccess={(user) => {
-          setCurrentUser(user);
-          setIsUserLoggedIn(true);
-          sessionStorage.setItem('_showWelcome', 'false');
-          navigate('/');
+          const adminEmails = ['admin@shanmugabhavaan.com'];
+          if (adminEmails.includes(user.email)) {
+            setIsAdminLoggedIn(true);
+            setIsUserLoggedIn(false);
+            setCurrentUser(null);
+            sessionStorage.removeItem('_userToken');
+            sessionStorage.removeItem('_user');
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/admin');
+          } else {
+            setCurrentUser(user);
+            setIsUserLoggedIn(true);
+            setShowUserAccount(true);
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/order-history');
+          }
         }}
         goToHome={() => navigate('/')}
       />
@@ -806,33 +815,27 @@ function App() {
       return null;
     }
     return (
-      <UserAccount
-        user={currentUser}
-        onLogout={() => {
-          // Security: Clear all sensitive data on logout
-          sessionStorage.removeItem('_userToken');
-          sessionStorage.removeItem('_user');
-          sessionStorage.removeItem('_showWelcome');
-          sessionStorage.removeItem('_cart');
-          sessionStorage.removeItem('_bulkCart');
-          sessionStorage.removeItem('_orderCompleted');
-          sessionStorage.removeItem('_orderedItems');
-          sessionStorage.removeItem('_bulkOrderedItems');
-          setIsUserLoggedIn(false);
-          setCurrentUser(null);
-          // Clear cart data for security
-          setCart({});
-          setBulkCart({});
-          setOrderCompleted(false);
-          setOrderedItems([]);
-          setBulkOrderedItems([]);
-          
-          // Security: Clear browser history to prevent data leaks
-          window.history.replaceState(null, '', '/');
-          navigate('/', { replace: true }); // Replace history entry
+      <UserSignUp
+        goToSignIn={() => navigate('/signin')}
+        goBack={() => navigate(-1)}
+        onSignUpSuccess={(user) => {
+          const adminEmails = ['admin@shanmugabhavaan.com'];
+          if (adminEmails.includes(user.email)) {
+            setIsAdminLoggedIn(true);
+            setIsUserLoggedIn(false);
+            setCurrentUser(null);
+            sessionStorage.removeItem('_userToken');
+            sessionStorage.removeItem('_user');
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/admin');
+          } else {
+            setCurrentUser(user);
+            setIsUserLoggedIn(true);
+            setShowUserAccount(true);
+            sessionStorage.setItem('_showWelcome', 'false');
+            navigate('/account');
+          }
         }}
-        goToOrderHistory={() => navigate('/order-history')}
-        goToMenu={() => navigate('/menu')}
         goToHome={() => navigate('/')}
       />
     );
@@ -960,7 +963,16 @@ function App() {
             Cart
           </button>
           <span className="nav-separator" aria-hidden="true">|</span>
-          <button onClick={() => navigate('/account')}>
+          <button onClick={() => {
+            if (isAdminLoggedIn) {
+              navigate('/admin');
+            } else if (currentUser) {
+              setShowUserAccount(true);
+              navigate('/account');
+            } else {
+              navigate('/signin');
+            }
+          }}>
             My Account
           </button>
         </nav>
