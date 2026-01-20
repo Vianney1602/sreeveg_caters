@@ -6,10 +6,12 @@ import os
 
 payments_bp = Blueprint("payments", __name__)
 
-# Razorpay client - use environment variables for security
+# Razorpay client - use environment variables for security (LIVE MODE)
 def get_razorpay_client():
-    key_id = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_RrmurNVGRTmBXH")
-    key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "PfJWZVq1dgo4e0vaOoyVdS3K")
+    key_id = os.environ.get("RAZORPAY_KEY_ID")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    if not key_id or not key_secret:
+        raise ValueError("Razorpay keys not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.")
     return razorpay.Client(auth=(key_id, key_secret))
 
 @payments_bp.route("/create_order", methods=["POST"])

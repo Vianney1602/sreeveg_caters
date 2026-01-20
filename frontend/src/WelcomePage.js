@@ -9,7 +9,8 @@ export default function WelcomePage({ goUser, goAdmin, onGetStarted }) {
 
       <div className="welcome-buttons">
         <button className="get-started-btn" onClick={onGetStarted}>
-          Get Started
+          <span className="btn-text">Get Started</span>
+          <span className="shimmer"></span>
         </button>
       </div>
       </div>

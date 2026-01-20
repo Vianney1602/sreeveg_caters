@@ -137,7 +137,7 @@ function App() {
     setIsPageTransitioning(true);
     setTimeout(() => {
       navigate('/bulk-cart');
-      setIsPageTransitioning(false);
+      setIsPageTransitioning(false)
     }, 3500);
   };
 
@@ -359,27 +359,44 @@ function App() {
       pageState.bulkCart = true;
     } else if (path === '/admin-login') {
       pageState.adminLogin = true;
-    } else if (path === '/admin' && isAdminLoggedIn) {
-      // Admin dashboard - all false
+    } else if (path === '/admin') {
+      // Admin dashboard - verify admin is logged in or has valid token
+      const adminToken = sessionStorage.getItem('_st');
+      if (!isAdminLoggedIn && !adminToken) {
+        // Not admin, redirect to signin
+        navigate('/signin', { replace: true });
+        return;
+      }
+      // Admin is logged in or has token - all pageState flags stay false so admin dashboard renders
     } else if (path === '/signup') {
       pageState.signup = true;
     } else if (path === '/signin') {
+      // If already admin, redirect to admin dashboard
+      if (isAdminLoggedIn) {
+        navigate('/admin', { replace: true });
+        return;
+      }
       pageState.signin = true;
     } else if (path === '/order-history') {
       // Security: Only allow if user is logged in
       pageState.orderHistory = isUserLoggedIn;
       if (!isUserLoggedIn) {
-        navigate('/');
+        navigate('/signin', { replace: true });
         return;
       }
     } else if (path === '/account') {
       // Allow if user is logged in or currentUser exists
       pageState.account = isUserLoggedIn || !!currentUser;
       if (!isUserLoggedIn && !currentUser) {
-        navigate('/');
+        navigate('/signin', { replace: true });
         return;
       }
     } else if (path === '/' || path === '') {
+      // If admin is logged in, redirect to admin dashboard
+      if (isAdminLoggedIn) {
+        navigate('/admin', { replace: true });
+        return;
+      }
       // Show welcome page only if neither admin nor user is logged in
       pageState.welcome = !isAdminLoggedIn && !isUserLoggedIn;
     }
@@ -473,10 +490,16 @@ function App() {
     };
   }, [navigate, setIsAdminLoggedIn, setIsUserLoggedIn, setCurrentUser]);
 
-  // Payment function using Razorpay
+  // Payment function using Razorpay (LIVE MODE)
   const initiatePayment = (orderId, amount, customerDetails, onSuccess, onError) => {
+    const razorpayKey = process.env.REACT_APP_RAZORPAY_KEY;
+    if (!razorpayKey) {
+      console.error('Razorpay key not configured');
+      if (onError) onError(new Error('Payment configuration error'));
+      return;
+    }
     const options = {
-      key: process.env.REACT_APP_RAZORPAY_KEY || 'rzp_live_YOUR_PRODUCTION_KEY',
+      key: razorpayKey,
       amount: amount * 100, // Amount in paisa
       currency: 'INR',
       name: 'Hotel Shanmuga Bhavaan',
@@ -684,13 +707,19 @@ function App() {
   // --- Conditional renders ---
   if (initializing) return <LoadingAnimation />;
   if (isPageTransitioning) return <LoadingAnimation />;
-  if (isAdminLoggedIn) {
+  
+  // Admin dashboard: check if admin is logged in OR if admin token exists (for immediate navigation after login)
+  const adminToken = sessionStorage.getItem('_st');
+  if (isAdminLoggedIn || (adminToken && location.pathname === '/admin')) {
     // Security: Verify admin token still exists
-    const adminToken = sessionStorage.getItem('_st');
     if (!adminToken) {
       setIsAdminLoggedIn(false);
-      navigate('/admin-login');
+      navigate('/signin', { replace: true });
       return null;
+    }
+    // Ensure isAdminLoggedIn state is synced
+    if (!isAdminLoggedIn) {
+      setIsAdminLoggedIn(true);
     }
     return (
       <AdminDashboard
@@ -722,13 +751,19 @@ function App() {
   if (showUserSignUp) return <UserSignUp goToSignIn={() => navigate('/signin')} goBack={() => navigate(-1)} onSignUpSuccess={(user) => {
     const adminEmails = ['admin@shanmugabhavaan.com'];
     if (adminEmails.includes(user.email)) {
-      setIsAdminLoggedIn(true);
-      setIsUserLoggedIn(false);
-      setCurrentUser(null);
+      // Admin signup: set admin session properly
+      const userToken = sessionStorage.getItem('_userToken');
+      if (userToken) {
+        sessionStorage.setItem('_st', userToken); // Set admin token
+      }
       sessionStorage.removeItem('_userToken');
       sessionStorage.removeItem('_user');
       sessionStorage.setItem('_showWelcome', 'false');
-      navigate('/admin');
+      setIsUserLoggedIn(false);
+      setCurrentUser(null);
+      setIsAdminLoggedIn(true);
+      // Use replace to prevent back button returning to signup
+      navigate('/admin', { replace: true });
     } else {
       setCurrentUser(user);
       setIsUserLoggedIn(true);
@@ -740,13 +775,19 @@ function App() {
   if (showUserSignIn) return <UserSignIn goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
     const adminEmails = ['admin@shanmugabhavaan.com'];
     if (adminEmails.includes(user.email)) {
-      setIsAdminLoggedIn(true);
-      setIsUserLoggedIn(false);
-      setCurrentUser(null);
+      // Admin login: set admin session properly
+      const userToken = sessionStorage.getItem('_userToken');
+      if (userToken) {
+        sessionStorage.setItem('_st', userToken); // Set admin token
+      }
       sessionStorage.removeItem('_userToken');
       sessionStorage.removeItem('_user');
       sessionStorage.setItem('_showWelcome', 'false');
-      navigate('/admin');
+      setIsUserLoggedIn(false);
+      setCurrentUser(null);
+      setIsAdminLoggedIn(true);
+      // Use replace to prevent back button returning to signin
+      navigate('/admin', { replace: true });
     } else {
       setCurrentUser(user);
       setIsUserLoggedIn(true);
