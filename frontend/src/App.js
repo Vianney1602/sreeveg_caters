@@ -960,9 +960,9 @@ function App() {
           {/* Quote Section */}
           <div className="hero-quote">
             <blockquote>
-              "Bringing authentic flavors and exceptional service to every celebration"
+              "சுவையின் மரபும் சேவையின் பெருமையும் ஒவ்வொரு விருந்திலும்"
             </blockquote>
-            <cite>- Our Culinary Team</cite>
+            <cite>- எங்கள் சமையல் குழு</cite>
           </div>
           
           <div className="order-box">
