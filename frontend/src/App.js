@@ -1007,7 +1007,7 @@ function App() {
         </div>
 
         <div className="hero-right">
-          <img src="/images/chef.png" alt="Chef preparing delicious food" />
+          <img src="/images/chefs.png" alt="Chef preparing delicious food" />
         </div>
       </section>
 
@@ -1017,7 +1017,7 @@ function App() {
         <div className="event-grid">
           <div className="event-card" onClick={() => handleEventClick("Weddings")}>
             <div className="event-img">
-              <img src="/images/wedding.jpeg" alt="Weddings" />
+              <img src="/images/wedding.webp" alt="Weddings" />
             </div>
             <h4>Weddings</h4>
             <p>Click to order catering</p>
@@ -1031,14 +1031,14 @@ function App() {
           </div>
           <div className="event-card" onClick={() => handleEventClick("Birthdays")}>
             <div className="event-img">
-              <img src="/images/birthday.jpg" alt="Birthdays" />
+              <img src="/images/birthday.png" alt="Birthdays" />
             </div>
             <h4>Birthdays</h4>
             <p>Click to order catering</p>
           </div>
           <div className="event-card" onClick={() => handleEventClick("Family Gatherings")}>
             <div className="event-img">
-              <img src="/images/family.jpeg" alt="Family Gatherings" />
+              <img src="/images/family.png" alt="Family Gatherings" />
             </div>
             <h4>Family Gatherings</h4>
             <p>Click to order catering</p>
