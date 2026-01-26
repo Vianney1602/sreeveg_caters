@@ -3,6 +3,7 @@ from extensions import db, socketio, mail
 from models import Order, OrderMenuItem, Customer, MenuItem
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_required, get_jwt
 from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 from datetime import datetime, timedelta
 from flask_mail import Message
 import hashlib
@@ -14,6 +15,31 @@ orders_bp = Blueprint("orders", __name__)
 # Track recent order requests to prevent duplicates during network issues
 # Key: hash(email + timestamp), Value: order_id
 _order_request_cache = {}
+
+def emit_stats_update():
+    """Emit updated stats to all admin clients"""
+    try:
+        total_orders = Order.query.count()
+        revenue = db.session.query(func.sum(Order.total_amount)).scalar() or 0
+        confirmed = Order.query.filter_by(status="Confirmed").count()
+        pending = Order.query.filter_by(status="Pending").count()
+        delivered = Order.query.filter_by(status="Delivered").count()
+        cancelled = Order.query.filter_by(status="Cancelled").count()
+        
+        socketio.emit(
+            'stats_updated',
+            {
+                'total_orders': total_orders,
+                'revenue': float(revenue),
+                'confirmed': confirmed,
+                'pending': pending,
+                'delivered': delivered,
+                'cancelled': cancelled
+            },
+            room='admins'
+        )
+    except Exception as e:
+        print(f"Failed to emit stats update: {str(e)}")
 
 def send_order_confirmation_email_async(app, order_data, menu_items_details):
     """Send order confirmation email in background thread"""
@@ -462,6 +488,12 @@ def create_order():
                         )
                     except Exception as e:
                         pass
+                    
+                    # Emit stats update after order creation
+                    try:
+                        emit_stats_update()
+                    except Exception as e:
+                        pass
                 except Exception as e:
                     print(f"Background tasks error: {str(e)}")
         
@@ -746,12 +778,15 @@ def update_status(id):
         except Exception as socket_error:
             pass
         
+        # Emit stats update after status change
+        try:
+            emit_stats_update()
+        except Exception:
+            pass
+        
         return jsonify({"message": "Status updated ✔"})
     except Exception as e:
         db.session.rollback()
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Failed to update status", "details": str(e)}), 500
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": "Failed to update status"}), 500

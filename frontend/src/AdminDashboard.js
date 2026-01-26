@@ -414,6 +414,90 @@ export default function AdminDashboard({ onLogout }) {
 
     socketService.on('cancellation_requested', onCancellationRequested);
 
+    // Listen for menu item changes in real-time
+    const onMenuItemAdded = (data) => {
+      setMenuItems(prev => {
+        // Check if item already exists
+        const exists = prev.some(item => item.id === data.item_id);
+        if (exists) return prev;
+        
+        const newItem = {
+          id: data.item_id,
+          name: data.item_name,
+          categories: toCategoryArray(data.category),
+          price: data.price_per_plate,
+          description: data.description || '',
+          available: data.is_available,
+          imageUrl: resolveImageUrl(data.image_url),
+        };
+        return [...prev, newItem];
+      });
+
+      setStats(prev => ({
+        ...prev,
+        activeItems: (prev.activeItems || 0) + 1
+      }));
+
+      if (Notification.permission === 'granted') {
+        new Notification('Menu Item Added', {
+          body: `New item "${data.item_name}" has been added to the menu`,
+          icon: '/images/chef.png'
+        });
+      }
+    };
+
+    const onMenuItemUpdated = (data) => {
+      setMenuItems(prev => prev.map(item =>
+        item.id === data.item_id
+          ? {
+              ...item,
+              name: data.item_name,
+              categories: toCategoryArray(data.category),
+              price: data.price_per_plate,
+              description: data.description || '',
+              available: data.is_available,
+              imageUrl: resolveImageUrl(data.image_url),
+            }
+          : item
+      ));
+    };
+
+    const onMenuItemDeleted = (data) => {
+      setMenuItems(prev => prev.filter(item => item.id !== data.item_id));
+      
+      setStats(prev => ({
+        ...prev,
+        activeItems: Math.max(0, (prev.activeItems || 1) - 1)
+      }));
+    };
+
+    const onInventoryChanged = (data) => {
+      setMenuItems(prev => prev.map(item =>
+        item.id === data.item_id
+          ? { ...item, available: data.is_available, stockQuantity: data.stock_quantity }
+          : item
+      ));
+    };
+
+    // Listen for stats updates
+    const onStatsUpdated = (data) => {
+      setStats(prev => ({
+        ...prev,
+        totalOrders: data.total_orders,
+        pending: data.pending,
+        revenue: `₹${data.revenue || 0}`,
+        confirmed: data.confirmed,
+        delivered: data.delivered,
+        cancelled: data.cancelled
+      }));
+    };
+
+    socketService.on('menu_item_added', onMenuItemAdded);
+    socketService.on('menu_item_updated', onMenuItemUpdated);
+    socketService.on('menu_item_deleted', onMenuItemDeleted);
+    socketService.on('inventory_changed', onInventoryChanged);
+    socketService.on('stats_updated', onStatsUpdated);
+
     // Handle socket reconnection - helps with network recovery
     const handleReconnect = () => {
       // On reconnect, we might have missed some orders during disconnection
@@ -434,6 +518,11 @@ export default function AdminDashboard({ onLogout }) {
       socketService.off('customer_created', onCustomerCreated);
       socketService.off('order_created', onOrderCreated);
       socketService.off('cancellation_requested', onCancellationRequested);
+      socketService.off('menu_item_added', onMenuItemAdded);
+      socketService.off('menu_item_updated', onMenuItemUpdated);
+      socketService.off('menu_item_deleted', onMenuItemDeleted);
+      socketService.off('inventory_changed', onInventoryChanged);
+      socketService.off('stats_updated', onStatsUpdated);
       
       // Clean up connect listener
       const socket = socketService.getSocket();
