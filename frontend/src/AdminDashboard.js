@@ -185,8 +185,11 @@ export default function AdminDashboard({ onLogout }) {
 
   // Fetch data on component mount
   useEffect(() => {
-    // Join admin room when socket connects
-    const handleConnect = () => socketService.joinRoom('admins');
+    // Join admin room when socket connects or reconnects
+    const handleConnect = () => {
+      console.log('Socket connected, joining admins room...');
+      socketService.joinRoom('admins');
+    };
 
     const fetchData = async () => {
       try {
@@ -199,11 +202,12 @@ export default function AdminDashboard({ onLogout }) {
         // Ensure socket connection uses the admin token
         const socket = socketService.connect(token);
         if (socket) {
-          // If already connected, join immediately; otherwise on connect event
-          if (socket.connected) {
-            handleConnect();
-          }
+          // Always join admin room - the joinRoom method handles connection state
+          socketService.joinRoom('admins');
+          
+          // Also listen for connect/reconnect to re-join room
           socket.on('connect', handleConnect);
+          socket.on('reconnect', handleConnect);
         }
         
         // Verify admin token first

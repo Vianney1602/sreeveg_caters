@@ -441,10 +441,32 @@ def create_order():
                 'price': float(om.price_at_order_time)
             })
         
+        # IMMEDIATE: Emit order_created event to admin dashboard (don't wait for background thread)
+        try:
+            order_payload = {
+                **order_data,
+                'items': [{
+                    'menu_item_id': om.menu_item_id,
+                    'quantity': om.quantity,
+                    'item_name': menu_items_map.get(om.menu_item_id).item_name if menu_items_map.get(om.menu_item_id) else "Unknown"
+                } for om in order_menu_items]
+            }
+            socketio.emit('order_created', order_payload, room='admins')
+            print(f"✅ Emitted order_created event for Order #{order.order_id} to admins room")
+        except Exception as e:
+            print(f"❌ Failed to emit order_created: {str(e)}")
+        
+        # IMMEDIATE: Emit stats update
+        try:
+            emit_stats_update()
+            print(f"✅ Emitted stats_updated event to admins room")
+        except Exception as e:
+            print(f"❌ Failed to emit stats_updated: {str(e)}")
+        
         # Send immediate response to client
         response = jsonify({"message": "Order Created", "order_id": order.order_id})
         
-        # Background tasks: email, socketio, customer stats
+        # Background tasks: email, customer stats (non-critical updates)
         def background_tasks():
             with current_app.app_context():
                 try:
@@ -471,29 +493,6 @@ def create_order():
                                 db.session.commit()
                         except Exception as e:
                             print(f"Customer stats update error: {str(e)}")
-                    
-                    # Emit order created event
-                    try:
-                        socketio.emit(
-                            'order_created',
-                            {
-                                **order_data,
-                                'items': [{
-                                    'menu_item_id': om.menu_item_id,
-                                    'quantity': om.quantity,
-                                    'item_name': menu_items_map.get(om.menu_item_id).item_name if menu_items_map.get(om.menu_item_id) else "Unknown"
-                                } for om in order_menu_items]
-                            },
-                            room='admins'
-                        )
-                    except Exception as e:
-                        pass
-                    
-                    # Emit stats update after order creation
-                    try:
-                        emit_stats_update()
-                    except Exception as e:
-                        pass
                 except Exception as e:
                     print(f"Background tasks error: {str(e)}")
         

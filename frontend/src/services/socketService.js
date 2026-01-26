@@ -51,18 +51,20 @@ class SocketService {
     // Connection event handlers
     this.socket.on('connect', () => {
       this.isConnected = true;
+      console.log('Socket.IO connected');
     });
 
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
+      console.log('Socket.IO disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      // Silent error handling
+      console.log('Socket.IO connection error:', error.message);
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      // Silent reconnect
+      console.log('Socket.IO reconnected after', attemptNumber, 'attempts');
     });
 
     this.socket.on('reconnect_attempt', (attemptNumber) => {
@@ -130,8 +132,16 @@ class SocketService {
    * @param {string} room - Room name to join
    */
   joinRoom(room) {
-    if (this.socket && this.isConnected) {
-      this.emit('join', { room });
+    if (this.socket) {
+      // If already connected, join immediately
+      if (this.isConnected) {
+        this.socket.emit('join', { room });
+      } else {
+        // If not connected yet, wait for connection then join
+        this.socket.once('connect', () => {
+          this.socket.emit('join', { room });
+        });
+      }
     }
   }
 
