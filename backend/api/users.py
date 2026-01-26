@@ -134,7 +134,7 @@ def register():
 
 @users_bp.route("/login", methods=["POST"])
 def login():
-    """User login"""
+    """User login - also handles admin login from the same page"""
     try:
         data = request.get_json()
         email = data.get("email")
@@ -143,6 +143,35 @@ def login():
         if not email or not password:
             return jsonify({"error": "Email and password are required"}), 400
         
+        # First, check if this is an admin login
+        from config import Config
+        from flask_jwt_extended import create_access_token
+        
+        if email == Config.ADMIN_USERNAME and password == Config.ADMIN_PASSWORD:
+            # Admin login successful - create admin token
+            access_token = create_access_token(
+                identity="admin_1",
+                additional_claims={
+                    "admin_id": 1,
+                    "username": Config.ADMIN_USERNAME,
+                    "email": Config.ADMIN_EMAIL,
+                    "role": "Admin"
+                }
+            )
+            
+            return jsonify({
+                "message": "Login successful",
+                "token": access_token,
+                "isAdmin": True,
+                "user": {
+                    "id": 1,
+                    "name": "Admin",
+                    "email": Config.ADMIN_EMAIL,
+                    "role": "Admin"
+                }
+            }), 200
+        
+        # Regular user login
         # Find user
         user = Customer.query.filter_by(email=email).first()
         if not user or not user.password_hash:
@@ -162,6 +191,7 @@ def login():
         return jsonify({
             "message": "Login successful",
             "token": token,
+            "isAdmin": False,
             "user": {
                 "id": user.customer_id,
                 "name": user.full_name,

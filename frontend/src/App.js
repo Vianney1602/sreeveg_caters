@@ -773,28 +773,22 @@ function App() {
     }
   }} goToHome={() => navigate('/')} />;
   if (showUserSignIn) return <UserSignIn goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
-    const adminEmails = ['admin@shanmugabhavaan.com'];
-    if (adminEmails.includes(user.email)) {
-      // Admin login: set admin session properly
-      const userToken = sessionStorage.getItem('_userToken');
-      if (userToken) {
-        sessionStorage.setItem('_st', userToken); // Set admin token
-      }
-      sessionStorage.removeItem('_userToken');
-      sessionStorage.removeItem('_user');
-      sessionStorage.setItem('_showWelcome', 'false');
-      setIsUserLoggedIn(false);
-      setCurrentUser(null);
-      setIsAdminLoggedIn(true);
-      // Use replace to prevent back button returning to signin
-      navigate('/admin', { replace: true });
-    } else {
-      setCurrentUser(user);
-      setIsUserLoggedIn(true);
-      setShowUserAccount(true);
-      sessionStorage.setItem('_showWelcome', 'false');
-      navigate('/account');
-    }
+    // Regular user login
+    setCurrentUser(user);
+    setIsUserLoggedIn(true);
+    setShowUserAccount(true);
+    sessionStorage.setItem('_showWelcome', 'false');
+    navigate('/account');
+  }} onAdminLogin={(admin) => {
+    // Admin login: set admin session properly
+    sessionStorage.removeItem('_userToken');
+    sessionStorage.removeItem('_user');
+    sessionStorage.setItem('_showWelcome', 'false');
+    setIsUserLoggedIn(false);
+    setCurrentUser(null);
+    setIsAdminLoggedIn(true);
+    // Use replace to prevent back button returning to signin
+    navigate('/admin', { replace: true });
   }} goToHome={() => navigate('/')} />;
   if (showOrderHistory) {
     if (!isUserLoggedIn || !currentUser) {

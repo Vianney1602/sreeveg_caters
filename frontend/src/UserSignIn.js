@@ -4,7 +4,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import './home.css';
 
-export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHome }) {
+export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHome, onAdminLogin }) {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,13 +28,29 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     try {
       const response = await axios.post('/api/users/login', form);
       
-      // Store token
-      sessionStorage.setItem('_userToken', response.data.token);
-      sessionStorage.setItem('_user', JSON.stringify(response.data.user));
-      
-      // Call success callback
-      if (onSignInSuccess) {
-        onSignInSuccess(response.data.user);
+      // Check if this is an admin login
+      if (response.data.isAdmin) {
+        // Store admin token and data
+        sessionStorage.setItem('_st', response.data.token);
+        sessionStorage.setItem('_au', JSON.stringify(response.data.user));
+        
+        // Call admin login callback to redirect to admin dashboard
+        if (onAdminLogin) {
+          onAdminLogin(response.data.user);
+        } else {
+          // Fallback: redirect to admin page
+          window.location.href = '/admin';
+        }
+      } else {
+        // Regular user login
+        // Store token
+        sessionStorage.setItem('_userToken', response.data.token);
+        sessionStorage.setItem('_user', JSON.stringify(response.data.user));
+        
+        // Call success callback
+        if (onSignInSuccess) {
+          onSignInSuccess(response.data.user);
+        }
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Sign in failed. Please try again.');
@@ -74,6 +90,9 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     setError('Google sign-in failed. Please try again.');
   };
 
+  // Track if this is an admin password reset
+  const [isAdminReset, setIsAdminReset] = useState(false);
+
   const handleForgotPassword = async () => {
     if (!forgotEmail) {
       setError('Please enter your email');
@@ -84,11 +103,25 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     setError('');
     
     try {
-      const response = await axios.post('/api/users/forgot-password', { email: forgotEmail });
-      setResetSuccess('OTP sent to your email!');
+      // Try admin forgot password first
+      const adminResponse = await axios.post('/api/admin/forgot-password', { email: forgotEmail });
+      setIsAdminReset(true);
+      setResetSuccess('OTP sent to your admin email!');
       setShowOtpVerification(true);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send OTP. Please try again.');
+    } catch (adminErr) {
+      // If admin endpoint fails (not an admin email), try user endpoint
+      if (adminErr.response?.status === 404) {
+        try {
+          const response = await axios.post('/api/users/forgot-password', { email: forgotEmail });
+          setIsAdminReset(false);
+          setResetSuccess('OTP sent to your email!');
+          setShowOtpVerification(true);
+        } catch (userErr) {
+          setError(userErr.response?.data?.error || 'Failed to send OTP. Please try again.');
+        }
+      } else {
+        setError(adminErr.response?.data?.error || 'Failed to send OTP. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -104,7 +137,8 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     setError('');
     
     try {
-      await axios.post('/api/users/verify-otp', { email: forgotEmail, otp });
+      const endpoint = isAdminReset ? '/api/admin/verify-otp' : '/api/users/verify-otp';
+      await axios.post(endpoint, { email: forgotEmail, otp });
       setResetSuccess('OTP verified! Enter your new password.');
       setShowResetPassword(true);
     } catch (err) {
@@ -124,7 +158,8 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     setError('');
     
     try {
-      await axios.post('/api/users/reset-password', { 
+      const endpoint = isAdminReset ? '/api/admin/reset-password' : '/api/users/reset-password';
+      await axios.post(endpoint, { 
         email: forgotEmail, 
         otp, 
         new_password: newPassword 
