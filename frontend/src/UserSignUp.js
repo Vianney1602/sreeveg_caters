@@ -21,7 +21,7 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
     setSuccess('');
     
     try {
-      const response = await axios.post('/api/users/register', form);
+      await axios.post('/api/users/register', form);
       setSuccess('Account created successfully! You can now sign in.');
       setTimeout(() => {
         goToSignIn();

@@ -169,7 +169,7 @@ export const setSessionStart = () => {
   }
 };
 
-export default {
+const security = {
   sanitizeInput,
   isValidEmail,
   isValidPhone,
@@ -181,3 +181,5 @@ export default {
   isSessionValid,
   setSessionStart
 };
+
+export default security;

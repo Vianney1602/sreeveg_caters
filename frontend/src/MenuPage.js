@@ -33,10 +33,11 @@ const toCategoryArray = (category) => {
   }
   return [normalizeCategoryLabel(category)];
 };
-const categoryRank = (type = "") => {
+const _categoryRank = (type = "") => {
   const idx = CATEGORY_PRIORITY.indexOf(type);
   return idx === -1 ? CATEGORY_PRIORITY.length : idx;
 };
+void _categoryRank;
 
 const DINNER_DUP_NAMES = new Set([
   "kesari",
@@ -51,13 +52,14 @@ const DINNER_DUP_NAMES = new Set([
   "rava dosa"
 ].map(normalizeName));
 
-const getLinkedCategories = (name = "", type = "") => {
+const _getLinkedCategories = (name = "", type = "") => {
   const norm = normalizeName(name);
   const links = [];
   if (type === "Morning Tiffin Menu" && DINNER_DUP_NAMES.has(norm)) links.push("Dinner Menu");
   if (type === "Dinner Menu" && DINNER_DUP_NAMES.has(norm)) links.push("Morning Tiffin Menu");
   return links;
 };
+void _getLinkedCategories;
 
 const dedupeMenuItems = (items = []) => {
   // Items now have categories as arrays in the database
@@ -83,8 +85,7 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
     // Get backend base URL - use axios defaults or environment
     const backendBase = (axios.defaults && axios.defaults.baseURL) ||
-      process.env.REACT_APP_API_URL ||
-      'http://127.0.0.1:5000';
+      process.env.REACT_APP_API_BASE_URL;
 
     const toBackendUrl = (path) => {
       const clean = path.replace(/^\/+/, '');
@@ -191,7 +192,7 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
         // If item exists and is now unavailable, remove it completely
         if (exists && data.is_available === false) {
-          return prevMenu.filter((item) => item.id != data.item_id);
+          return prevMenu.filter((item) => item.id !== data.item_id);
         }
 
         // If item exists, update it in place

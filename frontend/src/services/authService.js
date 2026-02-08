@@ -1,20 +1,10 @@
 import axios from 'axios';
 
 // Ensure axios has a baseURL set for API calls
-// In production (Render), use the backend URL from environment or current origin
-// In development, use localhost:5000
+// Uses REACT_APP_API_BASE_URL from environment
 if (!axios.defaults.baseURL) {
-  // Check if we're on Render deployment
-  const isProduction = window.location.hostname.includes('render.com') || 
-                      window.location.hostname.includes('sreevegcaters.com');
-  
-  if (isProduction) {
-    // Use the backend URL from environment or construct from current host
-    axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'https://sreeveg-caters.onrender.com';
-  } else {
-    // Development: use local backend
-    axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
-  }
+  // Use the backend URL from environment variable
+  axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
 }
 
 // In-memory storage for sensitive tokens (cleared on browser close)

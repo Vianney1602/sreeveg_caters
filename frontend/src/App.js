@@ -433,7 +433,7 @@ function App() {
 
   // Configure axios once on mount
   useEffect(() => {
-    const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     axios.defaults.baseURL = API_BASE_URL;
     axios.defaults.headers.post["Content-Type"] = "application/json";
     axios.defaults.timeout = 60000; // 60 second timeout for all requests

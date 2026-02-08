@@ -104,7 +104,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     
     try {
       // Try admin forgot password first
-      const adminResponse = await axios.post('/api/admin/forgot-password', { email: forgotEmail });
+      await axios.post('/api/admin/forgot-password', { email: forgotEmail });
       setIsAdminReset(true);
       setResetSuccess('OTP sent to your admin email!');
       setShowOtpVerification(true);
@@ -112,7 +112,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       // If admin endpoint fails (not an admin email), try user endpoint
       if (adminErr.response?.status === 404) {
         try {
-          const response = await axios.post('/api/users/forgot-password', { email: forgotEmail });
+          await axios.post('/api/users/forgot-password', { email: forgotEmail });
           setIsAdminReset(false);
           setResetSuccess('OTP sent to your email!');
           setShowOtpVerification(true);
