@@ -28,7 +28,6 @@ export default function AdminDashboard({ onLogout }) {
   };
   // helper to convert status to a safe classname (no spaces)
   const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
-  const apiBase = (axios && axios.defaults && axios.defaults.baseURL) || '';
 
   // Track processed order IDs to prevent duplicates during network issues
   const processedOrderIds = useRef(new Set());
@@ -234,11 +233,11 @@ export default function AdminDashboard({ onLogout }) {
           timestamp: order.created_at ? new Date(order.created_at).toLocaleString() : 'N/A',
           address: order.venue_address,
           eventDate: order.event_date,
-          items: order.items && order.items.map(item => ({
+          items: (order.items && order.items.map(item => ({
             name: item.item_name,
             qty: item.quantity,
             price: item.price_at_order_time
-          })) || []
+          }))) || []
         }));
         
         // Track all order IDs to prevent duplicates during network issues
