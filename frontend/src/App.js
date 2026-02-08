@@ -95,6 +95,7 @@ function App() {
   // Bulk order modal state
   const [showBulkOrderModal, setShowBulkOrderModal] = useState(false);
   const [selectedEventType, setSelectedEventType] = useState("");
+  // eslint-disable-next-line no-unused-vars
   const [bulkOrderDetails, setBulkOrderDetails] = useState({});
 
   // Cart & Menu
@@ -412,7 +413,7 @@ function App() {
     setShowOrderHistory(pageState.orderHistory);
     setShowUserAccount(pageState.account);
     setShowWelcome(pageState.welcome);
-  }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing]);
+  }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing, currentUser, navigate]);
   
   // Require authentication - redirect to welcome if not logged in and not on auth pages
   useEffect(() => {

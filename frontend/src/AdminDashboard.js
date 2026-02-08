@@ -537,6 +537,7 @@ export default function AdminDashboard({ onLogout }) {
         socket.off('reconnect', handleReconnect);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onLogout]);
 
   const handleAddItem = async (e) => {
