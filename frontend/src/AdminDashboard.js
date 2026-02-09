@@ -1108,22 +1108,6 @@ export default function AdminDashboard({ onLogout }) {
                       </button>
                     )}
                   </div>
-                  <div className="speciality-toggle-row">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={editingItem ? editForm.isSpeciality : newItem.isSpeciality || false}
-                        onChange={e => {
-                          if (editingItem) {
-                            setEditForm({ ...editForm, isSpeciality: e.target.checked });
-                          } else {
-                            setNewItem({ ...newItem, isSpeciality: e.target.checked });
-                          }
-                        }}
-                      />
-                      <span>Mark as Speciality (show in "Our Specialities")</span>
-                    </label>
-                  </div>
                 </form>
               </div>
             )}
