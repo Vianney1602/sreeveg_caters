@@ -1026,7 +1026,7 @@ function App() {
           </div>
           <div className="event-card" onClick={() => handleEventClick("Birthdays")}>
             <div className="event-img">
-              <img src="/images/birthday.png" alt="Birthdays" />
+              <img src="/images/bithdayboy.jpg" alt="Birthdays" />
             </div>
             <h4>Birthdays</h4>
             <p>Click to order catering</p>

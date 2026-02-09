@@ -15,6 +15,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -262,14 +263,23 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
             onChange={handleChange} 
             required 
           />
-          <input 
-            name="password" 
-            type="password" 
-            placeholder="Password" 
-            value={form.password} 
-            onChange={handleChange} 
-            required 
-          />
+          <div className="password-field">
+            <input 
+              name="password" 
+              type={showPassword ? "text" : "password"} 
+              placeholder="Password" 
+              value={form.password} 
+              onChange={handleChange} 
+              required 
+            />
+            <span 
+              className="password-toggle" 
+              onClick={() => setShowPassword(!showPassword)}
+              title={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </span>
+          </div>
           <button type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
