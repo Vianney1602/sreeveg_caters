@@ -3,17 +3,17 @@
   "name": "Hotel Shanmuga Bhavaan - Catering Services",
   "icons": [
     {
-      "src": "images/Hotel-logo.png",
+      "src": "images/ShanmugaBhavaan.png",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/png"
     },
     {
-      "src": "images/Hotel-logo.png",
+      "src": "images/ShanmugaBhavaan.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "images/Hotel-logo.png",
+      "src": "images/ShanmugaBhavaan.png",
       "type": "image/png",
       "sizes": "512x512"
     }
