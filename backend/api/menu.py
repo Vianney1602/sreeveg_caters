@@ -1,10 +1,65 @@
 from flask import Blueprint, request, jsonify
 import os
+import re
 from extensions import db, socketio
 from models import MenuItem, UploadedImage
+
+# Optional AWS S3 import
+try:
+    import boto3
+    from botocore.exceptions import ClientError
+    BOTO3_AVAILABLE = True
+except ImportError:
+    BOTO3_AVAILABLE = False
+
+# S3 client lazy loading
+_s3_client = None
+
+def get_s3_client():
+    """Get or create S3 client."""
+    global _s3_client
+    if not BOTO3_AVAILABLE:
+        return None
+    if _s3_client is None:
+        from config import Config
+        if Config.AWS_S3_ENABLED:
+            _s3_client = boto3.client(
+                's3',
+                aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
+                region_name=Config.AWS_S3_REGION
+            )
+    return _s3_client
+
 def _delete_image_asset(image_url: str):
-    """Remove stored image from disk or database based on URL."""
+    """Remove stored image from S3 or database based on URL."""
     if not image_url:
+        return
+
+    # S3 URL deletion
+    if 's3' in image_url and '.amazonaws.com' in image_url:
+        try:
+            from config import Config
+            from urllib.parse import unquote_plus
+            # Extract bucket name and key from S3 URL
+            # Virtual-hosted: https://bucket.name.s3.region.amazonaws.com/key
+            # Path-style:     https://s3.region.amazonaws.com/bucket.name/key
+            match = re.search(r'https://(.+)\.s3\.[^.]+\.amazonaws\.com/(.+)', image_url)
+            if not match:
+                # Try path-style URL format
+                match = re.search(r'https://s3\.[^.]+\.amazonaws\.com/([^/]+)/(.+)', image_url)
+            if match:
+                bucket_name = match.group(1)
+                key = unquote_plus(match.group(2))  # Decode URL-encoded key (+ -> space)
+                
+                s3_client = get_s3_client()
+                if s3_client:
+                    s3_client.delete_object(Bucket=bucket_name, Key=key)
+                    print(f"✓ Deleted S3 object: {key}")
+        except ClientError as e:
+            print(f"Error deleting S3 object: {e}")
+        except Exception as e:
+            print(f"Error deleting S3 image {image_url}: {e}")
         return
 
     # Legacy disk-based uploads
@@ -16,6 +71,7 @@ def _delete_image_asset(image_url: str):
             file_path = os.path.join(root, "static", "uploads", filename)
             if os.path.exists(file_path):
                 os.remove(file_path)
+                print(f"✓ Deleted local file: {file_path}")
         except Exception as e:
             print(f"Error deleting old image: {e}")
         return
@@ -28,6 +84,7 @@ def _delete_image_asset(image_url: str):
             image = UploadedImage.query.get(image_id)
             if image:
                 db.session.delete(image)
+                print(f"✓ Deleted database image: {image_id}")
         except Exception as e:
             print(f"Error deleting stored image {image_url}: {e}")
 

@@ -45,6 +45,15 @@ export default function BulkMenuPage({
     if (!url) return '/images/chef.png';
     const trimmed = String(url).trim();
     
+    // Fix S3 virtual-hosted URLs with dots in bucket name (SSL cert issue)
+    const s3VirtualMatch = trimmed.match(/^https:\/\/([^/]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)$/);
+    if (s3VirtualMatch) {
+      const bucket = s3VirtualMatch[1];
+      const region = s3VirtualMatch[2];
+      const key = s3VirtualMatch[3];
+      return `https://s3.${region}.amazonaws.com/${bucket}/${key}`;
+    }
+    
     // If it's a data URL or absolute URL, return as-is
     if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
     
