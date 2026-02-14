@@ -321,16 +321,31 @@ def create_order():
         # Send immediate response to client
         response = jsonify({"message": "Order Created", "order_id": order.order_id})
         
+        # Capture the real app object for background thread (current_app proxy doesn't work in threads)
+        app = current_app._get_current_object()
+        # Save order ID and email for thread safety (ORM objects may detach from session)
+        _order_id = order.order_id
+        _order_email = order.email
+        _customer_id = customer_id
+        
         # Background tasks: email, customer stats (non-critical updates)
         def background_tasks():
-            with current_app.app_context():
+            with app.app_context():
                 try:
                     # Send order confirmation email
-                    if order.email:
+                    if _order_email:
                         try:
-                            send_order_confirmation_email(order, menu_items_details)
+                            # Re-load order from DB in this thread's own session
+                            fresh_order = Order.query.get(_order_id)
+                            if fresh_order:
+                                send_order_confirmation_email(fresh_order, menu_items_details)
+                                print(f"✅ Order confirmation email sent for Order #{_order_id}")
+                            else:
+                                print(f"❌ Could not reload Order #{_order_id} for email")
                         except Exception as e:
-                            print(f"Background email error: {str(e)}")
+                            print(f"❌ Background email error for Order #{_order_id}: {str(e)}")
+                            import traceback
+                            traceback.print_exc()
                     
                     # Emit inventory changes
                     for inv_update in inventory_updates:
@@ -340,16 +355,18 @@ def create_order():
                             pass
                     
                     # Update customer order count
-                    if customer_id:
+                    if _customer_id:
                         try:
-                            customer = Customer.query.get(customer_id)
+                            customer = Customer.query.get(_customer_id)
                             if customer:
-                                customer.total_orders_count = Order.query.filter_by(customer_id=customer_id).count()
+                                customer.total_orders_count = Order.query.filter_by(customer_id=_customer_id).count()
                                 db.session.commit()
                         except Exception as e:
                             print(f"Customer stats update error: {str(e)}")
                 except Exception as e:
-                    print(f"Background tasks error: {str(e)}")
+                    print(f"❌ Background tasks error: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
         
         # Start background thread
         thread = threading.Thread(target=background_tasks)
