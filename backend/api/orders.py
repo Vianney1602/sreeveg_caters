@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify, current_app
-from extensions import db, socketio, mail
+from extensions import db, socketio
 from models import Order, OrderMenuItem, Customer, MenuItem
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_required, get_jwt
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from flask_mail import Message
+from brevo_mail import send_order_confirmation_email, send_order_cancellation_email
 import hashlib
 import os
 import threading
@@ -42,10 +42,9 @@ def emit_stats_update():
         print(f"Failed to emit stats update: {str(e)}")
 
 def send_order_confirmation_email_async(app, order_data, menu_items_details):
-    """Send order confirmation email in background thread"""
+    """Send order confirmation email in background thread using Brevo"""
     with app.app_context():
         try:
-            # Reload order from database in this thread's context
             order = Order.query.get(order_data['order_id'])
             if not order:
                 return False
@@ -53,160 +52,16 @@ def send_order_confirmation_email_async(app, order_data, menu_items_details):
         except Exception as e:
             print(f"Background email error: {str(e)}")
 
-def send_order_confirmation_email(order, menu_items_details):
-    """Send order confirmation email to customer"""
-    try:
-        # Check if mail is configured
-        if not current_app.config.get('MAIL_USERNAME'):
-            print(f"⚠️  Email not configured. Order confirmation for {order.email} (Order #{order.order_id})")
-            print(f"   Order Details: {order.event_type}, Guests: {order.number_of_guests}, Total: ₹{order.total_amount}")
-            return False
-        
-        # Format items list
-        items_html = ""
-        for item in menu_items_details:
-            items_html += f"""
-                <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid #e0e0e0;">{item['name']}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; text-align: center;">{item['quantity']}</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; text-align: right;">₹{item['price']:.2f}</td>
-                </tr>
-            """
-        
-        msg = Message(
-            subject=f"Order Confirmation #{order.order_id} - Hotel Shanmuga Bhavaan",
-            recipients=[order.email],
-            body=f"""
-Dear {order.customer_name},
-
-Thank you for choosing Hotel Shanmuga Bhavaan!
-
-Your order has been successfully placed. Here are your order details:
-
-Order #: {order.order_id}
-Event Type: {order.event_type}
-Number of Guests: {order.number_of_guests}
-Event Date: {order.event_date}
-Event Time: {order.event_time}
-Venue: {order.venue_address}
-Total Amount: ₹{order.total_amount:.2f}
-Payment Method: {order.payment_method.title()}
-
-Items Ordered:
-{chr(10).join([f"- {item['name']} x {item['quantity']} - ₹{item['price']:.2f}" for item in menu_items_details])}
-
-We appreciate your trust in us and look forward to making your event memorable!
-
-Best regards,
-Hotel Shanmuga Bhavaan Management Team
-            """,
-            html=f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 650px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #7a0000, #d4af37); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
-        .content {{ background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; }}
-        .order-box {{ background: #fff8e6; border: 2px solid #d4af37; border-radius: 8px; padding: 20px; margin: 20px 0; }}
-        .order-details {{ margin: 15px 0; }}
-        .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e6d3a3; }}
-        .detail-label {{ font-weight: bold; color: #7a0000; }}
-        .items-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        .items-table th {{ background: #7a0000; color: white; padding: 12px; text-align: left; }}
-        .total {{ background: #f5f5f5; font-size: 18px; font-weight: bold; color: #7a0000; padding: 15px; text-align: right; margin-top: 10px; border-radius: 8px; }}
-        .thank-you {{ background: linear-gradient(135deg, #fff5e6, #ffe6cc); border-left: 4px solid #d4af37; padding: 20px; margin: 20px 0; border-radius: 8px; }}
-        .footer {{ background: #f9f9f9; padding: 20px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 8px 8px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🍽️ Hotel Shanmuga Bhavaan</h1>
-            <p style="font-size: 18px; margin: 10px 0 0 0;">Order Confirmation</p>
-        </div>
-        <div class="content">
-            <p>Dear <strong>{order.customer_name}</strong>,</p>
-            
-            <div class="thank-you">
-                <h2 style="color: #7a0000; margin: 0 0 10px 0;">🙏 Thank You for Choosing Our Hotel! 🙏</h2>
-                <p style="margin: 0; font-size: 16px;">We are honored to be part of your special event. Your trust means everything to us, and we promise to deliver an unforgettable culinary experience!</p>
-            </div>
-            
-            <div class="order-box">
-                <h3 style="color: #7a0000; margin-top: 0;">Order Details</h3>
-                <div class="order-details">
-                    <div class="detail-row">
-                        <span class="detail-label">Order Number:</span>
-                        <span>#{order.order_id}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Event Type:</span>
-                        <span>{order.event_type}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Number of Guests:</span>
-                        <span>{order.number_of_guests}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Event Date:</span>
-                        <span>{order.event_date}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Event Time:</span>
-                        <span>{order.event_time}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Venue:</span>
-                        <span>{order.venue_address}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Payment Method:</span>
-                        <span>{order.payment_method.title()}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <h3 style="color: #7a0000;">Items Ordered:</h3>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th style="text-align: center;">Quantity</th>
-                        <th style="text-align: right;">Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items_html}
-                </tbody>
-            </table>
-            
-            <div class="total">
-                Total Amount: ₹{order.total_amount:.2f}
-            </div>
-            
-            <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                We look forward to making your event memorable! If you have any questions or special requests, 
-                please don't hesitate to contact us.
-            </p>
-        </div>
-        <div class="footer">
-            <p><strong>Hotel Shanmuga Bhavaan Management Team</strong></p>
-            <p>© 2026 Hotel Shanmuga Bhavaan. All rights reserved.</p>
-            <p>This is an automated email. Please do not reply.</p>
-        </div>
-    </div>
-</body>
-</html>
-            """
-        )
-        mail.send(msg)
-        print(f"✅ Order confirmation email sent to {order.email} for Order #{order.order_id}")
-        return True
-    except Exception as e:
-        print(f"❌ Failed to send order confirmation email: {str(e)}")
-        return False
+def send_order_cancellation_email_async(app, order_id):
+    """Send order cancellation email in background thread using Brevo"""
+    with app.app_context():
+        try:
+            order = Order.query.get(order_id)
+            if not order:
+                return False
+            send_order_cancellation_email(order)
+        except Exception as e:
+            print(f"Background cancellation email error: {str(e)}")
 
 @orders_bp.route("/", methods=["GET"])
 @jwt_required()
@@ -691,6 +546,18 @@ def approve_cancel_order(id):
                 )
             except Exception as e:
                 print(f"Failed to emit cancellation approval: {str(e)}")
+            
+            # Send cancellation email to customer
+            if order.email:
+                try:
+                    app = current_app._get_current_object()
+                    email_thread = threading.Thread(
+                        target=send_order_cancellation_email_async,
+                        args=(app, order.order_id)
+                    )
+                    email_thread.start()
+                except Exception as e:
+                    print(f"Failed to send cancellation email: {str(e)}")
             
             return jsonify({"message": "Order cancelled successfully"}), 200
         else:

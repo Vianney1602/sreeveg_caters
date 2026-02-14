@@ -58,13 +58,10 @@ class Config:
         (os.environ.get("ALLOWED_IMAGE_EXTENSIONS", "png,jpg,jpeg,gif,webp")).split(",")
     )
 
-    # Flask-Mail configuration for OTP emails
-    MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-    MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
-    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
-    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+    # Brevo (Sendinblue) configuration for transactional emails
+    BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+    BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "hotelshanmugabhavaan@gmail.com")
+    BREVO_SENDER_NAME = os.environ.get("BREVO_SENDER_NAME", "Hotel Shanmuga Bhavaan")
 
     # CORS allowed origins (comma-separated). In production, set to your domains only.
     CORS_ALLOWED_ORIGINS = os.environ.get(
