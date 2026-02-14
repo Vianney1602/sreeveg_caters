@@ -61,7 +61,7 @@ def _get_sender():
     """Get sender info from environment"""
     return {
         "name": os.environ.get("BREVO_SENDER_NAME", "Hotel Shanmuga Bhavaan"),
-        "email": os.environ.get("BREVO_SENDER_EMAIL", "hotelshanmugabhavaan@gmail.com"),
+        "email": os.environ.get("BREVO_SENDER_EMAIL", "noreply@hotelshanmugabhavaan.com"),
     }
 
 
