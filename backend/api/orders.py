@@ -328,25 +328,28 @@ def create_order():
         _order_email = order.email
         _customer_id = customer_id
         
-        # Background tasks: email, customer stats (non-critical updates)
+        # Send order confirmation email IMMEDIATELY (not in background thread)
+        # Background threads can silently fail under gunicorn/eventlet
+        if _order_email:
+            try:
+                fresh_order = Order.query.get(_order_id)
+                if fresh_order:
+                    email_result = send_order_confirmation_email(fresh_order, menu_items_details)
+                    if email_result:
+                        print(f"✅ Order confirmation email sent for Order #{_order_id} to {_order_email}")
+                    else:
+                        print(f"⚠️ Order confirmation email failed for Order #{_order_id}")
+                else:
+                    print(f"❌ Could not find Order #{_order_id} for email")
+            except Exception as e:
+                print(f"❌ Email error for Order #{_order_id}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        
+        # Background tasks: inventory updates, customer stats (non-critical)
         def background_tasks():
             with app.app_context():
                 try:
-                    # Send order confirmation email
-                    if _order_email:
-                        try:
-                            # Re-load order from DB in this thread's own session
-                            fresh_order = Order.query.get(_order_id)
-                            if fresh_order:
-                                send_order_confirmation_email(fresh_order, menu_items_details)
-                                print(f"✅ Order confirmation email sent for Order #{_order_id}")
-                            else:
-                                print(f"❌ Could not reload Order #{_order_id} for email")
-                        except Exception as e:
-                            print(f"❌ Background email error for Order #{_order_id}: {str(e)}")
-                            import traceback
-                            traceback.print_exc()
-                    
                     # Emit inventory changes
                     for inv_update in inventory_updates:
                         try:
@@ -365,8 +368,6 @@ def create_order():
                             print(f"Customer stats update error: {str(e)}")
                 except Exception as e:
                     print(f"❌ Background tasks error: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
         
         # Start background thread
         thread = threading.Thread(target=background_tasks)
@@ -564,15 +565,14 @@ def approve_cancel_order(id):
             except Exception as e:
                 print(f"Failed to emit cancellation approval: {str(e)}")
             
-            # Send cancellation email to customer
+            # Send cancellation email to customer IMMEDIATELY
             if order.email:
                 try:
-                    app = current_app._get_current_object()
-                    email_thread = threading.Thread(
-                        target=send_order_cancellation_email_async,
-                        args=(app, order.order_id)
-                    )
-                    email_thread.start()
+                    email_result = send_order_cancellation_email(order)
+                    if email_result:
+                        print(f"✅ Cancellation email sent for Order #{order.order_id} to {order.email}")
+                    else:
+                        print(f"⚠️ Cancellation email failed for Order #{order.order_id}")
                 except Exception as e:
                     print(f"Failed to send cancellation email: {str(e)}")
             
