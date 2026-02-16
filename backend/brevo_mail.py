@@ -11,39 +11,39 @@ LOGO_URL = "https://hotelshanmugabhavaan.com/images/ShanmugaBhavaan.png"
 
 # Shared CSS matching the website's font and color scheme
 EMAIL_BASE_STYLE = """
-    body {{ margin: 0; padding: 0; background-color: #fff9ed; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }}
-    .wrapper {{ background: linear-gradient(135deg, #fff9ed 0%, #ffedc7 50%, #fff5db 100%); padding: 30px 10px; }}
-    .container {{ max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(122, 0, 0, 0.1); }}
-    .header {{ background: linear-gradient(135deg, #7a0000 0%, #d4af37 100%); color: white; padding: 30px 20px; text-align: center; }}
-    .header img {{ margin: 0 auto 12px auto; }}
-    .header h1 {{ margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }}
-    .header p {{ margin: 6px 0 0 0; font-size: 15px; opacity: 0.9; }}
-    .content {{ padding: 30px; font-size: 15px; color: #333; }}
-    .content p {{ margin: 0 0 14px 0; }}
-    .content strong {{ color: #7a0000; }}
-    .otp-box {{ background: #fff9ed; border: 2px solid #d4af37; border-radius: 10px; padding: 22px; text-align: center; margin: 24px 0; }}
-    .otp {{ font-size: 36px; font-weight: 800; color: #7a0000; letter-spacing: 10px; font-family: 'Segoe UI', Roboto, monospace; }}
-    .otp-label {{ margin: 0 0 6px 0; font-size: 13px; color: #666; }}
-    .otp-expiry {{ margin: 8px 0 0 0; font-size: 12px; color: #999; }}
-    .order-box {{ background: #fff9ed; border: 2px solid #d4af37; border-radius: 10px; padding: 20px; margin: 20px 0; }}
-    .detail-row {{ padding: 9px 0; border-bottom: 1px solid #ffedc7; font-size: 14px; }}
-    .detail-label {{ font-weight: 700; color: #7a0000; display: inline-block; min-width: 160px; }}
-    .items-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }}
-    .items-table th {{ background: #7a0000; color: #ffffff; padding: 12px 10px; text-align: left; font-weight: 600; }}
-    .items-table td {{ padding: 10px; border-bottom: 1px solid #ffedc7; }}
-    .total-box {{ background: linear-gradient(135deg, #fff9ed, #ffedc7); font-size: 18px; font-weight: 800; color: #7a0000; padding: 16px; text-align: right; border-radius: 10px; margin-top: 10px; border: 1px solid #d4af37; }}
-    .thank-you {{ background: linear-gradient(135deg, #fff9ed, #ffedc7); border-left: 4px solid #d4af37; padding: 20px; margin: 20px 0; border-radius: 0 10px 10px 0; }}
-    .thank-you h2 {{ color: #7a0000; margin: 0 0 8px 0; font-size: 18px; }}
-    .thank-you p {{ margin: 0; font-size: 15px; color: #555; }}
-    .cancel-box {{ background: #fff5f5; border: 2px solid #cc0000; border-radius: 10px; padding: 20px; margin: 20px 0; }}
-    .cancel-box h3 {{ color: #cc0000; margin: 0 0 12px 0; }}
-    .refund-notice {{ background: #e8f5e9; border-left: 4px solid #4caf50; padding: 16px; margin: 20px 0; border-radius: 0 10px 10px 0; font-size: 14px; }}
-    .contact-box {{ background: #fff9ed; padding: 16px; border-radius: 10px; margin: 20px 0; text-align: center; border: 1px solid #ffd966; font-size: 14px; }}
-    .warning {{ background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 14px; }}
-    .footer {{ background: #fff9ed; padding: 20px; text-align: center; font-size: 12px; color: #888; border-top: 2px solid #ffd966; }}
-    .footer p {{ margin: 4px 0; }}
-    .footer strong {{ color: #7a0000; }}
-    .gold-divider {{ height: 3px; background: linear-gradient(90deg, #d4af37, #ffd966, #d4af37); margin: 0; border: none; }}
+    body { margin: 0; padding: 0; background-color: #fff9ed; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; }
+    .wrapper { background: linear-gradient(135deg, #fff9ed 0%, #ffedc7 50%, #fff5db 100%); padding: 30px 10px; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(122, 0, 0, 0.1); }
+    .header { background: linear-gradient(135deg, #7a0000 0%, #d4af37 100%); color: white; padding: 30px 20px; text-align: center; }
+    .header img { margin: 0 auto 12px auto; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 15px; opacity: 0.9; }
+    .content { padding: 30px; font-size: 15px; color: #333; }
+    .content p { margin: 0 0 14px 0; }
+    .content strong { color: #7a0000; }
+    .otp-box { background: #fff9ed; border: 2px solid #d4af37; border-radius: 10px; padding: 22px; text-align: center; margin: 24px 0; }
+    .otp { font-size: 36px; font-weight: 800; color: #7a0000; letter-spacing: 10px; font-family: 'Segoe UI', Roboto, monospace; }
+    .otp-label { margin: 0 0 6px 0; font-size: 13px; color: #666; }
+    .otp-expiry { margin: 8px 0 0 0; font-size: 12px; color: #999; }
+    .order-box { background: #fff9ed; border: 2px solid #d4af37; border-radius: 10px; padding: 20px; margin: 20px 0; }
+    .detail-row { padding: 9px 0; border-bottom: 1px solid #ffedc7; font-size: 14px; }
+    .detail-label { font-weight: 700; color: #7a0000; display: inline-block; min-width: 160px; }
+    .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    .items-table th { background: #7a0000; color: #ffffff; padding: 12px 10px; text-align: left; font-weight: 600; }
+    .items-table td { padding: 10px; border-bottom: 1px solid #ffedc7; }
+    .total-box { background: linear-gradient(135deg, #fff9ed, #ffedc7); font-size: 18px; font-weight: 800; color: #7a0000; padding: 16px; text-align: right; border-radius: 10px; margin-top: 10px; border: 1px solid #d4af37; }
+    .thank-you { background: linear-gradient(135deg, #fff9ed, #ffedc7); border-left: 4px solid #d4af37; padding: 20px; margin: 20px 0; border-radius: 0 10px 10px 0; }
+    .thank-you h2 { color: #7a0000; margin: 0 0 8px 0; font-size: 18px; }
+    .thank-you p { margin: 0; font-size: 15px; color: #555; }
+    .cancel-box { background: #fff5f5; border: 2px solid #cc0000; border-radius: 10px; padding: 20px; margin: 20px 0; }
+    .cancel-box h3 { color: #cc0000; margin: 0 0 12px 0; }
+    .refund-notice { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 16px; margin: 20px 0; border-radius: 0 10px 10px 0; font-size: 14px; }
+    .contact-box { background: #fff9ed; padding: 16px; border-radius: 10px; margin: 20px 0; text-align: center; border: 1px solid #ffd966; font-size: 14px; }
+    .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 8px; margin-top: 16px; font-size: 14px; }
+    .footer { background: #fff9ed; padding: 20px; text-align: center; font-size: 12px; color: #888; border-top: 2px solid #ffd966; }
+    .footer p { margin: 4px 0; }
+    .footer strong { color: #7a0000; }
+    .gold-divider { height: 3px; background: linear-gradient(90deg, #d4af37, #ffd966, #d4af37); margin: 0; border: none; }
 """
 
 
