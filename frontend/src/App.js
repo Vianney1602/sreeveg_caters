@@ -458,19 +458,29 @@ function App() {
       error => {
         // Security: Handle unauthorized access (401)
         if (error.response && error.response.status === 401) {
-          // Token expired or invalid - clear auth data
-          const adminToken = sessionStorage.getItem('_st');
-          if (adminToken) {
-            sessionStorage.removeItem('_st');
-            sessionStorage.removeItem('_au');
-            setIsAdminLoggedIn(false);
-            navigate('/admin-login');
-          } else {
-            sessionStorage.removeItem('_userToken');
-            sessionStorage.removeItem('_user');
-            setIsUserLoggedIn(false);
-            setCurrentUser(null);
-            navigate('/');
+          // Skip redirect for login/auth endpoints — let the component handle the error
+          const requestUrl = error.config?.url || '';
+          const isAuthRequest = requestUrl.includes('/login') || 
+                                requestUrl.includes('/forgot-password') || 
+                                requestUrl.includes('/reset-password') ||
+                                requestUrl.includes('/verify-otp') ||
+                                requestUrl.includes('/google-login');
+          
+          if (!isAuthRequest) {
+            // Token expired or invalid - clear auth data
+            const adminToken = sessionStorage.getItem('_st');
+            if (adminToken) {
+              sessionStorage.removeItem('_st');
+              sessionStorage.removeItem('_au');
+              setIsAdminLoggedIn(false);
+              navigate('/admin-login');
+            } else {
+              sessionStorage.removeItem('_userToken');
+              sessionStorage.removeItem('_user');
+              setIsUserLoggedIn(false);
+              setCurrentUser(null);
+              navigate('/');
+            }
           }
         }
         

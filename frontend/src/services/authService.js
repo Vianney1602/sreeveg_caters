@@ -133,9 +133,19 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid - auto logout
-      authService.logout();
-      window.location.href = '/'; // Redirect to home
+      // Skip redirect for login/auth endpoints — let the component show the error
+      const requestUrl = error.config?.url || '';
+      const isAuthRequest = requestUrl.includes('/login') || 
+                            requestUrl.includes('/forgot-password') || 
+                            requestUrl.includes('/reset-password') ||
+                            requestUrl.includes('/verify-otp') ||
+                            requestUrl.includes('/google-login');
+      
+      if (!isAuthRequest) {
+        // Token expired or invalid - auto logout
+        authService.logout();
+        window.location.href = '/'; // Redirect to home
+      }
     }
     return Promise.reject(error);
   }
