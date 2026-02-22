@@ -131,7 +131,7 @@ function App() {
     setTimeout(() => {
       navigate('/cart');
       setIsPageTransitioning(false);
-    }, 3500);
+    }, 2000);
   };
 
   const navigateToBulkCart = () => {
@@ -139,7 +139,7 @@ function App() {
     setTimeout(() => {
       navigate('/bulk-cart');
       setIsPageTransitioning(false)
-    }, 3500);
+    }, 2000);
   };
 
   const navigateToBulkMenu = () => {
@@ -147,13 +147,13 @@ function App() {
     setTimeout(() => {
       navigate('/bulk-menu');
       setIsPageTransitioning(false);
-    }, 3500);
+    }, 2000);
   };
 
   // Initialize WebSocket connection on app mount
   useEffect(() => {
-    // Set minimum display time for loading animation (6 seconds)
-    const minLoadingTime = 6000;
+    // Set minimum display time for loading animation (3 seconds)
+    const minLoadingTime = 3000;
     const startTime = Date.now();
 
     // Check for existing admin session
@@ -437,7 +437,7 @@ function App() {
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     axios.defaults.baseURL = API_BASE_URL;
     axios.defaults.headers.post["Content-Type"] = "application/json";
-    axios.defaults.timeout = 60000; // 60 second timeout for all requests
+    axios.defaults.timeout = 15000; // 15 second timeout for all requests
     
     // Security: Add request interceptor to include auth tokens
     const requestInterceptor = axios.interceptors.request.use(
