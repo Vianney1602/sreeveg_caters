@@ -1,7 +1,8 @@
 import { io } from 'socket.io-client';
 
-// Use backend API URL from environment
-const SOCKET_URL = process.env.REACT_APP_API_BASE_URL;
+// Socket.IO URL: use REACT_APP_SOCKET_URL if set (for local dev where proxy can't handle Socket.IO),
+// otherwise fall back to REACT_APP_API_BASE_URL, then current origin
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_BASE_URL || window.location.origin;
 
 class SocketService {
   constructor() {
@@ -32,12 +33,20 @@ class SocketService {
       transports: ['polling'],
       upgrade: false,
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-      auth: this.lastToken ? { token: this.lastToken } : {}
+      reconnectionDelay: 5000,
+      reconnectionDelayMax: 30000,
+      reconnectionAttempts: 3,
+      timeout: 20000,
+      auth: this.lastToken ? { token: this.lastToken } : {},
+      withCredentials: true,
     };
 
-    this.socket = io(SOCKET_URL, options);
+    try {
+      this.socket = io(SOCKET_URL, options);
+    } catch (e) {
+      // Socket.IO init failed — non-critical, dashboard still works
+      return null;
+    }
 
     // Global listener for ALL events (must be attached immediately)
     this.socket.onAny((eventName, ...args) => {
@@ -51,20 +60,18 @@ class SocketService {
     // Connection event handlers
     this.socket.on('connect', () => {
       this.isConnected = true;
-      console.log('Socket.IO connected');
     });
 
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      console.log('Socket.IO disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.log('Socket.IO connection error:', error.message);
+      // Silent — Socket.IO errors are non-critical
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      console.log('Socket.IO reconnected after', attemptNumber, 'attempts');
+      // Silent reconnect
     });
 
     this.socket.on('reconnect_attempt', (attemptNumber) => {

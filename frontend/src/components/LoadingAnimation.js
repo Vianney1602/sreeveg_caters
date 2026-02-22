@@ -1,7 +1,7 @@
 import React from 'react';
 import './LoadingAnimation.css';
 
-export default function LoadingAnimation() {
+export default function LoadingAnimation({ subtitle = 'Loading delicious menu...' }) {
   return (
     <div className="loading-overlay">
       <div className="loading-container">
@@ -13,7 +13,7 @@ export default function LoadingAnimation() {
         {/* Loading Text */}
         <div className="loading-text-container">
           <h2 className="loading-title">Hotel Shanmuga Bhavaan</h2>
-          <p className="loading-subtitle">Loading delicious menu...</p>
+          <p className="loading-subtitle">{subtitle}</p>
           <div className="loading-dots">
             <span></span>
             <span></span>

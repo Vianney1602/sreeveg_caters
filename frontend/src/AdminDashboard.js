@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import socketService from './services/socketService';
 import './admin-dashboard.css';
+import LoadingAnimation from './components/LoadingAnimation';
 
 export default function AdminDashboard({ onLogout }) {
   const normalizeName = (name = '') => String(name).trim().toLowerCase();
@@ -200,9 +201,10 @@ export default function AdminDashboard({ onLogout }) {
       socketService.joinRoom('admins');
     };
 
-    const fetchData = async () => {
+    const fetchData = async (retryCount = 0) => {
       try {
         setLoading(true);
+        setError('');
         
         // Get token from sessionStorage
         const token = sessionStorage.getItem('_st');
@@ -220,16 +222,21 @@ export default function AdminDashboard({ onLogout }) {
         }
         
         // Verify admin token first
-        const verifyRes = await axios.get('/api/admin/verify', { headers });
+        const verifyRes = await axios.get('/api/admin/verify', { headers, timeout: 90000 });
         setAdminInfo(verifyRes.data.admin);
 
-        // Fetch all required data in parallel
+        // Fetch all required data in parallel — each call handles its own failure
+        const safeGet = (url) => axios.get(url, { headers, timeout: 90000 }).catch(err => {
+          console.warn(`Failed to load ${url}:`, err.message);
+          return { data: [] };
+        });
+
         const [ordersRes, menuRes, customersRes, statsRes, eventsRes] = await Promise.all([
-          axios.get('/api/orders', { headers }),
-          axios.get('/api/menu', { headers }),
-          axios.get('/api/customers', { headers }),
-          axios.get('/api/admin/stats', { headers }),
-          axios.get('/api/events', { headers }),
+          safeGet('/api/orders'),
+          safeGet('/api/menu'),
+          safeGet('/api/customers'),
+          axios.get('/api/admin/stats', { headers, timeout: 90000 }).catch(() => ({ data: {} })),
+          safeGet('/api/events'),
         ]);
 
         // Process and set orders
@@ -305,12 +312,23 @@ export default function AdminDashboard({ onLogout }) {
 
         setLoading(false);
       } catch (err) {
-        setError('Failed to load dashboard. Please try logging in again.');
-        setLoading(false);
-        // Auto-logout on auth error
+        // Auto-logout on auth error (verify failed)
         if (err.response?.status === 401) {
+          setError('Session expired. Logging out...');
+          setLoading(false);
           setTimeout(onLogout, 1500);
+          return;
         }
+        
+        // Retry up to 2 times for network/timeout errors
+        if (retryCount < 2) {
+          console.warn(`Dashboard load failed, retrying (${retryCount + 1}/2)...`);
+          setTimeout(() => fetchData(retryCount + 1), 2000);
+          return;
+        }
+        
+        setError('Failed to load dashboard. Please check your connection and try refreshing.');
+        setLoading(false);
       }
     };
 
@@ -818,18 +836,21 @@ export default function AdminDashboard({ onLogout }) {
   };
 
   if (loading) {
-    return (
-      <div className="admin-dashboard">
-        <div className="loading">Loading dashboard...</div>
-      </div>
-    );
+    return <LoadingAnimation subtitle="Loading dashboard..." />;
   }
 
   if (error) {
     return (
-      <div className="admin-dashboard">
-        <div className="error">{error}</div>
-        <button onClick={onLogout} className="logout-btn">Logout</button>
+      <div className="admin-loading-screen">
+        <div className="admin-loading-content">
+          <img src="/images/ShanmugaBhavaan.png" alt="Hotel Shanmuga Bhavaan" className="admin-loading-logo" />
+          <h2 className="admin-loading-title">Hotel Shanmuga Bhavaan</h2>
+          <p className="admin-error-text">{error}</p>
+          <div className="admin-error-actions">
+            <button onClick={() => window.location.reload()} className="admin-error-btn admin-retry-btn">↻ Retry</button>
+            <button onClick={onLogout} className="admin-error-btn admin-logout-btn">→ Logout</button>
+          </div>
+        </div>
       </div>
     );
   }

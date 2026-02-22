@@ -437,7 +437,7 @@ function App() {
     const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
     axios.defaults.baseURL = API_BASE_URL;
     axios.defaults.headers.post["Content-Type"] = "application/json";
-    axios.defaults.timeout = 15000; // 15 second timeout for all requests
+    axios.defaults.timeout = 60000; // 60 second timeout for all requests
     
     // Security: Add request interceptor to include auth tokens
     const requestInterceptor = axios.interceptors.request.use(

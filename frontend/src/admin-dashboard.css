@@ -1560,3 +1560,199 @@
     transform: scale(1.05);
   }
 }
+
+/* ===== Admin Dashboard Loading Screen ===== */
+.admin-loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #1a0000 0%, #3d0000 40%, #5c0000 70%, #7a0000 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: adminFadeIn 0.4s ease-out;
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: adminSlideUp 0.6s ease-out 0.1s both;
+}
+
+@keyframes adminSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-loading-logo {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 30px rgba(255, 122, 69, 0.3);
+  border: 3px solid rgba(255, 122, 69, 0.4);
+  animation: adminLogoPulse 2s ease-in-out infinite;
+}
+
+@keyframes adminLogoPulse {
+  0%, 100% {
+    box-shadow: 0 4px 30px rgba(255, 122, 69, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 4px 50px rgba(255, 122, 69, 0.5);
+    transform: scale(1.03);
+  }
+}
+
+.admin-loading-title {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  text-shadow: 0 2px 15px rgba(255, 122, 69, 0.4);
+  letter-spacing: 1px;
+}
+
+.admin-loading-spinner {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-spinner-ring {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top: 3px solid #ff7a45;
+  border-right: 3px solid rgba(255, 122, 69, 0.4);
+  border-radius: 50%;
+  animation: adminSpin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+@keyframes adminSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.admin-loading-text {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-weight: 300;
+  letter-spacing: 0.5px;
+}
+
+.admin-loading-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: -10px;
+}
+
+.admin-loading-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #ff7a45;
+  animation: adminDotBounce 1.4s infinite ease-in-out;
+}
+
+.admin-loading-dots span:nth-child(1) { animation-delay: 0s; }
+.admin-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.admin-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes adminDotBounce {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* Error State */
+.admin-error-text {
+  font-size: 1rem;
+  color: #ff9a76;
+  margin: 0;
+  text-align: center;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.admin-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.admin-error-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-retry-btn {
+  background: #ff7a45;
+  color: #fff;
+}
+
+.admin-retry-btn:hover {
+  background: #ff9a69;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(255, 122, 69, 0.4);
+}
+
+.admin-logout-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.admin-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .admin-loading-logo {
+    width: 80px;
+    height: 80px;
+  }
+  .admin-loading-title {
+    font-size: 1.3rem;
+  }
+  .admin-spinner-ring {
+    width: 40px;
+    height: 40px;
+  }
+}
