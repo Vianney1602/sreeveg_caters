@@ -214,7 +214,6 @@ def forgot_password():
             redis_client.setex(f"otp:{email}", 600, otp)
         else:
             # Fallback to in-memory storage if Redis unavailable
-            global otp_storage
             otp_storage[email] = {
                 "otp": otp,
                 "expires": datetime.utcnow() + timedelta(minutes=10)
@@ -264,7 +263,6 @@ def verify_otp():
                 return jsonify({"error": "Invalid OTP"}), 400
         else:
             # Fallback to in-memory storage if Redis unavailable
-            global otp_storage
             if email not in otp_storage:
                 return jsonify({"error": "OTP not found or expired"}), 400
             stored_data = otp_storage[email]
@@ -300,7 +298,6 @@ def reset_password():
                 return jsonify({"error": "Invalid OTP"}), 400
         else:
             # Fallback to in-memory storage if Redis unavailable
-            global otp_storage
             if email not in otp_storage:
                 return jsonify({"error": "OTP not found or expired"}), 400
             stored_data = otp_storage[email]
@@ -322,7 +319,6 @@ def reset_password():
         if redis_client:
             redis_client.delete(f"otp:{email}")
         else:
-            global otp_storage
             if email in otp_storage:
                 del otp_storage[email]
         
