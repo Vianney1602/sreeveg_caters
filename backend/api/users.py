@@ -8,13 +8,27 @@ import jwt
 import os
 import random
 import string
+import redis
 
 users_bp = Blueprint("users", __name__)
 
 # Secret key for JWT tokens
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 
-# OTP storage (in production, use Redis or database)
+# Redis client for OTP storage (persistent across workers and restarts)
+try:
+    redis_client = redis.StrictRedis(
+        host=os.environ.get('REDIS_HOST', 'localhost'),
+        port=int(os.environ.get('REDIS_PORT', 6379)),
+        db=0,
+        decode_responses=True
+    )
+    redis_client.ping()  # Test connection
+except Exception as e:
+    print(f"⚠️  Redis connection failed: {e}. OTP storage may not work correctly.")
+    redis_client = None
+
+# Fallback OTP storage (only used if Redis is unavailable)
 otp_storage = {}
 
 def generate_otp():
@@ -195,10 +209,16 @@ def forgot_password():
         
         # Generate OTP
         otp = generate_otp()
-        otp_storage[email] = {
-            "otp": otp,
-            "expires": datetime.utcnow() + timedelta(minutes=10)
-        }
+        # Store OTP in Redis with 10-minute expiry (600 seconds)
+        if redis_client:
+            redis_client.setex(f"otp:{email}", 600, otp)
+        else:
+            # Fallback to in-memory storage if Redis unavailable
+            global otp_storage
+            otp_storage[email] = {
+                "otp": otp,
+                "expires": datetime.utcnow() + timedelta(minutes=10)
+            }
         
         # Try to send OTP via email
         email_sent = send_otp_email(email, otp)
@@ -236,16 +256,23 @@ def verify_otp():
             return jsonify({"error": "Email and OTP are required"}), 400
         
         # Check if OTP exists and is valid
-        if email not in otp_storage:
-            return jsonify({"error": "OTP not found or expired"}), 400
-        
-        stored_data = otp_storage[email]
-        if datetime.utcnow() > stored_data["expires"]:
-            del otp_storage[email]
-            return jsonify({"error": "OTP expired"}), 400
-        
-        if stored_data["otp"] != otp:
-            return jsonify({"error": "Invalid OTP"}), 400
+        if redis_client:
+            stored_otp = redis_client.get(f"otp:{email}")
+            if not stored_otp:
+                return jsonify({"error": "OTP not found or expired"}), 400
+            if stored_otp != otp:
+                return jsonify({"error": "Invalid OTP"}), 400
+        else:
+            # Fallback to in-memory storage if Redis unavailable
+            global otp_storage
+            if email not in otp_storage:
+                return jsonify({"error": "OTP not found or expired"}), 400
+            stored_data = otp_storage[email]
+            if datetime.utcnow() > stored_data["expires"]:
+                del otp_storage[email]
+                return jsonify({"error": "OTP expired"}), 400
+            if stored_data["otp"] != otp:
+                return jsonify({"error": "Invalid OTP"}), 400
         
         return jsonify({"message": "OTP verified successfully"}), 200
         
@@ -265,16 +292,23 @@ def reset_password():
             return jsonify({"error": "Email, OTP, and new password are required"}), 400
         
         # Verify OTP again
-        if email not in otp_storage:
-            return jsonify({"error": "OTP not found or expired"}), 400
-        
-        stored_data = otp_storage[email]
-        if datetime.utcnow() > stored_data["expires"]:
-            del otp_storage[email]
-            return jsonify({"error": "OTP expired"}), 400
-        
-        if stored_data["otp"] != otp:
-            return jsonify({"error": "Invalid OTP"}), 400
+        if redis_client:
+            stored_otp = redis_client.get(f"otp:{email}")
+            if not stored_otp:
+                return jsonify({"error": "OTP not found or expired"}), 400
+            if stored_otp != otp:
+                return jsonify({"error": "Invalid OTP"}), 400
+        else:
+            # Fallback to in-memory storage if Redis unavailable
+            global otp_storage
+            if email not in otp_storage:
+                return jsonify({"error": "OTP not found or expired"}), 400
+            stored_data = otp_storage[email]
+            if datetime.utcnow() > stored_data["expires"]:
+                del otp_storage[email]
+                return jsonify({"error": "OTP expired"}), 400
+            if stored_data["otp"] != otp:
+                return jsonify({"error": "Invalid OTP"}), 400
         
         # Update password
         user = Customer.query.filter_by(email=email).first()
@@ -285,7 +319,12 @@ def reset_password():
         db.session.commit()
         
         # Clear OTP
-        del otp_storage[email]
+        if redis_client:
+            redis_client.delete(f"otp:{email}")
+        else:
+            global otp_storage
+            if email in otp_storage:
+                del otp_storage[email]
         
         return jsonify({"message": "Password reset successfully"}), 200
         
