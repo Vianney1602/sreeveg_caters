@@ -16,17 +16,14 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
-      console.log('Sending OTP request for:', user.email);
-      const response = await axios.post('/api/users/forgot-password', { 
-        email: user.email 
+      const response = await axios.post('/api/users/forgot-password', {
+        email: user.email
       });
-      console.log('OTP response:', response.data);
       setSuccess(response.data.message || 'OTP sent to your email!');
       setOtpSent(true);
     } catch (err) {
-      console.error('OTP request failed:', err);
       setError(err.response?.data?.error || 'Failed to send OTP');
     } finally {
       setLoading(false);
@@ -38,21 +35,21 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       setError('Please enter OTP, new password, and confirm password');
       return;
     }
-    
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
+
     if (passwordForm.newPassword.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
+
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
       const token = sessionStorage.getItem('_userToken');
       await axios.post('/api/users/change-password', {
@@ -61,7 +58,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       setSuccess('Password changed successfully!');
       setTimeout(() => {
         setShowChangePassword(false);
@@ -82,11 +79,11 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       setError('Name is required');
       return;
     }
-    
+
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
       const token = sessionStorage.getItem('_userToken');
       await axios.put('/api/users/profile', {
@@ -95,11 +92,11 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       // Update user data in sessionStorage
       const updatedUser = { ...user, name: profileForm.name, phone: profileForm.phone };
       sessionStorage.setItem('_user', JSON.stringify(updatedUser));
-      
+
       setSuccess('Profile updated successfully!');
       setTimeout(() => {
         setShowEditProfile(false);
@@ -122,9 +119,9 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
           {success || error}
         </div>
       )}
-      
-      <button 
-        className="back-btn" 
+
+      <button
+        className="back-btn"
         onClick={goToHome}
         style={{
           marginBottom: '1.5rem',
@@ -153,7 +150,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       >
         ← Back to Home
       </button>
-      
+
       <div className="account-header">
         <h2>My Account</h2>
         <button className="logout-btn" onClick={onLogout}>
@@ -182,8 +179,8 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                   </div>
                 )}
               </div>
-              <button 
-                className="account-btn secondary" 
+              <button
+                className="account-btn secondary"
                 onClick={() => setShowEditProfile(true)}
                 style={{ marginTop: '1rem' }}
               >
@@ -201,7 +198,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                     type="text"
                     value={profileForm.name}
                     onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                    style={{ 
+                    style={{
                       width: '100%',
                       padding: '0.875rem',
                       borderRadius: '8px',
@@ -218,7 +215,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                     type="tel"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    style={{ 
+                    style={{
                       width: '100%',
                       padding: '0.875rem',
                       borderRadius: '8px',
@@ -234,16 +231,16 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                <button 
-                  className="account-btn" 
+                <button
+                  className="account-btn"
                   onClick={handleEditProfile}
                   disabled={loading}
                   style={{ flex: 1 }}
                 >
                   {loading ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button 
-                  className="account-btn secondary" 
+                <button
+                  className="account-btn secondary"
                   onClick={() => {
                     setShowEditProfile(false);
                     setProfileForm({ name: user.name, phone: user.phone || '' });
@@ -269,8 +266,8 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
             <button className="account-btn" onClick={goToMenu}>
               Start New Order
             </button>
-            <button 
-              className="account-btn secondary" 
+            <button
+              className="account-btn secondary"
               onClick={() => setShowChangePassword(!showChangePassword)}
             >
               {showChangePassword ? 'Cancel' : 'Change Password'}
@@ -282,15 +279,15 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
       {showChangePassword && (
         <div className="account-card" style={{ marginTop: '1.5rem', maxWidth: '600px' }}>
           <h3>Change Password</h3>
-          
+
           {!otpSent ? (
             <>
               <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
                 We'll send an OTP to {user.email} to verify your identity.
               </p>
-              <button 
-                className="account-btn" 
-                onClick={handleSendOTP} 
+              <button
+                className="account-btn"
+                onClick={handleSendOTP}
                 disabled={loading}
                 style={{ maxWidth: '200px' }}
               >
@@ -306,7 +303,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                 onChange={(e) => setPasswordForm({ ...passwordForm, otp: e.target.value })}
                 maxLength="6"
                 className="otp-input"
-                style={{ 
+                style={{
                   width: '100%',
                   padding: '0.875rem',
                   marginBottom: '1rem',
@@ -321,7 +318,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 minLength="6"
-                style={{ 
+                style={{
                   width: '100%',
                   padding: '0.875rem',
                   marginBottom: '1rem',
@@ -336,7 +333,7 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 minLength="6"
-                style={{ 
+                style={{
                   width: '100%',
                   padding: '0.875rem',
                   marginBottom: '1rem',
@@ -345,9 +342,9 @@ export default function UserAccount({ user, onLogout, goToOrderHistory, goToMenu
                   fontSize: '1rem'
                 }}
               />
-              <button 
-                className="account-btn" 
-                onClick={handleChangePassword} 
+              <button
+                className="account-btn"
+                onClick={handleChangePassword}
                 disabled={loading}
                 style={{ maxWidth: '200px' }}
               >

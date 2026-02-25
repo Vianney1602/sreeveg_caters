@@ -104,7 +104,6 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     setError('');
 
     try {
-      console.log(`[DEBUG] Admin Reset Request - Email: '${forgotEmail}', Server: ${axios.defaults.baseURL}`);
       // Try admin forgot password first
       await axios.post('/api/users/admin/forgot-password', { email: forgotEmail });
       setIsAdminReset(true);
@@ -112,7 +111,6 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       setShowOtpVerification(true);
     } catch (adminErr) {
       // If admin endpoint fails (not an admin email), try user endpoint
-      console.log("[ERROR] Admin Reset Fail:", adminErr.response?.data || adminErr.message);
       if (adminErr.response?.status === 404) {
         try {
           await axios.post('/api/users/forgot-password', { email: forgotEmail });
@@ -141,9 +139,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
 
     try {
       const endpoint = isAdminReset ? '/api/users/admin/verify-otp' : '/api/users/verify-otp';
-      console.log(`[DEBUG] Verifying OTP - Endpoint: ${endpoint}, Email: ${forgotEmail}, OTP: ${otp}`);
       await axios.post(endpoint, { email: forgotEmail, otp });
-      console.log("[DEBUG] OTP Verified Successfully");
       setResetSuccess('OTP verified! Enter your new password.');
       setShowResetPassword(true);
     } catch (err) {
@@ -164,13 +160,11 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
 
     try {
       const endpoint = isAdminReset ? '/api/users/admin/reset-password' : '/api/users/reset-password';
-      console.log(`[DEBUG] Resetting Password - Endpoint: ${endpoint}, Email: ${forgotEmail}`);
       await axios.post(endpoint, {
         email: forgotEmail,
         otp,
         new_password: newPassword
       });
-      console.log("[DEBUG] Password Reset Successfully");
       setResetSuccess('Password reset successfully! You can now sign in.');
       setTimeout(() => {
         setShowForgotPassword(false);

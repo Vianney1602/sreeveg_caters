@@ -559,12 +559,10 @@ def admin_forgot_password():
         
         print(f"[INFO] Admin forgot-password request received for email: '{email}'")
         
-        # Explicit check - if the email doesn't match the admin email, return 400
-        # This prevents the frontend from falling back to the generic user endpoint.
+        # If the email doesn't match admin email, return 404 so frontend falls back to user reset flow
         if not email or email.strip().lower() != Config.ADMIN_EMAIL.lower():
-            error_msg = f"Email '{email}' does not match the configured admin email ({Config.ADMIN_EMAIL})."
-            print(f"[ERROR] {error_msg}")
-            return jsonify({"error": error_msg}), 400
+            return jsonify({"error": "Not an admin email"}), 404
+
 
         # Generate OTP
         otp = generate_otp()

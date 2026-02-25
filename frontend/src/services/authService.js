@@ -1,12 +1,8 @@
 import axios from 'axios';
 
-// Force local backend for anything other than the primary production domain to simplify local development/testing
-if (window.location.hostname !== 'info.hotelshanmugabhavaan.com' && window.location.hostname !== 'hotelshanmugabhavaan.com') {
-  axios.defaults.baseURL = 'http://127.0.0.1:8000';
-  console.log("%c[DEBUG] LOCAL DEVELOPER MODE: Backend forced to " + axios.defaults.baseURL, "color: white; background: red; font-size: 16px; font-weight: bold;");
-} else if (!axios.defaults.baseURL) {
-  axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
-  console.log("[DEBUG] Production mode: Backend set from env:", axios.defaults.baseURL);
+// Configure API base URL from environment
+if (!axios.defaults.baseURL) {
+  axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL || '';
 }
 
 // In-memory storage for sensitive tokens (cleared on browser close)
