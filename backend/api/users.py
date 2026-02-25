@@ -16,16 +16,22 @@ users_bp = Blueprint("users", __name__)
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 
 # Redis client for OTP storage (persistent across workers and restarts)
+# NOTE: Redis connection is lazy - only tested when actually used
+redis_client = None
 try:
     redis_client = redis.StrictRedis(
         host=os.environ.get('REDIS_HOST', 'localhost'),
         port=int(os.environ.get('REDIS_PORT', 6379)),
         db=0,
-        decode_responses=True
+        decode_responses=True,
+        socket_connect_timeout=2,
+        socket_keepalive=True,
+        health_check_interval=30
     )
-    redis_client.ping()  # Test connection
+    # Don't test connection here - test will happen when first OTP operation is performed
+    print("[INFO] Redis client initialized (lazy connection)")
 except Exception as e:
-    print(f"⚠️  Redis connection failed: {e}. OTP storage may not work correctly.")
+    print(f"[WARNING] Redis client initialization failed: {e}")
     redis_client = None
 
 # Fallback OTP storage (only used if Redis is unavailable)
@@ -34,6 +40,10 @@ otp_storage = {}
 def generate_otp():
     """Generate a 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
+
+def validate_otp_format(otp):
+    """Validate OTP is a 6-digit string"""
+    return isinstance(otp, str) and len(otp) == 6 and otp.isdigit()
 
 @users_bp.route("/register", methods=["POST"])
 def register():
@@ -211,7 +221,15 @@ def forgot_password():
         otp = generate_otp()
         # Store OTP in Redis with 10-minute expiry (600 seconds)
         if redis_client:
-            redis_client.setex(f"otp:{email}", 600, otp)
+            try:
+                redis_client.setex(f"otp:{email}", 600, otp)
+                print(f"[INFO] OTP stored in Redis for {email}")
+            except Exception as e:
+                print(f"[WARNING] Failed to store OTP in Redis: {e}. Using fallback storage.")
+                otp_storage[email] = {
+                    "otp": otp,
+                    "expires": datetime.utcnow() + timedelta(minutes=10)
+                }
         else:
             # Fallback to in-memory storage if Redis unavailable
             otp_storage[email] = {
@@ -240,7 +258,7 @@ def forgot_password():
             }), 200
         
     except Exception as e:
-        print(f"❌ Error in forgot-password: {str(e)}")
+        print(f"[ERROR] Error in forgot-password: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @users_bp.route("/verify-otp", methods=["POST"])
@@ -254,13 +272,29 @@ def verify_otp():
         if not email or not otp:
             return jsonify({"error": "Email and OTP are required"}), 400
         
+        # Validate OTP format (must be 6 digits)
+        if not validate_otp_format(otp):
+            return jsonify({"error": "Invalid OTP format"}), 400
+        
         # Check if OTP exists and is valid
         if redis_client:
-            stored_otp = redis_client.get(f"otp:{email}")
-            if not stored_otp:
-                return jsonify({"error": "OTP not found or expired"}), 400
-            if stored_otp != otp:
-                return jsonify({"error": "Invalid OTP"}), 400
+            try:
+                stored_otp = redis_client.get(f"otp:{email}")
+                if not stored_otp:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                if stored_otp != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
+            except Exception as e:
+                print(f"[WARNING] Redis error during OTP verification: {e}. Checking fallback storage.")
+                # Fallback to in-memory if Redis fails
+                if email not in otp_storage:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                stored_data = otp_storage[email]
+                if datetime.utcnow() > stored_data["expires"]:
+                    del otp_storage[email]
+                    return jsonify({"error": "OTP expired"}), 400
+                if stored_data["otp"] != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
         else:
             # Fallback to in-memory storage if Redis unavailable
             if email not in otp_storage:
@@ -289,13 +323,29 @@ def reset_password():
         if not email or not otp or not new_password:
             return jsonify({"error": "Email, OTP, and new password are required"}), 400
         
+        # Validate OTP format (must be 6 digits)
+        if not validate_otp_format(otp):
+            return jsonify({"error": "Invalid OTP format"}), 400
+        
         # Verify OTP again
         if redis_client:
-            stored_otp = redis_client.get(f"otp:{email}")
-            if not stored_otp:
-                return jsonify({"error": "OTP not found or expired"}), 400
-            if stored_otp != otp:
-                return jsonify({"error": "Invalid OTP"}), 400
+            try:
+                stored_otp = redis_client.get(f"otp:{email}")
+                if not stored_otp:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                if stored_otp != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
+            except Exception as e:
+                print(f"[WARNING] Redis error during password reset: {e}. Checking fallback storage.")
+                # Fallback to in-memory if Redis fails
+                if email not in otp_storage:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                stored_data = otp_storage[email]
+                if datetime.utcnow() > stored_data["expires"]:
+                    del otp_storage[email]
+                    return jsonify({"error": "OTP expired"}), 400
+                if stored_data["otp"] != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
         else:
             # Fallback to in-memory storage if Redis unavailable
             if email not in otp_storage:
@@ -315,12 +365,16 @@ def reset_password():
         user.password_hash = generate_password_hash(new_password)
         db.session.commit()
         
-        # Clear OTP
+        # Clear OTP from both Redis and fallback storage
         if redis_client:
-            redis_client.delete(f"otp:{email}")
-        else:
-            if email in otp_storage:
-                del otp_storage[email]
+            try:
+                redis_client.delete(f"otp:{email}")
+                print(f"[INFO] OTP cleared from Redis for {email}")
+            except Exception as e:
+                print(f"[WARNING] Failed to clear OTP from Redis: {e}")
+        
+        if email in otp_storage:
+            del otp_storage[email]
         
         return jsonify({"message": "Password reset successfully"}), 200
         
@@ -356,24 +410,54 @@ def change_password():
         if not user:
             return jsonify({"error": "User not found"}), 404
         
-        # Verify OTP
-        if user.email not in otp_storage:
-            return jsonify({"error": "OTP not found or expired"}), 400
+        # Validate OTP format (must be 6 digits)
+        if not validate_otp_format(otp):
+            return jsonify({"error": "Invalid OTP format"}), 400
         
-        stored_data = otp_storage[user.email]
-        if datetime.utcnow() > stored_data["expires"]:
-            del otp_storage[user.email]
-            return jsonify({"error": "OTP expired"}), 400
-        
-        if stored_data["otp"] != otp:
-            return jsonify({"error": "Invalid OTP"}), 400
+        # Verify OTP from both Redis and fallback storage
+        if redis_client:
+            try:
+                stored_otp = redis_client.get(f"otp:{user.email}")
+                if not stored_otp:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                if stored_otp != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
+            except Exception as e:
+                print(f"[WARNING] Redis error during change password: {e}. Checking fallback storage.")
+                # Fallback to in-memory if Redis fails
+                if user.email not in otp_storage:
+                    return jsonify({"error": "OTP not found or expired"}), 400
+                stored_data = otp_storage[user.email]
+                if datetime.utcnow() > stored_data["expires"]:
+                    del otp_storage[user.email]
+                    return jsonify({"error": "OTP expired"}), 400
+                if stored_data["otp"] != otp:
+                    return jsonify({"error": "Invalid OTP"}), 400
+        else:
+            # Fallback to in-memory storage if Redis unavailable
+            if user.email not in otp_storage:
+                return jsonify({"error": "OTP not found or expired"}), 400
+            stored_data = otp_storage[user.email]
+            if datetime.utcnow() > stored_data["expires"]:
+                del otp_storage[user.email]
+                return jsonify({"error": "OTP expired"}), 400
+            if stored_data["otp"] != otp:
+                return jsonify({"error": "Invalid OTP"}), 400
         
         # Update password
         user.password_hash = generate_password_hash(new_password)
         db.session.commit()
         
-        # Clear OTP
-        del otp_storage[user.email]
+        # Clear OTP from both Redis and fallback storage
+        if redis_client:
+            try:
+                redis_client.delete(f"otp:{user.email}")
+                print(f"[INFO] OTP cleared from Redis for {user.email}")
+            except Exception as e:
+                print(f"[WARNING] Failed to clear OTP from Redis: {e}")
+        
+        if user.email in otp_storage:
+            del otp_storage[user.email]
         
         return jsonify({"message": "Password changed successfully"}), 200
         

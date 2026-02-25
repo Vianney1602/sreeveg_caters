@@ -276,6 +276,6 @@ if __name__ == "__main__":
     cert = os.path.join(base, 'cert.pem')
     key = os.path.join(base, 'key.pem')
     if os.path.exists(cert) and os.path.exists(key):
-        socketio.run(app, host="0.0.0.0", port=5000, debug=False, ssl_context=(cert, key))
+        socketio.run(app, host="0.0.0.0", port=8000, debug=False, ssl_context=(cert, key))
     else:
-        socketio.run(app, host="0.0.0.0", port=5000, debug=False)
+        socketio.run(app, host="0.0.0.0", port=8000, debug=False)
