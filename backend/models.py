@@ -126,4 +126,15 @@ class ContactInquiry(db.Model):
     status = db.Column(db.String(20), default="New")
 
 
-# Admin model removed - admin authentication now uses hardcoded credentials for website owner only
+# 8. ADMIN SETTINGS - Store admin credentials securely
+class AdminSettings(db.Model):
+    __tablename__ = "admin_settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, default=1)  # Single admin (website owner)
+    password_hash = db.Column(db.String(255), nullable=True)  # Will override env default
+    email = db.Column(db.String(100), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<AdminSettings admin_id={self.admin_id}>'

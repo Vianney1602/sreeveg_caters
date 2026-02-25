@@ -1,5 +1,5 @@
 """
-Brevo (formerly Sendinblue) Email Service
+Brevo Email Service
 Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
@@ -54,7 +54,12 @@ def _get_api_instance():
         return None
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = api_key
-    return sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+    # Set a short timeout so a bad/rate-limited API key fails fast
+    # instead of blocking the OTP endpoint for minutes.
+    configuration.connection_pool_maxsize = 4
+    api_client = sib_api_v3_sdk.ApiClient(configuration)
+    api_client.rest_client.pool_manager.connection_pool_kw['timeout'] = 8
+    return sib_api_v3_sdk.TransactionalEmailsApi(api_client)
 
 
 def _get_sender():
@@ -118,7 +123,7 @@ def send_email(to_email, subject, html_content, text_content=None):
     """
     api_instance = _get_api_instance()
     if not api_instance:
-        print(f"⚠️  Brevo API key not configured. Email to {to_email} skipped.")
+        print(f"[WARNING] Brevo API key not configured. Email to {to_email} skipped.")
         return False
 
     sender = _get_sender()
@@ -132,14 +137,15 @@ def send_email(to_email, subject, html_content, text_content=None):
 
     try:
         api_instance.send_transac_email(send_smtp_email)
-        print(f"✅ Email sent to {to_email}: {subject}")
+        print(f"[SUCCESS] Email sent to {to_email}: {subject}")
         return True
     except ApiException as e:
-        print(f"❌ Brevo API error sending to {to_email}: {e}")
+        print(f"[ERROR] Brevo API error sending to {to_email}: {e.status} {e.reason}")
         return False
     except Exception as e:
-        print(f"❌ Failed to send email to {to_email}: {e}")
+        print(f"[ERROR] Failed to send email to {to_email}: {e}")
         return False
+
 
 
 # ── Pre-built email templates ────────────────────────────────────────────

@@ -41,27 +41,47 @@ def emit_stats_update():
     except Exception as e:
         print(f"Failed to emit stats update: {str(e)}")
 
-def send_order_confirmation_email_async(app, order_data, menu_items_details):
-    """Send order confirmation email in background thread using Brevo"""
-    with app.app_context():
-        try:
-            order = Order.query.get(order_data['order_id'])
-            if not order:
-                return False
-            send_order_confirmation_email(order, menu_items_details)
-        except Exception as e:
-            print(f"Background email error: {str(e)}")
+def trigger_order_confirmation_email(order_id):
+    """
+    Helper to trigger the order confirmation email only once.
+    This should be called when an order is officially 'Paid' or 'Confirmed'.
+    """
+    from flask import current_app
+    app = current_app._get_current_object()
+    
+    def _send_task():
+        with app.app_context():
+            try:
+                # Fetch order and its items
+                order = Order.query.get(order_id)
+                if not order or not order.email:
+                    return
+                
+                # Check if already sent or if status is appropriate
+                # For now, we simple send it. The calling logic controls transitions.
+                
+                menu_items_details = []
+                for om in order.menu_items:
+                    menu_item = MenuItem.query.get(om.menu_item_id)
+                    menu_items_details.append({
+                        'name': menu_item.item_name if menu_item else 'Unknown Item',
+                        'quantity': om.quantity,
+                        'price': float(om.price_at_order_time)
+                    })
+                
+                email_result = send_order_confirmation_email(order, menu_items_details)
+                if email_result:
+                    print(f"[SUCCESS] Order confirmation email sent for Order #{order_id} to {order.email}")
+                else:
+                    print(f"[WARNING] Order confirmation email failed for Order #{order_id}")
+            except Exception as e:
+                print(f"[ERROR] trigger_order_confirmation_email error: {str(e)}")
+                import traceback
+                traceback.print_exc()
 
-def send_order_cancellation_email_async(app, order_id):
-    """Send order cancellation email in background thread using Brevo"""
-    with app.app_context():
-        try:
-            order = Order.query.get(order_id)
-            if not order:
-                return False
-            send_order_cancellation_email(order)
-        except Exception as e:
-            print(f"Background cancellation email error: {str(e)}")
+    # Run in background to not block the request
+    thread = threading.Thread(target=_send_task, daemon=True)
+    thread.start()
 
 @orders_bp.route("/", methods=["GET"])
 @jwt_required()
@@ -307,45 +327,24 @@ def create_order():
                 } for om in order_menu_items]
             }
             socketio.emit('order_created', order_payload, room='admins')
-            print(f"✅ Emitted order_created event for Order #{order.order_id} to admins room")
+            print(f"[SUCCESS] Emitted order_created event for Order #{order.order_id} to admins room")
         except Exception as e:
-            print(f"❌ Failed to emit order_created: {str(e)}")
+            print(f"[ERROR] Failed to emit order_created: {str(e)}")
         
         # IMMEDIATE: Emit stats update
         try:
             emit_stats_update()
-            print(f"✅ Emitted stats_updated event to admins room")
+            print(f"[SUCCESS] Emitted stats_updated event to admins room")
         except Exception as e:
-            print(f"❌ Failed to emit stats_updated: {str(e)}")
+            print(f"[ERROR] Failed to emit stats_updated: {str(e)}")
         
         # Send immediate response to client
         response = jsonify({"message": "Order Created", "order_id": order.order_id})
         
-        # Capture the real app object for background thread (current_app proxy doesn't work in threads)
+        # Capture the real app object for background thread
         app = current_app._get_current_object()
-        # Save order ID and email for thread safety (ORM objects may detach from session)
-        _order_id = order.order_id
-        _order_email = order.email
         _customer_id = customer_id
-        
-        # Send order confirmation email IMMEDIATELY (not in background thread)
-        # Background threads can silently fail under gunicorn/eventlet
-        if _order_email:
-            try:
-                fresh_order = Order.query.get(_order_id)
-                if fresh_order:
-                    email_result = send_order_confirmation_email(fresh_order, menu_items_details)
-                    if email_result:
-                        print(f"✅ Order confirmation email sent for Order #{_order_id} to {_order_email}")
-                    else:
-                        print(f"⚠️ Order confirmation email failed for Order #{_order_id}")
-                else:
-                    print(f"❌ Could not find Order #{_order_id} for email")
-            except Exception as e:
-                print(f"❌ Email error for Order #{_order_id}: {str(e)}")
-                import traceback
-                traceback.print_exc()
-        
+
         # Background tasks: inventory updates, customer stats (non-critical)
         def background_tasks():
             with app.app_context():
@@ -367,7 +366,7 @@ def create_order():
                         except Exception as e:
                             print(f"Customer stats update error: {str(e)}")
                 except Exception as e:
-                    print(f"❌ Background tasks error: {str(e)}")
+                    print(f"[ERROR] Background tasks error: {str(e)}")
         
         # Start background thread
         thread = threading.Thread(target=background_tasks)
@@ -618,6 +617,10 @@ def update_status(id):
         old_status = order.status
         order.status = new_status
         db.session.commit()
+
+        # Trigger confirmation email if status changed to Paid or Confirmed
+        if new_status in ["Paid", "Confirmed"] and old_status not in ["Paid", "Confirmed"]:
+            trigger_order_confirmation_email(order.order_id)
 
         # If status moved to Paid, ensure customer segment gets the new customer immediately
         if new_status == "Paid" and order.customer_id:

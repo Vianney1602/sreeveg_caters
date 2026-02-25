@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// Ensure axios has a baseURL set for API calls
-// Uses REACT_APP_API_BASE_URL from environment
-if (!axios.defaults.baseURL) {
-  // Use the backend URL from environment variable
+// Force local backend for anything other than the primary production domain to simplify local development/testing
+if (window.location.hostname !== 'info.hotelshanmugabhavaan.com' && window.location.hostname !== 'hotelshanmugabhavaan.com') {
+  axios.defaults.baseURL = 'http://127.0.0.1:8000';
+  console.log("%c[DEBUG] LOCAL DEVELOPER MODE: Backend forced to " + axios.defaults.baseURL, "color: white; background: red; font-size: 16px; font-weight: bold;");
+} else if (!axios.defaults.baseURL) {
   axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
+  console.log("[DEBUG] Production mode: Backend set from env:", axios.defaults.baseURL);
 }
 
 // In-memory storage for sensitive tokens (cleared on browser close)
@@ -19,7 +21,7 @@ const authService = {
     return inMemoryToken || sessionStorage.getItem('_st');
   },
 
-  setToken(token) { 
+  setToken(token) {
     inMemoryToken = token;
     // Also store in sessionStorage as backup (cleared when tab closes)
     sessionStorage.setItem('_st', token);
@@ -53,13 +55,13 @@ const authService = {
   // Login
   async login(username, password) {
     try {
-      const response = await axios.post('/api/admin/login', {
-        username,
+      const response = await axios.post('/api/users/login', {
+        email: username, // api/users/login expects 'email' key
         password,
       });
 
       const { access_token, admin } = response.data;
-      
+
       this.setToken(access_token);
       this.setAdminInfo(admin);
 
@@ -135,12 +137,12 @@ axios.interceptors.response.use(
     if (error.response?.status === 401) {
       // Skip redirect for login/auth endpoints — let the component show the error
       const requestUrl = error.config?.url || '';
-      const isAuthRequest = requestUrl.includes('/login') || 
-                            requestUrl.includes('/forgot-password') || 
-                            requestUrl.includes('/reset-password') ||
-                            requestUrl.includes('/verify-otp') ||
-                            requestUrl.includes('/google-login');
-      
+      const isAuthRequest = requestUrl.includes('/login') ||
+        requestUrl.includes('/forgot-password') ||
+        requestUrl.includes('/reset-password') ||
+        requestUrl.includes('/verify-otp') ||
+        requestUrl.includes('/google-login');
+
       if (!isAuthRequest) {
         // Token expired or invalid - auto logout
         authService.logout();

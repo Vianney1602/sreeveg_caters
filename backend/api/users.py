@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from extensions import db
-from models import Customer, Order, OrderMenuItem
+from models import Customer, Order, OrderMenuItem, AdminSettings
 from datetime import datetime, timedelta
 from brevo_mail import send_otp_email
 import jwt
@@ -25,6 +25,7 @@ try:
         db=0,
         decode_responses=True,
         socket_connect_timeout=2,
+        socket_timeout=2,        # prevent setex/get from blocking forever
         socket_keepalive=True,
         health_check_interval=30
     )
@@ -98,21 +99,37 @@ def login():
         # First, check if this is an admin login
         from config import Config
         from flask_jwt_extended import create_access_token
+        from models import AdminSettings
         
-        if email == Config.ADMIN_USERNAME and password == Config.ADMIN_PASSWORD:
-            # Admin login successful - create admin token
-            access_token = create_access_token(
-                identity="admin_1",
-                additional_claims={
-                    "admin_id": 1,
-                    "username": Config.ADMIN_USERNAME,
-                    "email": Config.ADMIN_EMAIL,
-                    "role": "Admin"
-                }
-            )
+        # Check if email matches admin username
+        if email == Config.ADMIN_USERNAME or email == Config.ADMIN_EMAIL:
+            admin_verified = False
             
-            return jsonify({
-                "message": "Login successful",
+            # Try to authenticate against database first (if password was changed)
+            admin_settings = AdminSettings.query.filter_by(admin_id=1).first()
+            if admin_settings and admin_settings.password_hash:
+                # Password stored in database - verify against hash
+                if check_password_hash(admin_settings.password_hash, password):
+                    admin_verified = True
+            else:
+                # No password in database - use default from .env
+                if password == Config.ADMIN_PASSWORD:
+                    admin_verified = True
+            
+            if admin_verified:
+                # Admin login successful - create admin token
+                access_token = create_access_token(
+                    identity="admin_1",
+                    additional_claims={
+                        "admin_id": 1,
+                        "username": Config.ADMIN_USERNAME,
+                        "email": Config.ADMIN_EMAIL,
+                        "role": "Admin"
+                    }
+                )
+                
+                return jsonify({
+                    "message": "Login successful",
                 "token": access_token,
                 "isAdmin": True,
                 "user": {
@@ -464,6 +481,252 @@ def change_password():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+# ============ ADMIN PASSWORD MANAGEMENT ============
+
+@users_bp.route("/admin/change-password", methods=["POST"])
+def admin_change_password():
+    """Admin change password (when already logged in)"""
+    try:
+        from config import Config
+        from models import AdminSettings
+        
+        # Get token from header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return jsonify({"error": "Authorization token required"}), 401
+        
+        token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+        
+        # Verify admin token
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            if payload.get("role") != "Admin":
+                return jsonify({"error": "Admin access required"}), 403
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+        
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
+        current_password = data.get("current_password")
+        new_password = data.get("new_password")
+        
+        if not current_password or not new_password:
+            return jsonify({"error": "Current and new passwords are required"}), 400
+        
+        # Verify current password
+        admin_settings = AdminSettings.query.filter_by(admin_id=1).first()
+        password_is_valid = False
+        
+        if admin_settings and admin_settings.password_hash:
+            # Password in database
+            password_is_valid = check_password_hash(admin_settings.password_hash, current_password)
+        else:
+            # Check default password from env
+            from config import Config
+            password_is_valid = current_password == Config.ADMIN_PASSWORD
+        
+        if not password_is_valid:
+            return jsonify({"error": "Current password is incorrect"}), 401
+        
+        # Update password in database
+        if not admin_settings:
+            admin_settings = AdminSettings(admin_id=1, email=Config.ADMIN_EMAIL)
+        
+        admin_settings.password_hash = generate_password_hash(new_password)
+        db.session.add(admin_settings)
+        db.session.commit()
+        
+        print(f"[INFO] Admin password changed at {datetime.utcnow()}")
+        return jsonify({"message": "Admin password changed successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Admin password change failed: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@users_bp.route("/admin/forgot-password", methods=["POST"])
+def admin_forgot_password():
+    """Admin forgot password - send OTP to admin email"""
+    try:
+        from config import Config
+        
+        data = request.get_json(force=True, silent=True) or {}
+        email = data.get("email")
+        
+        print(f"[INFO] Admin forgot-password request received for email: '{email}'")
+        
+        # Explicit check - if the email doesn't match the admin email, return 400
+        # This prevents the frontend from falling back to the generic user endpoint.
+        if not email or email.strip().lower() != Config.ADMIN_EMAIL.lower():
+            error_msg = f"Email '{email}' does not match the configured admin email ({Config.ADMIN_EMAIL})."
+            print(f"[ERROR] {error_msg}")
+            return jsonify({"error": error_msg}), 400
+
+        # Generate OTP
+        otp = generate_otp()
+        admin_key = f"admin:{Config.ADMIN_EMAIL}"
+        
+        # 1. ALWAYS store in memory fallback first for maximum robustness
+        otp_storage[admin_key] = {
+            "otp": otp,
+            "expires": datetime.utcnow() + timedelta(minutes=10)
+        }
+        print(f"[INFO] Admin OTP stored in memory storage for {Config.ADMIN_EMAIL}")
+        
+        # 2. Also try to store in Redis if available
+        if redis_client:
+            try:
+                redis_client.setex(f"otp:{admin_key}", 600, otp)
+                print(f"[INFO] Admin OTP also stored in Redis")
+            except Exception as e:
+                print(f"[WARNING] Redis storage failed (falling back to memory): {e}")
+        
+        # Send OTP via email
+        try:
+            from brevo_mail import send_admin_otp_email
+            email_sent = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
+            if not email_sent:
+                print(f"[WARNING] Admin OTP email dispatch failed. Check BREVO_API_KEY configuration.")
+        except Exception as email_err:
+            print(f"[ERROR] Admin email dispatch error: {email_err}")
+            email_sent = False
+
+        return jsonify({
+            "message": "OTP sent to admin email",
+            "email_sent": email_sent
+        }), 200
+        
+    except Exception as e:
+        print(f"[ERROR] Admin forgot-password failed: {str(e)}")
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
+
+
+
+@users_bp.route("/admin/verify-otp", methods=["POST"])
+def admin_verify_otp():
+    """Verify admin OTP"""
+    try:
+        from config import Config
+        admin_email = Config.ADMIN_EMAIL
+        admin_key = f"admin:{admin_email}"
+        
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
+        otp = data.get("otp")
+        
+        if not otp:
+            return jsonify({"error": "OTP is required"}), 400
+        
+        print(f"[INFO] Verifying admin OTP for {admin_email}. Received: {otp}")
+        
+        # 1. Try memory storage first (as it's now always set)
+        if admin_key in otp_storage:
+            stored_data = otp_storage[admin_key]
+            if datetime.utcnow() > stored_data["expires"]:
+                print(f"[WARNING] Admin OTP in memory expired at {stored_data['expires']}")
+                del otp_storage[admin_key]
+                return jsonify({"error": "OTP has expired"}), 400
+            
+            if str(stored_data["otp"]) == str(otp):
+                print(f"[SUCCESS] Admin OTP verified from memory")
+                return jsonify({"message": "Admin OTP verified successfully"}), 200
+            else:
+                print(f"[ERROR] OTP mismatch in memory. Expected '{stored_data['otp']}', got '{otp}'")
+        
+        # 2. Try Redis if memory failed or didn't have it
+        if redis_client:
+            try:
+                stored_otp = redis_client.get(f"otp:{admin_key}")
+                if stored_otp and str(stored_otp) == str(otp):
+                    print(f"[SUCCESS] Admin OTP verified from Redis")
+                    return jsonify({"message": "Admin OTP verified successfully"}), 200
+                elif stored_otp:
+                    print(f"[ERROR] OTP mismatch in Redis. Expected '{stored_otp}', got '{otp}'")
+            except Exception as e:
+                print(f"[WARNING] Redis retrieval failed: {e}")
+        
+        print(f"[ERROR] OTP '{otp}' not found or expired for {admin_email}")
+        return jsonify({"error": "OTP not found or expired"}), 400
+        
+    except Exception as e:
+        print(f"[ERROR] Admin OTP verification exception: {str(e)}")
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
+
+@users_bp.route("/admin/reset-password", methods=["POST"])
+def admin_reset_password():
+    """Admin reset password after OTP verification"""
+    try:
+        from config import Config
+        from models import AdminSettings
+        admin_email = Config.ADMIN_EMAIL
+        admin_key = f"admin:{admin_email}"
+        
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
+        
+        otp = data.get("otp")
+        new_password = data.get("new_password")
+        
+        if not otp or not new_password:
+            return jsonify({"error": "OTP and new_password are required"}), 400
+        
+        print(f"[INFO] Attempting admin password reset for {admin_email}. OTP: {otp}")
+        
+        # 1. Verify OTP from memory first
+        is_verified = False
+        if admin_key in otp_storage:
+            stored_data = otp_storage[admin_key]
+            if datetime.utcnow() <= stored_data["expires"] and str(stored_data["otp"]) == str(otp):
+                is_verified = True
+                print(f"[SUCCESS] OTP verified from memory for reset")
+        
+        # 2. Try Redis if memory failed
+        if not is_verified and redis_client:
+            try:
+                stored_otp = redis_client.get(f"otp:{admin_key}")
+                if stored_otp and str(stored_otp) == str(otp):
+                    is_verified = True
+                    print(f"[SUCCESS] OTP verified from Redis for reset")
+            except Exception as e:
+                print(f"[WARNING] Redis retrieval failed during reset: {e}")
+        
+        if not is_verified:
+            print(f"[ERROR] Reset failed: OTP '{otp}' is invalid or expired for {admin_email}")
+            return jsonify({"error": "OTP is invalid or has expired. Please request a new one."}), 400
+        
+        # Update admin password in database
+        print(f"[INFO] Updating database for admin_id=1")
+        admin_settings = AdminSettings.query.filter_by(admin_id=1).first()
+        if not admin_settings:
+            print(f"[INFO] Creating new AdminSettings row")
+            admin_settings = AdminSettings(admin_id=1, email=admin_email)
+        
+        admin_settings.password_hash = generate_password_hash(new_password)
+        db.session.add(admin_settings)
+        db.session.commit()
+        
+        # Clear OTP from both storages
+        if admin_key in otp_storage:
+            del otp_storage[admin_key]
+        if redis_client:
+            try:
+                redis_client.delete(f"otp:{admin_key}")
+            except:
+                pass
+        
+        print(f"[SUCCESS] Admin password reset completed for {admin_email}")
+        return jsonify({"message": "Admin password reset successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] Admin password reset exception: {str(e)}")
+        return jsonify({"error": f"Internal reset error: {str(e)}"}), 500
 
 @users_bp.route("/order-history", methods=["GET"])
 def order_history():

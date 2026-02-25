@@ -22,12 +22,12 @@ import "./home.css";
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Security: Disable console in production to prevent data leaks
   useEffect(() => {
     disableConsoleInProduction();
   }, []);
-  
+
   // Check for existing session on mount
   const [initializing, setInitializing] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
@@ -55,7 +55,7 @@ function App() {
       return [];
     }
   });
-  
+
   // Event & Package State
   // eslint-disable-next-line no-unused-vars
   const [selectedEvent] = useState("");
@@ -163,23 +163,23 @@ function App() {
       axios.get('/api/admin/verify', {
         headers: { Authorization: `Bearer ${adminToken}` }
       })
-      .then(() => {
-        setIsAdminLoggedIn(true);
-        // Don't manually set page states - let URL sync handle it
-      })
-      .catch(() => {
-        // Token invalid, clear it
-        sessionStorage.removeItem('_st');
-        sessionStorage.removeItem('_au');
-      })
-      .finally(() => {
-        // Ensure minimum loading time is met
-        const elapsedTime = Date.now() - startTime;
-        const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
-        setTimeout(() => {
-          setInitializing(false);
-        }, remainingTime);
-      });
+        .then(() => {
+          setIsAdminLoggedIn(true);
+          // Don't manually set page states - let URL sync handle it
+        })
+        .catch(() => {
+          // Token invalid, clear it
+          sessionStorage.removeItem('_st');
+          sessionStorage.removeItem('_au');
+        })
+        .finally(() => {
+          // Ensure minimum loading time is met
+          const elapsedTime = Date.now() - startTime;
+          const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+          setTimeout(() => {
+            setInitializing(false);
+          }, remainingTime);
+        });
     } else {
       // Check for existing user session
       const userToken = sessionStorage.getItem('_userToken');
@@ -202,7 +202,7 @@ function App() {
           sessionStorage.removeItem('_user');
         }
       }
-      
+
       // Restore bulk guest count if exists
       const savedGuestCount = sessionStorage.getItem('_bulkGuestCount');
       if (savedGuestCount) {
@@ -219,7 +219,7 @@ function App() {
         setInitializing(false);
       }, remainingTime);
     }
-    
+
     const token = sessionStorage.getItem('_userToken'); // User token in sessionStorage
     socketService.connect(token);
 
@@ -247,12 +247,12 @@ function App() {
         if (socketService.getSocket()) {
           socketService.getSocket().offAny(onAny);
         }
-      } catch {}
+      } catch { }
       socketService.off('order_status_changed', onOrderStatus);
       socketService.disconnect();
     };
   }, []);
-  
+
   // Security: Detect and prevent history manipulation attacks
   useEffect(() => {
     const handlePopState = (event) => {
@@ -263,14 +263,14 @@ function App() {
         window.history.replaceState(sanitizedState, '', window.location.pathname);
       }
     };
-    
+
     window.addEventListener('popstate', handlePopState);
-    
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
-  
+
   // Security: Prevent data leaks through page visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -279,62 +279,62 @@ function App() {
         // Currently monitoring only - add logic if needed
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
-  
+
   // Persist order completion status
   useEffect(() => {
     sessionStorage.setItem('_orderCompleted', orderCompleted ? 'true' : 'false');
   }, [orderCompleted]);
-  
+
   // Persist ordered items
   useEffect(() => {
     sessionStorage.setItem('_orderedItems', JSON.stringify(orderedItems));
   }, [orderedItems]);
-  
+
   // Persist bulk ordered items
   useEffect(() => {
     sessionStorage.setItem('_bulkOrderedItems', JSON.stringify(bulkOrderedItems));
   }, [bulkOrderedItems]);
-  
+
   // Persist cart state
   useEffect(() => {
     if (initializing) return;
     sessionStorage.setItem('_cart', JSON.stringify(cart));
   }, [cart, initializing]);
-  
+
   // Persist bulk cart state
   useEffect(() => {
     if (initializing) return;
     sessionStorage.setItem('_bulkCart', JSON.stringify(bulkCart));
   }, [bulkCart, initializing]);
-  
+
   // Save bulk guest count
   useEffect(() => {
     if (initializing) return;
     sessionStorage.setItem('_bulkGuestCount', bulkGuestCount.toString());
   }, [bulkGuestCount, initializing]);
-  
+
   // Synchronize page state with URL for browser back/forward button support
   useEffect(() => {
     if (initializing) return; // Don't sync during initialization
-    
+
     const path = location.pathname;
-    
+
     // Security: Validate URL to prevent injection attacks
-    const validPaths = ['/', '/menu', '/cart', '/bulk-menu', '/bulk-cart', '/admin-login', 
-                        '/admin', '/signup', '/signin', '/order-history', '/account'];
+    const validPaths = ['/', '/menu', '/cart', '/bulk-menu', '/bulk-cart', '/admin-login',
+      '/admin', '/signup', '/signin', '/order-history', '/account'];
     if (!validPaths.includes(path)) {
       // Invalid path detected - redirect to home
       navigate('/', { replace: true });
       return;
     }
-    
+
     // Determine which page should be shown based on URL
     // This prevents multiple state updates and re-renders
     let pageState = {
@@ -349,7 +349,7 @@ function App() {
       account: false,
       welcome: false
     };
-    
+
     if (path === '/menu') {
       pageState.menu = true;
     } else if (path === '/cart') {
@@ -401,7 +401,7 @@ function App() {
       // Show welcome page only if neither admin nor user is logged in
       pageState.welcome = !isAdminLoggedIn && !isUserLoggedIn;
     }
-    
+
     // Update all states in one batch to prevent glitching
     setShowMenuPage(pageState.menu);
     setShowCart(pageState.cart);
@@ -414,31 +414,30 @@ function App() {
     setShowUserAccount(pageState.account);
     setShowWelcome(pageState.welcome);
   }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing, currentUser, navigate]);
-  
+
   // Require authentication - redirect to welcome if not logged in and not on auth pages
   useEffect(() => {
     if (initializing) return; // Don't redirect during initialization
-    
+
     const path = location.pathname;
-    const isOnAuthPage = path === '/' || path === '/signup' || path === '/signin' || 
-                         path === '/admin-login' || path === '/admin';
-    
+    const isOnAuthPage = path === '/' || path === '/signup' || path === '/signin' ||
+      path === '/admin-login' || path === '/admin';
+
     if (!isUserLoggedIn && !isAdminLoggedIn && !isOnAuthPage) {
       navigate('/');
     }
   }, [isUserLoggedIn, isAdminLoggedIn, location.pathname, initializing, navigate]);
-  
+
   const [paymentStatus, setPaymentStatus] = useState(null); // For payment feedback
   // Dashboard Stats (if needed)
   const [dashboardStats, setDashboardStats] = useState({});
 
   // Configure axios once on mount
   useEffect(() => {
-    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-    axios.defaults.baseURL = API_BASE_URL;
+    // baseURL is already set in authService.js
     axios.defaults.headers.post["Content-Type"] = "application/json";
-    axios.defaults.timeout = 60000; // 60 second timeout for all requests
-    
+    axios.defaults.timeout = 60000;
+
     // Security: Add request interceptor to include auth tokens
     const requestInterceptor = axios.interceptors.request.use(
       config => {
@@ -451,7 +450,7 @@ function App() {
       },
       error => Promise.reject(error)
     );
-    
+
     // Add response interceptor for error handling and security
     const responseInterceptor = axios.interceptors.response.use(
       response => response,
@@ -460,12 +459,12 @@ function App() {
         if (error.response && error.response.status === 401) {
           // Skip redirect for login/auth endpoints — let the component handle the error
           const requestUrl = error.config?.url || '';
-          const isAuthRequest = requestUrl.includes('/login') || 
-                                requestUrl.includes('/forgot-password') || 
-                                requestUrl.includes('/reset-password') ||
-                                requestUrl.includes('/verify-otp') ||
-                                requestUrl.includes('/google-login');
-          
+          const isAuthRequest = requestUrl.includes('/login') ||
+            requestUrl.includes('/forgot-password') ||
+            requestUrl.includes('/reset-password') ||
+            requestUrl.includes('/verify-otp') ||
+            requestUrl.includes('/google-login');
+
           if (!isAuthRequest) {
             // Token expired or invalid - clear auth data
             const adminToken = sessionStorage.getItem('_st');
@@ -483,17 +482,17 @@ function App() {
             }
           }
         }
-        
+
         // Security: Handle forbidden access (403)
         if (error.response && error.response.status === 403) {
           console.error('Access forbidden');
           navigate('/');
         }
-        
+
         return Promise.reject(error);
       }
     );
-    
+
     return () => {
       // Cleanup interceptors on unmount
       axios.interceptors.request.eject(requestInterceptor);
@@ -545,7 +544,7 @@ function App() {
       modal: {
         ondismiss: function () {
           // User closed/cancelled the payment modal
-          axios.post('/api/payments/cancel', { razorpay_order_id: orderId }).catch(() => {});
+          axios.post('/api/payments/cancel', { razorpay_order_id: orderId }).catch(() => { });
           setPaymentStatus({
             type: 'error',
             message: 'Payment cancelled. You can retry from the cart.'
@@ -711,14 +710,14 @@ function App() {
       axios
         .get("/api/admin/stats")
         .then((res) => setDashboardStats(res.data))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isAdminLoggedIn]);
 
   // --- Conditional renders ---
   if (initializing) return <LoadingAnimation />;
   if (isPageTransitioning) return <LoadingAnimation />;
-  
+
   // Admin dashboard: check if admin is logged in OR if admin token exists (for immediate navigation after login)
   const adminToken = sessionStorage.getItem('_st');
   if (isAdminLoggedIn || (adminToken && location.pathname === '/admin')) {
@@ -969,7 +968,7 @@ function App() {
             </blockquote>
             <cite>- எங்கள் சமையல் குழு</cite>
           </div>
-          
+
           <div className="order-box">
             <h3>Order Now</h3>
             <div className="order-tabs">
@@ -1057,19 +1056,19 @@ function App() {
         <div className="special-grid">
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/tiffin-items.png" alt="Tiffin Speciality"/>
+              <img src="/images/tiffin-items.png" alt="Tiffin Speciality" />
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Tiffin</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/Lunch-items.png" alt="Lunch Speciality"/>
+              <img src="/images/Lunch-items.png" alt="Lunch Speciality" />
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Lunch</span>
           </div>
           <div className="special-card">
             <div className="special-img">
-              <img src="/images/dinner-items.png" alt="Dinner Speciality"/>
+              <img src="/images/dinner-items.png" alt="Dinner Speciality" />
             </div>
             <span style={{ fontFamily: 'cursive', fontWeight: 'bold', fontSize: '1.2em' }}>Dinner</span>
           </div>

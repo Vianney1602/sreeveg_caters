@@ -25,16 +25,16 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await axios.post('/api/users/login', form);
-      
+
       // Check if this is an admin login
       if (response.data.isAdmin) {
         // Store admin token and data
         sessionStorage.setItem('_st', response.data.token);
         sessionStorage.setItem('_au', JSON.stringify(response.data.user));
-        
+
         // Call admin login callback to redirect to admin dashboard
         if (onAdminLogin) {
           onAdminLogin(response.data.user);
@@ -47,7 +47,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
         // Store token
         sessionStorage.setItem('_userToken', response.data.token);
         sessionStorage.setItem('_user', JSON.stringify(response.data.user));
-        
+
         // Call success callback
         if (onSignInSuccess) {
           onSignInSuccess(response.data.user);
@@ -68,16 +68,16 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
         email: decoded.email,
         name: decoded.name
       });
-      
+
       // Store token
       sessionStorage.setItem('_userToken', response.data.token);
       sessionStorage.setItem('_user', JSON.stringify(response.data.user));
-      
+
       // Call success callback
       if (onSignInSuccess) {
         onSignInSuccess(response.data.user);
       }
-      
+
       // Redirect to home page
       if (goToHome) {
         goToHome();
@@ -99,18 +99,20 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       setError('Please enter your email');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
+      console.log(`[DEBUG] Admin Reset Request - Email: '${forgotEmail}', Server: ${axios.defaults.baseURL}`);
       // Try admin forgot password first
-      await axios.post('/api/admin/forgot-password', { email: forgotEmail });
+      await axios.post('/api/users/admin/forgot-password', { email: forgotEmail });
       setIsAdminReset(true);
       setResetSuccess('OTP sent to your admin email!');
       setShowOtpVerification(true);
     } catch (adminErr) {
       // If admin endpoint fails (not an admin email), try user endpoint
+      console.log("[ERROR] Admin Reset Fail:", adminErr.response?.data || adminErr.message);
       if (adminErr.response?.status === 404) {
         try {
           await axios.post('/api/users/forgot-password', { email: forgotEmail });
@@ -118,10 +120,10 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
           setResetSuccess('OTP sent to your email!');
           setShowOtpVerification(true);
         } catch (userErr) {
-          setError(userErr.response?.data?.error || 'Failed to send OTP. Please try again.');
+          setError(userErr.response?.data?.error || userErr.message || 'Failed to send OTP. Please try again.');
         }
       } else {
-        setError(adminErr.response?.data?.error || 'Failed to send OTP. Please try again.');
+        setError(adminErr.response?.data?.error || adminErr.message || 'Failed to send OTP. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -133,13 +135,15 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       setError('Please enter OTP');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
-      const endpoint = isAdminReset ? '/api/admin/verify-otp' : '/api/users/verify-otp';
+      const endpoint = isAdminReset ? '/api/users/admin/verify-otp' : '/api/users/verify-otp';
+      console.log(`[DEBUG] Verifying OTP - Endpoint: ${endpoint}, Email: ${forgotEmail}, OTP: ${otp}`);
       await axios.post(endpoint, { email: forgotEmail, otp });
+      console.log("[DEBUG] OTP Verified Successfully");
       setResetSuccess('OTP verified! Enter your new password.');
       setShowResetPassword(true);
     } catch (err) {
@@ -154,17 +158,19 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       setError('Password must be at least 6 characters');
       return;
     }
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
-      const endpoint = isAdminReset ? '/api/admin/reset-password' : '/api/users/reset-password';
-      await axios.post(endpoint, { 
-        email: forgotEmail, 
-        otp, 
-        new_password: newPassword 
+      const endpoint = isAdminReset ? '/api/users/admin/reset-password' : '/api/users/reset-password';
+      console.log(`[DEBUG] Resetting Password - Endpoint: ${endpoint}, Email: ${forgotEmail}`);
+      await axios.post(endpoint, {
+        email: forgotEmail,
+        otp,
+        new_password: newPassword
       });
+      console.log("[DEBUG] Password Reset Successfully");
       setResetSuccess('Password reset successfully! You can now sign in.');
       setTimeout(() => {
         setShowForgotPassword(false);
@@ -186,58 +192,58 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       <div className="auth-container">
         <div className="auth-box">
           <h2>Reset Password</h2>
-          
+
           {!showOtpVerification && !showResetPassword && (
             <>
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
-                value={forgotEmail} 
-                onChange={(e) => setForgotEmail(e.target.value)} 
-                required 
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
               />
               <button onClick={handleForgotPassword} disabled={loading}>
                 {loading ? 'Sending...' : 'Send OTP'}
               </button>
             </>
           )}
-          
+
           {showOtpVerification && !showResetPassword && (
             <>
-              <input 
-                type="text" 
-                placeholder="Enter OTP" 
-                value={otp} 
-                onChange={(e) => setOtp(e.target.value)} 
+              <input
+                type="text"
+                placeholder="Enter OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
                 maxLength="6"
                 className="otp-input"
-                required 
+                required
               />
               <button onClick={handleVerifyOtp} disabled={loading}>
                 {loading ? 'Verifying...' : 'Verify OTP'}
               </button>
             </>
           )}
-          
+
           {showResetPassword && (
             <>
-              <input 
-                type="password" 
-                placeholder="Enter new password" 
-                value={newPassword} 
-                onChange={(e) => setNewPassword(e.target.value)} 
+              <input
+                type="password"
+                placeholder="Enter new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 minLength="6"
-                required 
+                required
               />
               <button onClick={handleResetPassword} disabled={loading}>
                 {loading ? 'Resetting...' : 'Reset Password'}
               </button>
             </>
           )}
-          
+
           {error && <div className="auth-error">{error}</div>}
           {resetSuccess && <div className="auth-success">{resetSuccess}</div>}
-          
+
           <div className="auth-links">
             <span onClick={() => {
               setShowForgotPassword(false);
@@ -255,25 +261,25 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       <div className="auth-box">
         <h2>Sign In</h2>
         <form onSubmit={handleSubmit}>
-          <input 
-            name="email" 
-            type="email" 
-            placeholder="Email" 
-            value={form.email} 
-            onChange={handleChange} 
-            required 
+          <input
+            name="email"
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            required
           />
           <div className="password-field">
-            <input 
-              name="password" 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Password" 
-              value={form.password} 
-              onChange={handleChange} 
-              required 
+            <input
+              name="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
             />
-            <span 
-              className="password-toggle" 
+            <span
+              className="password-toggle"
               onClick={() => setShowPassword(!showPassword)}
               title={showPassword ? "Hide password" : "Show password"}
             >
@@ -284,11 +290,11 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        
+
         {error && <div className="auth-error">{error}</div>}
-        
+
         <div className="auth-divider">or</div>
-        
+
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
           onError={handleGoogleError}
@@ -298,7 +304,7 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
           size="large"
           width="400"
         />
-        
+
         <div className="auth-links">
           <span onClick={goToSignUp}>Create an account</span>
           <span onClick={goBack}>Back</span>

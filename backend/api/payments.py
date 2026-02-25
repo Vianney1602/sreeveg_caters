@@ -84,6 +84,10 @@ def verify_payment():
             db.session.commit()
             current_app.logger.info(f"Payment verified for order {order.order_id}")
 
+            # Trigger confirmation email
+            from api.orders import trigger_order_confirmation_email
+            trigger_order_confirmation_email(order.order_id)
+
             # Emit real-time status change so admin dashboard updates immediately
             try:
                 payload = {

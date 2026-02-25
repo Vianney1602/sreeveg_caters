@@ -183,128 +183,15 @@ def admin_stats():
 
 @admin_bp.route("/forgot-password", methods=["POST"])
 def admin_forgot_password():
-    """Send OTP for admin password reset"""
-    try:
-        data = request.json or {}
-        email = data.get("email")
-        
-        if not email:
-            return jsonify({"error": "Email is required"}), 400
-        
-        # Check if the email matches the admin email
-        if email != Config.ADMIN_USERNAME:
-            return jsonify({"error": "Invalid admin email"}), 404
-        
-        # Generate OTP
-        otp = generate_otp()
-        admin_otp_storage[email] = {
-            "otp": otp,
-            "expires": datetime.utcnow() + timedelta(minutes=10)
-        }
-        
-        # Try to send OTP via email
-        email_sent = send_admin_otp_email(email, otp)
-        
-        if email_sent:
-            return jsonify({"message": "OTP sent to your admin email"}), 200
-        else:
-            # Email not configured - print to console for development only
-            print("\n" + "="*60)
-            print(f"🔐 ADMIN PASSWORD RESET OTP (Development Mode)")
-            print(f"📧 Email: {email}")
-            print(f"🔢 OTP Code: {otp}")
-            print(f"⏰ Valid for: 10 minutes")
-            print(f"⚠️  Configure email in .env to stop console logging")
-            print("="*60 + "\n")
-            
-            return jsonify({
-                "message": "OTP generated successfully. Check server console for OTP code."
-            }), 200
-        
-    except Exception as e:
-        print(f"❌ Error in admin forgot-password: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
+    """DEPRECATED - use /api/users/admin/forgot-password"""
+    return jsonify({"error": "This endpoint is deprecated. Please use /api/users/admin/forgot-password"}), 410
 
 @admin_bp.route("/verify-otp", methods=["POST"])
 def admin_verify_otp():
-    """Verify OTP for admin password reset"""
-    try:
-        data = request.json or {}
-        email = data.get("email")
-        otp = data.get("otp")
-        
-        if not email or not otp:
-            return jsonify({"error": "Email and OTP are required"}), 400
-        
-        # Check if the email matches the admin email
-        if email != Config.ADMIN_USERNAME:
-            return jsonify({"error": "Invalid admin email"}), 404
-        
-        # Check if OTP exists and is valid
-        if email not in admin_otp_storage:
-            return jsonify({"error": "OTP not found or expired"}), 400
-        
-        stored_data = admin_otp_storage[email]
-        if datetime.utcnow() > stored_data["expires"]:
-            del admin_otp_storage[email]
-            return jsonify({"error": "OTP expired"}), 400
-        
-        if stored_data["otp"] != otp:
-            return jsonify({"error": "Invalid OTP"}), 400
-        
-        return jsonify({"message": "OTP verified successfully"}), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    """DEPRECATED - use /api/users/admin/verify-otp"""
+    return jsonify({"error": "This endpoint is deprecated. Please use /api/users/admin/verify-otp"}), 410
 
 @admin_bp.route("/reset-password", methods=["POST"])
 def admin_reset_password():
-    """Reset admin password after OTP verification
-    
-    Note: This updates the password in memory for the current session.
-    To make it permanent, update the ADMIN_PASSWORD in the .env file.
-    """
-    try:
-        data = request.json or {}
-        email = data.get("email")
-        otp = data.get("otp")
-        new_password = data.get("new_password")
-        
-        if not email or not otp or not new_password:
-            return jsonify({"error": "Email, OTP, and new password are required"}), 400
-        
-        # Check if the email matches the admin email
-        if email != Config.ADMIN_USERNAME:
-            return jsonify({"error": "Invalid admin email"}), 404
-        
-        # Verify OTP again
-        if email not in admin_otp_storage:
-            return jsonify({"error": "OTP not found or expired"}), 400
-        
-        stored_data = admin_otp_storage[email]
-        if datetime.utcnow() > stored_data["expires"]:
-            del admin_otp_storage[email]
-            return jsonify({"error": "OTP expired"}), 400
-        
-        if stored_data["otp"] != otp:
-            return jsonify({"error": "Invalid OTP"}), 400
-        
-        # Update the admin password in Config (runtime update)
-        # Note: For permanent change, the .env file needs to be updated manually
-        Config.ADMIN_PASSWORD = new_password
-        
-        # Reset the cached password hash
-        global _admin_password_hash
-        _admin_password_hash = None
-        
-        # Clear OTP
-        del admin_otp_storage[email]
-        
-        return jsonify({
-            "message": "Admin password reset successfully. Note: To make this change permanent across server restarts, update the ADMIN_PASSWORD in the .env file."
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    """DEPRECATED - use /api/users/admin/reset-password"""
+    return jsonify({"error": "This endpoint is deprecated. Please use /api/users/admin/reset-password"}), 410

@@ -1,8 +1,8 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
-const BACKEND = 'https://info.hotelshanmugabhavaan.com';
+const BACKEND = 'http://127.0.0.1:8000';
 
-module.exports = function(app) {
+module.exports = function (app) {
   // Proxy API calls to production backend
   app.use(
     '/api',
