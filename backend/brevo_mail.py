@@ -123,7 +123,6 @@ def send_email(to_email, subject, html_content, text_content=None):
     """
     api_instance = _get_api_instance()
     if not api_instance:
-        print(f"[WARNING] Brevo API key not configured. Email to {to_email} skipped.")
         return False
 
     sender = _get_sender()
@@ -137,13 +136,10 @@ def send_email(to_email, subject, html_content, text_content=None):
 
     try:
         api_instance.send_transac_email(send_smtp_email)
-        print(f"[SUCCESS] Email sent to {to_email}: {subject}")
         return True
     except ApiException as e:
-        print(f"[ERROR] Brevo API error sending to {to_email}: {e.status} {e.reason}")
         return False
     except Exception as e:
-        print(f"[ERROR] Failed to send email to {to_email}: {e}")
         return False
 
 

@@ -36,7 +36,7 @@ export default function AdminDashboard({ onLogout }) {
   const resolveImageUrl = (url) => {
     if (!url) return '';
     const trimmed = String(url).trim();
-    
+
     // Fix S3 virtual-hosted URLs with dots in bucket name (SSL cert issue)
     // Convert: https://bucket.name.s3.region.amazonaws.com/key
     // To:      https://s3.region.amazonaws.com/bucket.name/key
@@ -47,19 +47,19 @@ export default function AdminDashboard({ onLogout }) {
       const key = s3VirtualMatch[3];
       return `https://s3.${region}.amazonaws.com/${bucket}/${key}`;
     }
-    
+
     // If it's a data URL or absolute URL, return as-is
     if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
-    
+
     // Get backend base URL - use axios defaults or environment
-    const backendBase = (axios.defaults && axios.defaults.baseURL) || 
-                       process.env.REACT_APP_API_BASE_URL;
+    const backendBase = (axios.defaults && axios.defaults.baseURL) ||
+      process.env.REACT_APP_API_BASE_URL;
 
     const toBackendUrl = (path) => {
       const clean = path.replace(/^\/+/, '');
       return `${backendBase}/${clean}`;
     };
-    
+
     // If it starts with /static, static, /uploads or uploads, treat as backend asset
     if (
       trimmed.startsWith('/static') ||
@@ -71,26 +71,26 @@ export default function AdminDashboard({ onLogout }) {
     ) {
       return toBackendUrl(trimmed);
     }
-    
+
     // If it starts with /api, it's a backend URL
     if (trimmed.startsWith('/api')) {
       // Remove any leading duplicates
       const cleanPath = trimmed.replace(/^\/+/, '/');
       return `${backendBase}${cleanPath}`;
     }
-    
+
     // If it starts with /images, it's a frontend public image
     if (trimmed.startsWith('/images')) {
       const base = process.env.PUBLIC_URL || '';
       return `${base}${trimmed}`;
     }
-    
+
     // Bare filename? assume in public/images
     if (!trimmed.includes('/') && !trimmed.startsWith('.')) {
       const base = process.env.PUBLIC_URL || '';
       return `${base}/images/${trimmed}`;
     }
-    
+
     // Fallback: assume backend-relative path
     return toBackendUrl(trimmed);
   };
@@ -197,7 +197,6 @@ export default function AdminDashboard({ onLogout }) {
   useEffect(() => {
     // Join admin room when socket connects or reconnects
     const handleConnect = () => {
-      console.log('Socket connected, joining admins room...');
       socketService.joinRoom('admins');
     };
 
@@ -205,7 +204,7 @@ export default function AdminDashboard({ onLogout }) {
       try {
         setLoading(true);
         setError('');
-        
+
         // Get token from sessionStorage
         const token = sessionStorage.getItem('_st');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -215,12 +214,12 @@ export default function AdminDashboard({ onLogout }) {
         if (socket) {
           // Always join admin room - the joinRoom method handles connection state
           socketService.joinRoom('admins');
-          
+
           // Also listen for connect/reconnect to re-join room
           socket.on('connect', handleConnect);
           socket.on('reconnect', handleConnect);
         }
-        
+
         // Verify admin token first
         const verifyRes = await axios.get('/api/admin/verify', { headers, timeout: 90000 });
         setAdminInfo(verifyRes.data.admin);
@@ -257,7 +256,7 @@ export default function AdminDashboard({ onLogout }) {
             price: item.price_at_order_time
           }))) || []
         }));
-        
+
         // Track all order IDs to prevent duplicates during network issues
         processedOrderIds.current.clear();
         processedOrders.forEach(order => {
@@ -265,7 +264,7 @@ export default function AdminDashboard({ onLogout }) {
             processedOrderIds.current.add(order.id);
           }
         });
-        
+
         setOrders(processedOrders);
 
         // Process and set menu items (merge duplicates by name)
@@ -319,14 +318,14 @@ export default function AdminDashboard({ onLogout }) {
           setTimeout(onLogout, 1500);
           return;
         }
-        
+
         // Retry up to 2 times for network/timeout errors
         if (retryCount < 2) {
           console.warn(`Dashboard load failed, retrying (${retryCount + 1}/2)...`);
           setTimeout(() => fetchData(retryCount + 1), 2000);
           return;
         }
-        
+
         setError('Failed to load dashboard. Please check your connection and try refreshing.');
         setLoading(false);
       }
@@ -376,22 +375,22 @@ export default function AdminDashboard({ onLogout }) {
       if (!data || !data.order_id) {
         return; // Skip invalid data
       }
-      
+
       // Check if we've already processed this order ID
       if (processedOrderIds.current.has(data.order_id)) {
         return; // Skip duplicate
       }
-      
+
       // Mark this order as processed
       processedOrderIds.current.add(data.order_id);
-      
+
       setOrders(prev => {
         // Double-check in the current state array
         const exists = prev.some(o => o.id === data.order_id);
         if (exists) {
           return prev;
         }
-        
+
         const newOrder = {
           id: data.order_id,
           orderId: data.order_id?.toString(),
@@ -451,7 +450,7 @@ export default function AdminDashboard({ onLogout }) {
         // Check if item already exists
         const exists = prev.some(item => item.id === data.item_id);
         if (exists) return prev;
-        
+
         const newItem = {
           id: data.item_id,
           name: data.item_name,
@@ -481,21 +480,21 @@ export default function AdminDashboard({ onLogout }) {
       setMenuItems(prev => prev.map(item =>
         item.id === data.item_id
           ? {
-              ...item,
-              name: data.item_name,
-              categories: toCategoryArray(data.category),
-              price: data.price_per_plate,
-              description: data.description || '',
-              available: data.is_available,
-              imageUrl: resolveImageUrl(data.image_url),
-            }
+            ...item,
+            name: data.item_name,
+            categories: toCategoryArray(data.category),
+            price: data.price_per_plate,
+            description: data.description || '',
+            available: data.is_available,
+            imageUrl: resolveImageUrl(data.image_url),
+          }
           : item
       ));
     };
 
     const onMenuItemDeleted = (data) => {
       setMenuItems(prev => prev.filter(item => item.id !== data.item_id));
-      
+
       setStats(prev => ({
         ...prev,
         activeItems: Math.max(0, (prev.activeItems || 1) - 1)
@@ -554,13 +553,13 @@ export default function AdminDashboard({ onLogout }) {
       socketService.off('menu_item_deleted', onMenuItemDeleted);
       socketService.off('inventory_changed', onInventoryChanged);
       socketService.off('stats_updated', onStatsUpdated);
-      
+
       // Clean up connect listener
       const socket = socketService.getSocket();
       if (socket) {
         socket.off('connect', handleConnect);
       }
-      
+
       // Clean up reconnect listener
       if (socket) {
         socket.off('reconnect', handleReconnect);
@@ -589,11 +588,11 @@ export default function AdminDashboard({ onLogout }) {
       // Get token from sessionStorage
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
+
       // If a file is selected, upload it first
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
-      
+
       if (fileToUpload) {
         const fd = new FormData();
         fd.append('image', fileToUpload);
@@ -615,7 +614,7 @@ export default function AdminDashboard({ onLogout }) {
         description: formData.description,
         veg: true,
       };
-      
+
       if (imageUrl) {
         payload.image = imageUrl;
       }
@@ -652,7 +651,7 @@ export default function AdminDashboard({ onLogout }) {
         acc.set(key, mergeItemData(existing, curr));
         return acc;
       }, new Map());
-      
+
       setMenuItems(Array.from(merged.values()));
 
       // Reset forms and close
@@ -720,7 +719,7 @@ export default function AdminDashboard({ onLogout }) {
 
   const startEditingItem = (item) => {
     setEditingItem(item.id);
-    
+
     setEditForm({
       name: item.name,
       categories: item.categories || [],
@@ -766,7 +765,7 @@ export default function AdminDashboard({ onLogout }) {
   // Sorting and filtering function for customers
   const getFilteredAndSortedCustomers = () => {
     let filtered = customers;
-    
+
     // Filter by name
     if (customerFilterName.trim()) {
       filtered = filtered.filter(c =>
@@ -809,13 +808,13 @@ export default function AdminDashboard({ onLogout }) {
     try {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
+
       await axios.post(`/api/orders/${orderId}/approve-cancel`, { approved }, { headers });
-      
+
       if (approved) {
         // Update local state immediately (will also be updated via socket)
         setOrders(orders.map(order =>
-          order.id === orderId 
+          order.id === orderId
             ? { ...order, status: 'Cancelled', cancellationRequested: false }
             : order
         ));
@@ -823,7 +822,7 @@ export default function AdminDashboard({ onLogout }) {
       } else {
         // Remove cancellation request flag
         setOrders(orders.map(order =>
-          order.id === orderId 
+          order.id === orderId
             ? { ...order, cancellationRequested: false }
             : order
         ));
@@ -1019,21 +1018,21 @@ export default function AdminDashboard({ onLogout }) {
                     onChange={(e) =>
                       editingItem
                         ? setEditForm((prev) => {
-                            const name = e.target.value;
-                            return {
-                              ...prev,
-                              name,
-                              image: prev.image || suggestImageByName(name),
-                            };
-                          })
+                          const name = e.target.value;
+                          return {
+                            ...prev,
+                            name,
+                            image: prev.image || suggestImageByName(name),
+                          };
+                        })
                         : setNewItem((prev) => {
-                            const name = e.target.value;
-                            return {
-                              ...prev,
-                              name,
-                              image: prev.image || suggestImageByName(name),
-                            };
-                          })
+                          const name = e.target.value;
+                          return {
+                            ...prev,
+                            name,
+                            image: prev.image || suggestImageByName(name),
+                          };
+                        })
                     }
                     required
                   />
@@ -1106,12 +1105,12 @@ export default function AdminDashboard({ onLogout }) {
                     <span>Preview:</span>
                     <img
                       src={editingItem
-                        ? (editImageFile 
-                            ? URL.createObjectURL(editImageFile) 
-                            : (editForm.image || suggestImageByName(editForm.name)))
-                        : (newImageFile 
-                            ? URL.createObjectURL(newImageFile) 
-                            : (newItem.image || suggestImageByName(newItem.name)))}
+                        ? (editImageFile
+                          ? URL.createObjectURL(editImageFile)
+                          : (editForm.image || suggestImageByName(editForm.name)))
+                        : (newImageFile
+                          ? URL.createObjectURL(newImageFile)
+                          : (newItem.image || suggestImageByName(newItem.name)))}
                       alt="preview"
                       onError={(e) => {
                         e.currentTarget.onerror = null;
@@ -1214,9 +1213,9 @@ export default function AdminDashboard({ onLogout }) {
               <h3>All Orders ({orders.length})</h3>
               <div className="sort-controls">
                 <label htmlFor="order-sort">Sort by:</label>
-                <select 
+                <select
                   id="order-sort"
-                  value={orderSortBy} 
+                  value={orderSortBy}
                   onChange={(e) => setOrderSortBy(e.target.value)}
                   className="sort-select"
                 >
@@ -1236,8 +1235,8 @@ export default function AdminDashboard({ onLogout }) {
                         <strong>{order.orderId}</strong>
                         <span className={`status-badge ${statusToClass(order.status)}`}>{order.status}</span>
                         {order.cancellationRequested && (
-                          <span className="status-badge" style={{ 
-                            background: '#fbbf24', 
+                          <span className="status-badge" style={{
+                            background: '#fbbf24',
                             color: '#92400e',
                             animation: 'pulse 2s infinite'
                           }}>
@@ -1372,8 +1371,8 @@ export default function AdminDashboard({ onLogout }) {
                   onChange={(e) => setCustomerFilterName(e.target.value)}
                   className="search-input"
                 />
-                <select 
-                  value={customerSortBy} 
+                <select
+                  value={customerSortBy}
                   onChange={(e) => setCustomerSortBy(e.target.value)}
                   className="sort-select"
                 >
@@ -1415,7 +1414,7 @@ export default function AdminDashboard({ onLogout }) {
         {activeTab === 'database' && (
           <div className="database-section">
             <h3>Database Overview</h3>
-            
+
             <div className="database-grid">
               {/* Orders Table */}
               <div className="db-table-card">
@@ -1551,14 +1550,14 @@ export default function AdminDashboard({ onLogout }) {
               <h3 className="modal-title">{confirmModal.title}</h3>
               <p className="modal-message">{confirmModal.message}</p>
               <div className="modal-actions">
-                <button 
-                  className="modal-btn modal-btn-confirm" 
+                <button
+                  className="modal-btn modal-btn-confirm"
                   onClick={confirmModal.onConfirm}
                 >
                   Yes, Delete
                 </button>
-                <button 
-                  className="modal-btn modal-btn-cancel" 
+                <button
+                  className="modal-btn modal-btn-cancel"
                   onClick={confirmModal.onCancel}
                 >
                   Cancel
@@ -1598,9 +1597,9 @@ export default function AdminDashboard({ onLogout }) {
                 width: '70px',
                 height: '70px',
                 borderRadius: '50%',
-                background: adminPopupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' 
-                          : adminPopupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                          : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                background: adminPopupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+                  : adminPopupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                    : 'linear-gradient(135deg, #3b82f6, #2563eb)',
                 margin: '0 auto 1.5rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -1611,18 +1610,18 @@ export default function AdminDashboard({ onLogout }) {
               }}>
                 {adminPopupType === 'success' ? '✓' : adminPopupType === 'error' ? '✕' : 'ℹ'}
               </div>
-              <h3 style={{ 
-                color: '#7a0000', 
-                marginTop: 0, 
+              <h3 style={{
+                color: '#7a0000',
+                marginTop: 0,
                 marginBottom: '1rem',
                 fontSize: '1.5rem',
                 fontWeight: '700'
               }}>
                 {adminPopupType === 'success' ? 'Success!' : adminPopupType === 'error' ? 'Error' : 'Information'}
               </h3>
-              <p style={{ 
-                color: '#4a4a4a', 
-                lineHeight: '1.6', 
+              <p style={{
+                color: '#4a4a4a',
+                lineHeight: '1.6',
                 marginBottom: '2rem',
                 fontSize: '1.05rem'
               }}>

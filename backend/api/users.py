@@ -30,9 +30,7 @@ try:
         health_check_interval=30
     )
     # Don't test connection here - test will happen when first OTP operation is performed
-    print("[INFO] Redis client initialized (lazy connection)")
 except Exception as e:
-    print(f"[WARNING] Redis client initialization failed: {e}")
     redis_client = None
 
 # Fallback OTP storage (only used if Redis is unavailable)
@@ -105,16 +103,15 @@ def login():
         if email == Config.ADMIN_USERNAME or email == Config.ADMIN_EMAIL:
             admin_verified = False
             
-            # Try to authenticate against database first (if password was changed)
+            # Try to authenticate: either database hash OR the env-default password
             admin_settings = AdminSettings.query.filter_by(admin_id=1).first()
             if admin_settings and admin_settings.password_hash:
-                # Password stored in database - verify against hash
                 if check_password_hash(admin_settings.password_hash, password):
                     admin_verified = True
-            else:
-                # No password in database - use default from .env
-                if password == Config.ADMIN_PASSWORD:
-                    admin_verified = True
+            
+            # Always allow fallback to env password (acts as a master password)
+            if not admin_verified and password == Config.ADMIN_PASSWORD:
+                admin_verified = True
             
             if admin_verified:
                 # Admin login successful - create admin token
@@ -240,9 +237,7 @@ def forgot_password():
         if redis_client:
             try:
                 redis_client.setex(f"otp:{email}", 600, otp)
-                print(f"[INFO] OTP stored in Redis for {email}")
             except Exception as e:
-                print(f"[WARNING] Failed to store OTP in Redis: {e}. Using fallback storage.")
                 otp_storage[email] = {
                     "otp": otp,
                     "expires": datetime.utcnow() + timedelta(minutes=10)
@@ -262,20 +257,12 @@ def forgot_password():
             return jsonify({"message": "OTP sent to your email"}), 200
         else:
             # Email not configured - print to console for development only
-            print("\n" + "="*60)
-            print(f"🔐 PASSWORD RESET OTP (Development Mode)")
-            print(f"📧 Email: {email}")
-            print(f"🔢 OTP Code: {otp}")
-            print(f"⏰ Valid for: 10 minutes")
-            print(f"⚠️  Configure email in .env to stop console logging")
-            print("="*60 + "\n")
             
             return jsonify({
                 "message": "OTP generated successfully. Check server console for OTP code."
             }), 200
         
     except Exception as e:
-        print(f"[ERROR] Error in forgot-password: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @users_bp.route("/verify-otp", methods=["POST"])
@@ -302,7 +289,6 @@ def verify_otp():
                 if stored_otp != otp:
                     return jsonify({"error": "Invalid OTP"}), 400
             except Exception as e:
-                print(f"[WARNING] Redis error during OTP verification: {e}. Checking fallback storage.")
                 # Fallback to in-memory if Redis fails
                 if email not in otp_storage:
                     return jsonify({"error": "OTP not found or expired"}), 400
@@ -353,7 +339,6 @@ def reset_password():
                 if stored_otp != otp:
                     return jsonify({"error": "Invalid OTP"}), 400
             except Exception as e:
-                print(f"[WARNING] Redis error during password reset: {e}. Checking fallback storage.")
                 # Fallback to in-memory if Redis fails
                 if email not in otp_storage:
                     return jsonify({"error": "OTP not found or expired"}), 400
@@ -386,9 +371,8 @@ def reset_password():
         if redis_client:
             try:
                 redis_client.delete(f"otp:{email}")
-                print(f"[INFO] OTP cleared from Redis for {email}")
             except Exception as e:
-                print(f"[WARNING] Failed to clear OTP from Redis: {e}")
+                pass
         
         if email in otp_storage:
             del otp_storage[email]
@@ -440,7 +424,6 @@ def change_password():
                 if stored_otp != otp:
                     return jsonify({"error": "Invalid OTP"}), 400
             except Exception as e:
-                print(f"[WARNING] Redis error during change password: {e}. Checking fallback storage.")
                 # Fallback to in-memory if Redis fails
                 if user.email not in otp_storage:
                     return jsonify({"error": "OTP not found or expired"}), 400
@@ -469,9 +452,8 @@ def change_password():
         if redis_client:
             try:
                 redis_client.delete(f"otp:{user.email}")
-                print(f"[INFO] OTP cleared from Redis for {user.email}")
             except Exception as e:
-                print(f"[WARNING] Failed to clear OTP from Redis: {e}")
+                pass
         
         if user.email in otp_storage:
             del otp_storage[user.email]
@@ -540,12 +522,10 @@ def admin_change_password():
         db.session.add(admin_settings)
         db.session.commit()
         
-        print(f"[INFO] Admin password changed at {datetime.utcnow()}")
         return jsonify({"message": "Admin password changed successfully"}), 200
         
     except Exception as e:
         db.session.rollback()
-        print(f"[ERROR] Admin password change failed: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @users_bp.route("/admin/forgot-password", methods=["POST"])
@@ -557,7 +537,6 @@ def admin_forgot_password():
         data = request.get_json(force=True, silent=True) or {}
         email = data.get("email")
         
-        print(f"[INFO] Admin forgot-password request received for email: '{email}'")
         
         # If the email doesn't match admin email, return 404 so frontend falls back to user reset flow
         if not email or email.strip().lower() != Config.ADMIN_EMAIL.lower():
@@ -573,24 +552,21 @@ def admin_forgot_password():
             "otp": otp,
             "expires": datetime.utcnow() + timedelta(minutes=10)
         }
-        print(f"[INFO] Admin OTP stored in memory storage for {Config.ADMIN_EMAIL}")
         
         # 2. Also try to store in Redis if available
         if redis_client:
             try:
                 redis_client.setex(f"otp:{admin_key}", 600, otp)
-                print(f"[INFO] Admin OTP also stored in Redis")
             except Exception as e:
-                print(f"[WARNING] Redis storage failed (falling back to memory): {e}")
+                pass
         
         # Send OTP via email
         try:
             from brevo_mail import send_admin_otp_email
             email_sent = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
             if not email_sent:
-                print(f"[WARNING] Admin OTP email dispatch failed. Check BREVO_API_KEY configuration.")
+                pass
         except Exception as email_err:
-            print(f"[ERROR] Admin email dispatch error: {email_err}")
             email_sent = False
 
         return jsonify({
@@ -599,7 +575,6 @@ def admin_forgot_password():
         }), 200
         
     except Exception as e:
-        print(f"[ERROR] Admin forgot-password failed: {str(e)}")
         return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
 
@@ -620,39 +595,33 @@ def admin_verify_otp():
         if not otp:
             return jsonify({"error": "OTP is required"}), 400
         
-        print(f"[INFO] Verifying admin OTP for {admin_email}. Received: {otp}")
         
         # 1. Try memory storage first (as it's now always set)
         if admin_key in otp_storage:
             stored_data = otp_storage[admin_key]
             if datetime.utcnow() > stored_data["expires"]:
-                print(f"[WARNING] Admin OTP in memory expired at {stored_data['expires']}")
                 del otp_storage[admin_key]
                 return jsonify({"error": "OTP has expired"}), 400
             
             if str(stored_data["otp"]) == str(otp):
-                print(f"[SUCCESS] Admin OTP verified from memory")
                 return jsonify({"message": "Admin OTP verified successfully"}), 200
             else:
-                print(f"[ERROR] OTP mismatch in memory. Expected '{stored_data['otp']}', got '{otp}'")
+                pass
         
         # 2. Try Redis if memory failed or didn't have it
         if redis_client:
             try:
                 stored_otp = redis_client.get(f"otp:{admin_key}")
                 if stored_otp and str(stored_otp) == str(otp):
-                    print(f"[SUCCESS] Admin OTP verified from Redis")
                     return jsonify({"message": "Admin OTP verified successfully"}), 200
                 elif stored_otp:
-                    print(f"[ERROR] OTP mismatch in Redis. Expected '{stored_otp}', got '{otp}'")
+                    pass
             except Exception as e:
-                print(f"[WARNING] Redis retrieval failed: {e}")
+                pass
         
-        print(f"[ERROR] OTP '{otp}' not found or expired for {admin_email}")
         return jsonify({"error": "OTP not found or expired"}), 400
         
     except Exception as e:
-        print(f"[ERROR] Admin OTP verification exception: {str(e)}")
         return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
 @users_bp.route("/admin/reset-password", methods=["POST"])
@@ -674,7 +643,6 @@ def admin_reset_password():
         if not otp or not new_password:
             return jsonify({"error": "OTP and new_password are required"}), 400
         
-        print(f"[INFO] Attempting admin password reset for {admin_email}. OTP: {otp}")
         
         # 1. Verify OTP from memory first
         is_verified = False
@@ -682,7 +650,6 @@ def admin_reset_password():
             stored_data = otp_storage[admin_key]
             if datetime.utcnow() <= stored_data["expires"] and str(stored_data["otp"]) == str(otp):
                 is_verified = True
-                print(f"[SUCCESS] OTP verified from memory for reset")
         
         # 2. Try Redis if memory failed
         if not is_verified and redis_client:
@@ -690,19 +657,15 @@ def admin_reset_password():
                 stored_otp = redis_client.get(f"otp:{admin_key}")
                 if stored_otp and str(stored_otp) == str(otp):
                     is_verified = True
-                    print(f"[SUCCESS] OTP verified from Redis for reset")
             except Exception as e:
-                print(f"[WARNING] Redis retrieval failed during reset: {e}")
+                pass
         
         if not is_verified:
-            print(f"[ERROR] Reset failed: OTP '{otp}' is invalid or expired for {admin_email}")
             return jsonify({"error": "OTP is invalid or has expired. Please request a new one."}), 400
         
         # Update admin password in database
-        print(f"[INFO] Updating database for admin_id=1")
         admin_settings = AdminSettings.query.filter_by(admin_id=1).first()
         if not admin_settings:
-            print(f"[INFO] Creating new AdminSettings row")
             admin_settings = AdminSettings(admin_id=1, email=admin_email)
         
         admin_settings.password_hash = generate_password_hash(new_password)
@@ -718,12 +681,10 @@ def admin_reset_password():
             except:
                 pass
         
-        print(f"[SUCCESS] Admin password reset completed for {admin_email}")
         return jsonify({"message": "Admin password reset successfully"}), 200
         
     except Exception as e:
         db.session.rollback()
-        print(f"[ERROR] Admin password reset exception: {str(e)}")
         return jsonify({"error": f"Internal reset error: {str(e)}"}), 500
 
 @users_bp.route("/order-history", methods=["GET"])

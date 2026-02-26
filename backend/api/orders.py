@@ -341,6 +341,10 @@ def create_order():
         # Send immediate response to client
         response = jsonify({"message": "Order Created", "order_id": order.order_id})
         
+        # Immediate confirmation email for Cash on Delivery
+        if order.payment_method == "cod":
+            trigger_order_confirmation_email(order.order_id)
+        
         # Capture the real app object for background thread
         app = current_app._get_current_object()
         _customer_id = customer_id
@@ -618,8 +622,9 @@ def update_status(id):
         order.status = new_status
         db.session.commit()
 
-        # Trigger confirmation email if status changed to Paid or Confirmed
-        if new_status in ["Paid", "Confirmed"] and old_status not in ["Paid", "Confirmed"]:
+        # Trigger confirmation email only if status changed to Confirmed
+        # AND it wasn't already Paid (because Paid orders already got the email via Razorpay verify)
+        if new_status == "Confirmed" and old_status not in ["Confirmed", "Paid"]:
             trigger_order_confirmation_email(order.order_id)
 
         # If status moved to Paid, ensure customer segment gets the new customer immediately
