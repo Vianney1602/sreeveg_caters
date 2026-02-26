@@ -31,7 +31,10 @@ def create_app():
     jwt.init_app(app)
     # Enable CORS so the React frontend can call the API.
     # In production, set CORS_ALLOWED_ORIGINS in .env to your domains.
-    allowed = Config.parse_origins(app.config.get("CORS_ALLOWED_ORIGINS"))
+    import re
+    allowed_list = Config.parse_origins(app.config.get("CORS_ALLOWED_ORIGINS"))
+    # Add regex patterns for Vercel preview environments and any hotelshanmugabhavaan subdomains
+    allowed = allowed_list + [re.compile(r"^https?://(.*\.vercel\.app)$"), re.compile(r"^https?://(.*\.hotelshanmugabhavaan\.com)$")]
     CORS(
         app,
         resources={
