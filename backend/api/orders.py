@@ -568,16 +568,26 @@ def approve_cancel_order(id):
             except Exception as e:
                 print(f"Failed to emit cancellation approval: {str(e)}")
             
-            # Send cancellation email to customer IMMEDIATELY
+            # Send cancellation email to customer IMMEDIATELY in BACKGROUND
             if order.email:
-                try:
-                    email_result = send_order_cancellation_email(order)
-                    if email_result:
-                        print(f"✅ Cancellation email sent for Order #{order.order_id} to {order.email}")
-                    else:
-                        print(f"⚠️ Cancellation email failed for Order #{order.order_id}")
-                except Exception as e:
-                    print(f"Failed to send cancellation email: {str(e)}")
+                from flask import current_app
+                app = current_app._get_current_object()
+                
+                def _send_cancel_email(_order_id):
+                    with app.app_context():
+                        try:
+                            _order = Order.query.get(_order_id)
+                            if _order:
+                                email_result = send_order_cancellation_email(_order)
+                                if email_result:
+                                    print(f"✅ Cancellation email sent for Order #{_order.order_id} to {_order.email}")
+                                else:
+                                    print(f"⚠️ Cancellation email failed for Order #{_order.order_id}")
+                        except Exception as e:
+                            print(f"Failed to send cancellation email: {str(e)}")
+                            
+                thread = threading.Thread(target=_send_cancel_email, args=(order.order_id,), daemon=True)
+                thread.start()
             
             return jsonify({"message": "Order cancelled successfully"}), 200
         else:

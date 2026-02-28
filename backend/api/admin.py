@@ -137,8 +137,8 @@ def change_password():
 @jwt_required()
 def list_admins():
     """List admins - returns only the hardcoded admin"""
-    identity = get_jwt_identity()
-    if not identity or identity.get("role") != "Admin":
+    claims = get_jwt()
+    if not claims or claims.get("role") != "Admin":
         return jsonify({"error": "Forbidden"}), 403
 
     return jsonify([{
@@ -159,10 +159,22 @@ def admin_stats():
         return jsonify({"error": "Forbidden"}), 403
 
     try:
-        total_orders = Order.query.count()
-        revenue = db.session.query(func.sum(Order.total_amount)).scalar() or 0
-        confirmed = Order.query.filter_by(status="Confirmed").count()
-        pending = Order.query.filter_by(status="Pending").count()
+        from sqlalchemy import case, func
+        stats = db.session.query(
+            func.count(Order.order_id).label('total_orders'),
+            func.sum(Order.total_amount).label('revenue'),
+            func.sum(case((Order.status == 'Confirmed', 1), else_=0)).label('confirmed_orders'),
+            func.sum(case((Order.status == 'Pending', 1), else_=0)).label('pending_orders'),
+            func.sum(case((Order.status == 'Delivered', 1), else_=0)).label('delivered_orders'),
+            func.sum(case((Order.status == 'Cancelled', 1), else_=0)).label('cancelled_orders')
+        ).first()
+
+        total_orders = stats.total_orders or 0
+        revenue = stats.revenue or 0
+        confirmed = stats.confirmed_orders or 0
+        pending = stats.pending_orders or 0
+        delivered = stats.delivered_orders or 0
+        cancelled = stats.cancelled_orders or 0
 
         # Top dishes by total_orders_count
         top_dishes = MenuItem.query.order_by(MenuItem.total_orders_count.desc()).limit(5).all()

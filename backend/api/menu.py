@@ -88,6 +88,30 @@ def _delete_image_asset(image_url: str):
         except Exception as e:
             print(f"Error deleting stored image {image_url}: {e}")
 
+import threading
+
+def _delete_image_asset_background(image_url: str):
+    """Run `_delete_image_asset` in a background thread with app context."""
+    if not image_url:
+        return
+        
+    from flask import current_app
+    app = current_app._get_current_object()
+    
+    def _run_with_context(url):
+        with app.app_context():
+            try:
+                _delete_image_asset(url)
+                # Ensure we commit if a database image was deleted
+                if '/api/uploads/image/' in url:
+                    db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error in background image deletion: {e}")
+                
+    thread = threading.Thread(target=_run_with_context, args=(image_url,), daemon=True)
+    thread.start()
+
 menu_bp = Blueprint("menu", __name__)
 
 @menu_bp.route("/", methods=["GET"])
@@ -143,10 +167,10 @@ def update_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     data = request.json
     
-    # If new image is provided and different from old, delete old image
+    # If new image is provided and different from old, delete old image in background
     new_image_url = data.get("image")
     if new_image_url and new_image_url != item.image_url:
-        _delete_image_asset(item.image_url)
+        _delete_image_asset_background(item.image_url)
     
     item.item_name = data.get("item_name", item.item_name)
     
@@ -191,8 +215,8 @@ def delete_menu_item(id):
     item_id = item.item_id
     old_image_url = item.image_url
     
-    # Delete the item from database and associated stored image
-    _delete_image_asset(old_image_url)
+    # Delete the item from database and associated stored image in background
+    _delete_image_asset_background(old_image_url)
     db.session.delete(item)
     db.session.commit()
     
