@@ -63,8 +63,8 @@ def create_app():
         async_mode="threading",
         allow_upgrades=False,  # force long-polling to avoid websocket issues
         # Production-ready session settings
-        ping_timeout=60,
-        ping_interval=25,
+        ping_timeout=15,
+        ping_interval=5,
         engineio_logger=False,
         manage_session=False,  # Don't manage sessions to avoid encoding issues
     )
