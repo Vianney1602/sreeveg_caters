@@ -435,7 +435,7 @@ function App() {
   // Configure axios once on mount
   useEffect(() => {
     // baseURL is already set in authService.js
-    axios.defaults.headers.post["Content-Type"] = "application/json";
+    // Let Axios automatically infer Content-Type (e.g., application/json vs multipart/form-data)
     axios.defaults.timeout = 60000;
 
     // Security: Add request interceptor to include auth tokens
