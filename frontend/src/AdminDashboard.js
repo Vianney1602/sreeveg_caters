@@ -598,7 +598,7 @@ export default function AdminDashboard({ onLogout }) {
         fd.append('image', fileToUpload);
         try {
           const upRes = await axios.post('/api/uploads/image', fd, {
-            headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+            headers: { ...headers },
           });
           imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
         } catch (uploadErr) {

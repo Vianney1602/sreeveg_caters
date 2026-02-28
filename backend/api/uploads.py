@@ -6,34 +6,27 @@ from werkzeug.utils import secure_filename
 from extensions import db
 from models import UploadedImage
 
-# Optional AWS S3 import
-try:
-    import boto3
-    from botocore.exceptions import ClientError
-    BOTO3_AVAILABLE = True
-except ImportError:
-    BOTO3_AVAILABLE = False
-
 uploads_bp = Blueprint("uploads", __name__)
 
 # Initialize S3 client lazily
 _s3_client = None
 
 def get_s3_client():
-    """Get or create S3 client if AWS is configured."""
+    """Get or create S3 client with real lazy load logic if AWS is configured."""
     global _s3_client
-    if not BOTO3_AVAILABLE:
-        return None
-    
     if _s3_client is None:
-        from config import Config
-        if Config.AWS_S3_ENABLED:
-            _s3_client = boto3.client(
-                's3',
-                aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-                region_name=Config.AWS_S3_REGION
-            )
+        try:
+            import boto3
+            from config import Config
+            if Config.AWS_S3_ENABLED:
+                _s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
+                    region_name=Config.AWS_S3_REGION
+                )
+        except ImportError:
+            pass
     return _s3_client
 
 def _allowed_extensions():
