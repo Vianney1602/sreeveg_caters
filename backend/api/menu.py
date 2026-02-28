@@ -4,32 +4,28 @@ import re
 from extensions import db, socketio
 from models import MenuItem, UploadedImage
 
-# Optional AWS S3 import
-try:
-    import boto3
-    from botocore.exceptions import ClientError
-    BOTO3_AVAILABLE = True
-except ImportError:
-    BOTO3_AVAILABLE = False
-
 # S3 client lazy loading
 _s3_client = None
 
 def get_s3_client():
-    """Get or create S3 client."""
+    """Get or create S3 client with real lazy load logic."""
     global _s3_client
-    if not BOTO3_AVAILABLE:
-        return None
     if _s3_client is None:
-        from config import Config
-        if Config.AWS_S3_ENABLED:
-            _s3_client = boto3.client(
-                's3',
-                aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-                region_name=Config.AWS_S3_REGION
-            )
+        try:
+            import boto3
+            from config import Config
+            if Config.AWS_S3_ENABLED:
+                _s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
+                    region_name=Config.AWS_S3_REGION
+                )
+        except ImportError:
+            pass
     return _s3_client
+
+
 
 def _delete_image_asset(image_url: str):
     """Remove stored image from S3 or database based on URL."""
@@ -192,20 +188,35 @@ def update_menu_item(id):
     item.image_url = data.get("image", item.image_url)
     item.description = data.get("description", item.description)
     item.is_available = data.get("is_available", item.is_available)
+    # Get the ID before the background thread
+    item_id = item.item_id
+    item_name = item.item_name
+    price_per_plate = float(item.price_per_plate)
+    category = item.category
+    is_vegetarian = item.is_vegetarian
+    image_url = item.image_url
+    description = item.description
+    is_available = item.is_available
+    stock_quantity = item.stock_quantity if item.stock_quantity is not None else 100
+
+    import time
+    t0 = time.time()
     db.session.commit()
+    t1 = time.time()
+    print(f"DB COMMIT TIME: {t1-t0:.3f}s")
     
-    # Broadcast updated menu item to all clients
-    socketio.emit('menu_item_updated', {
-        'item_id': item.item_id,
-        'item_name': item.item_name,
-        'price_per_plate': float(item.price_per_plate),
-        'category': item.category,
-        'is_vegetarian': item.is_vegetarian,
-        'image_url': item.image_url,
-        'description': item.description,
-        'is_available': item.is_available,
-        'stock_quantity': item.stock_quantity if item.stock_quantity is not None else 100
-    })
+    # Broadcast updated menu item to all clients in background thread
+    # socketio.start_background_task(socketio.emit, 'menu_item_updated', {
+    #     'item_id': item_id,
+    #     'item_name': item_name,
+    #     'price_per_plate': price_per_plate,
+    #     'category': category,
+    #     'is_vegetarian': is_vegetarian,
+    #     'image_url': image_url,
+    #     'description': description,
+    #     'is_available': is_available,
+    #     'stock_quantity': stock_quantity
+    # })
     
     return jsonify({"message": "Item Updated"})
 
