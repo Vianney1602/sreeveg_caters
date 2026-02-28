@@ -15,25 +15,30 @@ def get_customers():
     if not claims or claims.get("role") != "Admin":
         return jsonify({"error": "Forbidden"}), 403
     
-    # Get all customers with their order information
-    customers = Customer.query.all()
+    from sqlalchemy import func
+    
+    # Single O(1) query to get all customers + aggregated order counts + total spent
+    # Uses a LEFT OUTER JOIN to ensure customers with 0 orders are still included
+    results = db.session.query(
+        Customer,
+        func.count(Order.order_id).label('orders_count'),
+        func.coalesce(func.sum(Order.total_amount), 0).label('total_spent')
+    ).outerjoin(
+        Order, Customer.customer_id == Order.customer_id
+    ).group_by(
+        Customer.customer_id
+    ).all()
+    
     customer_list = []
     
-    for c in customers:
-        # Count actual orders for this customer
-        orders_count = Order.query.filter_by(customer_id=c.customer_id).count()
-        
-        # Get total spent
-        orders = Order.query.filter_by(customer_id=c.customer_id).all()
-        total_spent = sum([o.total_amount or 0 for o in orders])
-        
+    for c, orders_count, total_spent in results:
         customer_data = {
             "customer_id": c.customer_id,
             "full_name": c.full_name,
             "phone_number": c.phone_number,
             "email": c.email,
             "total_orders_count": orders_count,
-            "total_spent": round(total_spent, 2),
+            "total_spent": float(total_spent),
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "is_registered": bool(c.password_hash)
         }
