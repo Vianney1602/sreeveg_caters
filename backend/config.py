@@ -53,7 +53,7 @@ class Config:
     ADMIN_EMAIL = os.environ.get("ADMIN_USERNAME", "hotelshanmugabhavaan@gmail.com")
 
     # Upload limits and allowed image types
-    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(5 * 1024 * 1024)))  # 5 MB
+    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(15 * 1024 * 1024)))  # 15 MB
     ALLOWED_IMAGE_EXTENSIONS = set(
         (os.environ.get("ALLOWED_IMAGE_EXTENSIONS", "png,jpg,jpeg,gif,webp")).split(",")
     )
