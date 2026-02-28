@@ -75,10 +75,9 @@ def upload_to_s3(file_bytes, filename, mime_type):
         s3_url = f"https://s3.{region}.amazonaws.com/{bucket_name}/{url_key}"
         
         return s3_url
-    except ClientError as e:
-        print(f"S3 upload error: {str(e)}")
-        return None
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Unexpected error during S3 upload: {str(e)}")
         return None
 

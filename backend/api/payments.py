@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 import razorpay
-from extensions import db, socketio
+from extensions import db, socketio, emit_with_namespace
 from models import Order, Customer
 import os
 
@@ -98,8 +98,8 @@ def verify_payment():
                     'customer_name': order.customer_name,
                     'timestamp': order.updated_at.isoformat() if order.updated_at else None
                 }
-                socketio.start_background_task(socketio.emit, 'order_status_changed', payload, room='admins')
-                socketio.start_background_task(socketio.emit, 'order_status_changed', payload)
+                socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload, room='admins')
+                socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload)
             except Exception:
                 pass
 
@@ -127,7 +127,7 @@ def verify_payment():
                                 "created_at": customer.created_at.isoformat() if customer.created_at else None,
                                 "is_registered": False,
                             }
-                            socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
+                            socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
                     except Exception:
                         current_app.logger.warning("Failed to emit customer_created after payment", exc_info=True)
 
@@ -166,7 +166,7 @@ def cancel_payment():
 
         # Emit real-time status change to admins (and user room if applicable)
         try:
-            socketio.start_background_task(socketio.emit, 
+            socketio.start_background_task(emit_with_namespace, 
                 'order_status_changed',
                 {
                     'order_id': order.order_id,
@@ -179,7 +179,7 @@ def cancel_payment():
                 room='admins'
             )
             # Also broadcast to all for compatibility
-            socketio.start_background_task(socketio.emit, 'order_status_changed', {
+            socketio.start_background_task(emit_with_namespace, 'order_status_changed', {
                 'order_id': order.order_id,
                 'customer_id': order.customer_id,
                 'old_status': previous_status,

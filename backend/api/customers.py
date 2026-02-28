@@ -1,6 +1,6 @@
 
 from flask import Blueprint, request, jsonify
-from extensions import db, socketio
+from extensions import db, socketio, emit_with_namespace
 from models import Customer, Order
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
@@ -85,7 +85,7 @@ def register_customer():
             "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
             "is_registered": True,
         }
-        socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
+        socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
     except Exception:
         pass
 
@@ -197,7 +197,7 @@ def add_customer():
             "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
             "is_registered": bool(new_customer.password_hash)
         }
-        socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
+        socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
     except Exception:
         pass
     return jsonify({"message": "Customer added"}), 201

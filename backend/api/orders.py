@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from extensions import db, socketio
+from extensions import db, socketio, emit_with_namespace
 from models import Order, OrderMenuItem, Customer, MenuItem
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, jwt_required, get_jwt
 from sqlalchemy.orm import joinedload
@@ -26,7 +26,7 @@ def emit_stats_update():
         delivered = Order.query.filter_by(status="Delivered").count()
         cancelled = Order.query.filter_by(status="Cancelled").count()
         
-        socketio.start_background_task(socketio.emit, 
+        socketio.start_background_task(emit_with_namespace, 
             'stats_updated',
             {
                 'total_orders': total_orders,
@@ -326,7 +326,7 @@ def create_order():
                     'item_name': menu_items_map.get(om.menu_item_id).item_name if menu_items_map.get(om.menu_item_id) else "Unknown"
                 } for om in order_menu_items]
             }
-            socketio.start_background_task(socketio.emit, 'order_created', order_payload, room='admins')
+            socketio.start_background_task(emit_with_namespace, 'order_created', order_payload, room='admins')
             print(f"[SUCCESS] Emitted order_created event for Order #{order.order_id} to admins room")
         except Exception as e:
             print(f"[ERROR] Failed to emit order_created: {str(e)}")
@@ -356,7 +356,7 @@ def create_order():
                     # Emit inventory changes
                     for inv_update in inventory_updates:
                         try:
-                            socketio.start_background_task(socketio.emit, 'inventory_changed', inv_update)
+                            socketio.start_background_task(emit_with_namespace, 'inventory_changed', inv_update)
                         except Exception as e:
                             pass
                     
@@ -480,7 +480,7 @@ def request_cancel_order(id):
         
         # Emit socket event to admin
         try:
-            socketio.start_background_task(socketio.emit, 
+            socketio.start_background_task(emit_with_namespace, 
                 'cancellation_requested',
                 {
                     'order_id': order.order_id,
@@ -544,7 +544,7 @@ def approve_cancel_order(id):
             
             # Emit real-time update to all clients
             try:
-                socketio.start_background_task(socketio.emit, 
+                socketio.start_background_task(emit_with_namespace, 
                     'order_status_changed',
                     {
                         'order_id': order.order_id,
@@ -557,7 +557,7 @@ def approve_cancel_order(id):
                 )
                 
                 # Also emit cancellation approved event
-                socketio.start_background_task(socketio.emit, 
+                socketio.start_background_task(emit_with_namespace, 
                     'cancellation_approved',
                     {
                         'order_id': order.order_id,
@@ -593,7 +593,7 @@ def approve_cancel_order(id):
         else:
             # Admin rejected cancellation - just notify
             try:
-                socketio.start_background_task(socketio.emit, 
+                socketio.start_background_task(emit_with_namespace, 
                     'cancellation_rejected',
                     {
                         'order_id': order.order_id,
@@ -659,13 +659,13 @@ def update_status(id):
                         "created_at": customer.created_at.isoformat() if customer.created_at else None,
                         "is_registered": bool(customer.password_hash),
                     }
-                    socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
+                    socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
             except Exception:
                 pass
         
         # Emit real-time update to all connected clients
         try:
-            socketio.start_background_task(socketio.emit, 
+            socketio.start_background_task(emit_with_namespace, 
                 'order_status_changed',
                 {
                     'order_id': order.order_id,

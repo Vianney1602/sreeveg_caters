@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import os
 import re
-from extensions import db, socketio
+from extensions import db, socketio, emit_with_namespace
 from models import MenuItem, UploadedImage
 
 # S3 client lazy loading
@@ -144,7 +144,7 @@ def add_menu_item():
     db.session.commit()
     
     # Broadcast new menu item to all clients
-    socketio.start_background_task(socketio.emit, 'menu_item_added', {
+    socketio.start_background_task(emit_with_namespace, 'menu_item_added', {
         'item_id': item.item_id,
         'item_name': item.item_name,
         'price_per_plate': float(item.price_per_plate),
@@ -206,7 +206,7 @@ def update_menu_item(id):
     print(f"DB COMMIT TIME: {t1-t0:.3f}s")
     
     # Broadcast updated menu item to all clients in background thread
-    socketio.start_background_task(socketio.emit, 'menu_item_updated', {
+    socketio.start_background_task(emit_with_namespace, 'menu_item_updated', {
         'item_id': item_id,
         'item_name': item_name,
         'price_per_plate': price_per_plate,
@@ -232,7 +232,7 @@ def delete_menu_item(id):
     db.session.commit()
     
     # Broadcast item deletion to all clients in background thread
-    socketio.start_background_task(socketio.emit, 'menu_item_deleted', {
+    socketio.start_background_task(emit_with_namespace, 'menu_item_deleted', {
         'item_id': item_id
     })
     
