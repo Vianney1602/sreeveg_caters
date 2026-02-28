@@ -144,7 +144,7 @@ def add_menu_item():
     db.session.commit()
     
     # Broadcast new menu item to all clients
-    socketio.emit('menu_item_added', {
+    socketio.start_background_task(socketio.emit, 'menu_item_added', {
         'item_id': item.item_id,
         'item_name': item.item_name,
         'price_per_plate': float(item.price_per_plate),
@@ -206,17 +206,17 @@ def update_menu_item(id):
     print(f"DB COMMIT TIME: {t1-t0:.3f}s")
     
     # Broadcast updated menu item to all clients in background thread
-    # socketio.start_background_task(socketio.emit, 'menu_item_updated', {
-    #     'item_id': item_id,
-    #     'item_name': item_name,
-    #     'price_per_plate': price_per_plate,
-    #     'category': category,
-    #     'is_vegetarian': is_vegetarian,
-    #     'image_url': image_url,
-    #     'description': description,
-    #     'is_available': is_available,
-    #     'stock_quantity': stock_quantity
-    # })
+    socketio.start_background_task(socketio.emit, 'menu_item_updated', {
+        'item_id': item_id,
+        'item_name': item_name,
+        'price_per_plate': price_per_plate,
+        'category': category,
+        'is_vegetarian': is_vegetarian,
+        'image_url': image_url,
+        'description': description,
+        'is_available': is_available,
+        'stock_quantity': stock_quantity
+    })
     
     return jsonify({"message": "Item Updated"})
 
@@ -231,8 +231,8 @@ def delete_menu_item(id):
     db.session.delete(item)
     db.session.commit()
     
-    # Broadcast item deletion to all clients
-    socketio.emit('menu_item_deleted', {
+    # Broadcast item deletion to all clients in background thread
+    socketio.start_background_task(socketio.emit, 'menu_item_deleted', {
         'item_id': item_id
     })
     

@@ -85,7 +85,7 @@ def register_customer():
             "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
             "is_registered": True,
         }
-        socketio.emit('customer_created', payload, room='admins')
+        socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
     except Exception:
         pass
 
@@ -197,7 +197,7 @@ def add_customer():
             "created_at": new_customer.created_at.isoformat() if new_customer.created_at else None,
             "is_registered": bool(new_customer.password_hash)
         }
-        socketio.emit('customer_created', payload, room='admins')
+        socketio.start_background_task(socketio.emit, 'customer_created', payload, room='admins')
     except Exception:
         pass
     return jsonify({"message": "Customer added"}), 201
