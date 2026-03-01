@@ -16,16 +16,16 @@ export default function OrderHistory({ goBack, user }) {
 
   useEffect(() => {
     fetchOrders();
-    
+
     // Connect to socket and listen for order status changes
     socketService.connect();
-    
+
     const handleStatusChange = (data) => {
       // Update order status in real-time if it belongs to this user
-      if (user && data.customer_id === user.id) {
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.order_id === data.order_id 
+      if (user && data.customer_id == user.id) {
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            order.order_id === data.order_id
               ? { ...order, status: data.new_status }
               : order
           )
@@ -34,7 +34,7 @@ export default function OrderHistory({ goBack, user }) {
     };
 
     const handleCancellationApproved = (data) => {
-      if (user && data.customer_id === user.id) {
+      if (user && data.customer_id == user.id) {
         setPopupType('success');
         setPopupMessage(`Your cancellation request for Order #${data.order_id} has been approved by the admin.`);
         setShowPopup(true);
@@ -42,17 +42,17 @@ export default function OrderHistory({ goBack, user }) {
     };
 
     const handleCancellationRejected = (data) => {
-      if (user && data.customer_id === user.id) {
+      if (user && data.customer_id == user.id) {
         setPopupType('error');
         setPopupMessage(`Your cancellation request for Order #${data.order_id} has been rejected by the admin.`);
         setShowPopup(true);
       }
     };
-    
+
     socketService.on('order_status_changed', handleStatusChange);
     socketService.on('cancellation_approved', handleCancellationApproved);
     socketService.on('cancellation_rejected', handleCancellationRejected);
-    
+
     return () => {
       socketService.off('order_status_changed', handleStatusChange);
       socketService.off('cancellation_approved', handleCancellationApproved);
@@ -72,7 +72,7 @@ export default function OrderHistory({ goBack, user }) {
       const response = await axios.get('/api/users/order-history', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       setOrders(response.data.orders);
       setLoading(false);
     } catch (err) {
@@ -97,10 +97,10 @@ export default function OrderHistory({ goBack, user }) {
 
   const handleCancelConfirm = async () => {
     if (!selectedOrder) return;
-    
+
     setCancelLoading(true);
     setError('');
-    
+
     try {
       const token = sessionStorage.getItem('_userToken');
       const response = await axios.post(
@@ -108,7 +108,7 @@ export default function OrderHistory({ goBack, user }) {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       setPopupType('success');
       setPopupMessage(response.data.message || 'Cancellation request sent to admin. You will be notified once approved.');
       setShowPopup(true);
@@ -170,9 +170,9 @@ export default function OrderHistory({ goBack, user }) {
                     })}
                   </p>
                 </div>
-                <div 
+                <div
                   className="order-status"
-                  style={{ 
+                  style={{
                     background: getStatusColor(order.status),
                     color: '#fff',
                     padding: '0.5rem 1rem',
@@ -373,9 +373,9 @@ export default function OrderHistory({ goBack, user }) {
               width: '70px',
               height: '70px',
               borderRadius: '50%',
-              background: popupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' 
-                        : popupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                        : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              background: popupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+                : popupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : 'linear-gradient(135deg, #3b82f6, #2563eb)',
               margin: '0 auto 1.5rem',
               display: 'flex',
               alignItems: 'center',
@@ -386,18 +386,18 @@ export default function OrderHistory({ goBack, user }) {
             }}>
               {popupType === 'success' ? '✓' : popupType === 'error' ? '✕' : 'ℹ'}
             </div>
-            <h3 style={{ 
-              color: '#7a0000', 
-              marginTop: 0, 
+            <h3 style={{
+              color: '#7a0000',
+              marginTop: 0,
               marginBottom: '1rem',
               fontSize: '1.5rem',
               fontWeight: '700'
             }}>
               {popupType === 'success' ? 'Success!' : popupType === 'error' ? 'Error' : 'Information'}
             </h3>
-            <p style={{ 
-              color: '#4a4a4a', 
-              lineHeight: '1.6', 
+            <p style={{
+              color: '#4a4a4a',
+              lineHeight: '1.6',
               marginBottom: '2rem',
               fontSize: '1.05rem'
             }}>
