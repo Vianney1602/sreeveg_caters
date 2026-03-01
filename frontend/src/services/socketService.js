@@ -29,9 +29,9 @@ class SocketService {
     }
 
     const options = {
-      // Revert to polling since sync Gunicorn workers throw Invalid Frame Header on raw WebSockets
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      // Force pure Websocket transport to skip polling and avoid session affinity issues with Vercel Edge
+      transports: ['websocket'],
+      upgrade: false,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
