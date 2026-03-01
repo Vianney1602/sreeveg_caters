@@ -29,9 +29,9 @@ class SocketService {
     }
 
     const options = {
-      // Allow websocket upgrades for direct EC2 connections
-      transports: ['polling', 'websocket'],
-      upgrade: true,
+      // Force websocket only to prevent Vercel Load Balancer breaking HTTP polling across workers
+      transports: ['websocket'],
+      upgrade: false,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
