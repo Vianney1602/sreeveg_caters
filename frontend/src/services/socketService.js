@@ -29,9 +29,9 @@ class SocketService {
     }
 
     const options = {
-      // Backend is configured for long-polling only (allow_upgrades=False)
-      transports: ['polling'],
-      upgrade: false,
+      // Allow websocket upgrades for direct EC2 connections
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,

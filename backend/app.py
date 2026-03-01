@@ -64,7 +64,7 @@ def create_app():
         app,
         cors_allowed_origins="*",
         async_mode="threading",
-        allow_upgrades=False,  # force long-polling to avoid websocket issues
+        allow_upgrades=True,  # allow websocket upgrades for direct EC2 connection
         # Production-ready session settings
         ping_timeout=15,
         ping_interval=5,
