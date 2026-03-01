@@ -59,7 +59,7 @@ def create_app():
     # Initialize SocketIO with CORS settings and production-ready config
     socketio.init_app(
         app,
-        cors_allowed_origins=allowed,
+        cors_allowed_origins="*",
         async_mode="threading",
         allow_upgrades=False,  # force long-polling to avoid websocket issues
         # Production-ready session settings
