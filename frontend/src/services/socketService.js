@@ -29,9 +29,9 @@ class SocketService {
     }
 
     const options = {
-      // Force websocket only to prevent Vercel Load Balancer breaking HTTP polling across workers
-      transports: ['websocket'],
-      upgrade: false,
+      // Revert to polling since sync Gunicorn workers throw Invalid Frame Header on raw WebSockets
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
