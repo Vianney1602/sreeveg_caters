@@ -22,7 +22,7 @@ export default function OrderHistory({ goBack, user }) {
 
     const handleStatusChange = (data) => {
       // Update order status in real-time if it belongs to this user
-      if (user && data.customer_id == user.id) {
+      if (user && String(data.customer_id) === String(user.id)) {
         setOrders(prevOrders =>
           prevOrders.map(order =>
             order.order_id === data.order_id
@@ -34,7 +34,7 @@ export default function OrderHistory({ goBack, user }) {
     };
 
     const handleCancellationApproved = (data) => {
-      if (user && data.customer_id == user.id) {
+      if (user && String(data.customer_id) === String(user.id)) {
         setPopupType('success');
         setPopupMessage(`Your cancellation request for Order #${data.order_id} has been approved by the admin.`);
         setShowPopup(true);
@@ -42,7 +42,7 @@ export default function OrderHistory({ goBack, user }) {
     };
 
     const handleCancellationRejected = (data) => {
-      if (user && data.customer_id == user.id) {
+      if (user && String(data.customer_id) === String(user.id)) {
         setPopupType('error');
         setPopupMessage(`Your cancellation request for Order #${data.order_id} has been rejected by the admin.`);
         setShowPopup(true);

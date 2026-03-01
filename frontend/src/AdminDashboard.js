@@ -338,7 +338,7 @@ export default function AdminDashboard({ onLogout }) {
       // Update the orders list with new status
       setOrders(prevOrders =>
         prevOrders.map(order =>
-          order.id == data.order_id
+          String(order.id) === String(data.order_id)
             ? { ...order, status: data.new_status }
             : order
         )
@@ -386,7 +386,7 @@ export default function AdminDashboard({ onLogout }) {
 
       setOrders(prev => {
         // Double-check in the current state array
-        const exists = prev.some(o => o.id == data.order_id);
+        const exists = prev.some(o => String(o.id) === String(data.order_id));
         if (exists) {
           return prev;
         }
@@ -428,7 +428,7 @@ export default function AdminDashboard({ onLogout }) {
     const onCancellationRequested = (data) => {
       setOrders(prevOrders =>
         prevOrders.map(order =>
-          order.id == data.order_id
+          String(order.id) === String(data.order_id)
             ? { ...order, cancellationRequested: true, cancellationData: data }
             : order
         )
