@@ -4,126 +4,125 @@ import socketService from './services/socketService';
 import './admin-dashboard.css';
 import LoadingAnimation from './components/LoadingAnimation';
 
-export default function AdminDashboard({ onLogout }) {
-  const normalizeName = (name = '') => String(name).trim().toLowerCase();
-  const normalizeCategoryLabel = (cat = '') => {
-    const c = String(cat).trim().toLowerCase();
-    if (c.includes('lunch menu')) return 'Lunch Menu';
-    if (c.includes('tiffin')) return 'Morning Tiffin Menu';
-    if (c.includes('dinner')) return 'Dinner Menu';
-    return cat || '';
+// Helper Functions Extracted to satisfy ESLint hooks rules
+const normalizeName = (name = '') => String(name).trim().toLowerCase();
+const normalizeCategoryLabel = (cat = '') => {
+  const c = String(cat).trim().toLowerCase();
+  if (c.includes('lunch menu')) return 'Lunch Menu';
+  if (c.includes('tiffin')) return 'Morning Tiffin Menu';
+  if (c.includes('dinner')) return 'Dinner Menu';
+  return cat || '';
+};
+
+const toCategoryArray = (category) => {
+  if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
+  if (!category) return [];
+  const maybeStr = String(category).trim();
+  if (maybeStr.startsWith('[') && maybeStr.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(maybeStr);
+      if (Array.isArray(parsed)) return parsed.map(normalizeCategoryLabel);
+    } catch (e) {
+      // fall through to single-string handling
+    }
+  }
+  return [normalizeCategoryLabel(category)];
+};
+
+// helper to convert status to a safe classname (no spaces)
+const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
+
+const resolveImageUrl = (url) => {
+  if (!url) return '';
+  const trimmed = String(url).trim();
+
+  // Fix S3 virtual-hosted URLs with dots in bucket name (SSL cert issue)
+  const s3VirtualMatch = trimmed.match(/^https:\/\/([^/]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)$/);
+  if (s3VirtualMatch) {
+    const bucket = s3VirtualMatch[1];
+    const region = s3VirtualMatch[2];
+    const key = s3VirtualMatch[3];
+    return `https://s3.${region}.amazonaws.com/${bucket}/${key}`;
+  }
+
+  // If it's a data URL or absolute URL, return as-is
+  if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
+
+  // Get backend base URL - use axios defaults or environment
+  const backendBase = (axios.defaults && axios.defaults.baseURL) ||
+    process.env.REACT_APP_API_BASE_URL;
+
+  const toBackendUrl = (path) => {
+    const clean = path.replace(/^\/+/, '');
+    return `${backendBase}/${clean}`;
   };
-  const toCategoryArray = (category) => {
-    if (Array.isArray(category)) return category.map(normalizeCategoryLabel);
-    if (!category) return [];
-    const maybeStr = String(category).trim();
-    if (maybeStr.startsWith('[') && maybeStr.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(maybeStr);
-        if (Array.isArray(parsed)) return parsed.map(normalizeCategoryLabel);
-      } catch (e) {
-        // fall through to single-string handling
-      }
-    }
-    return [normalizeCategoryLabel(category)];
-  };
-  // helper to convert status to a safe classname (no spaces)
-  const statusToClass = (s = '') => String(s).toLowerCase().replace(/\s+/g, '-');
 
-  // Track processed order IDs to prevent duplicates during network issues
-  const processedOrderIds = useRef(new Set());
-
-  const resolveImageUrl = (url) => {
-    if (!url) return '';
-    const trimmed = String(url).trim();
-
-    // Fix S3 virtual-hosted URLs with dots in bucket name (SSL cert issue)
-    // Convert: https://bucket.name.s3.region.amazonaws.com/key
-    // To:      https://s3.region.amazonaws.com/bucket.name/key
-    const s3VirtualMatch = trimmed.match(/^https:\/\/([^/]+)\.s3\.([^.]+)\.amazonaws\.com\/(.+)$/);
-    if (s3VirtualMatch) {
-      const bucket = s3VirtualMatch[1];
-      const region = s3VirtualMatch[2];
-      const key = s3VirtualMatch[3];
-      return `https://s3.${region}.amazonaws.com/${bucket}/${key}`;
-    }
-
-    // If it's a data URL or absolute URL, return as-is
-    if (/^(data:|https?:)/i.test(trimmed)) return trimmed;
-
-    // Get backend base URL - use axios defaults or environment
-    const backendBase = (axios.defaults && axios.defaults.baseURL) ||
-      process.env.REACT_APP_API_BASE_URL;
-
-    const toBackendUrl = (path) => {
-      const clean = path.replace(/^\/+/, '');
-      return `${backendBase}/${clean}`;
-    };
-
-    // If it starts with /static, static, /uploads or uploads, treat as backend asset
-    if (
-      trimmed.startsWith('/static') ||
-      trimmed.startsWith('static') ||
-      trimmed.startsWith('/uploads') ||
-      trimmed.startsWith('uploads') ||
-      trimmed.includes('/static/') ||
-      trimmed.includes('/uploads/')
-    ) {
-      return toBackendUrl(trimmed);
-    }
-
-    // If it starts with /api, it's a backend URL
-    if (trimmed.startsWith('/api')) {
-      // Remove any leading duplicates
-      const cleanPath = trimmed.replace(/^\/+/, '/');
-      return `${backendBase}${cleanPath}`;
-    }
-
-    // If it starts with /images, it's a frontend public image
-    if (trimmed.startsWith('/images')) {
-      const base = process.env.PUBLIC_URL || '';
-      return `${base}${trimmed}`;
-    }
-
-    // Bare filename? assume in public/images
-    if (!trimmed.includes('/') && !trimmed.startsWith('.')) {
-      const base = process.env.PUBLIC_URL || '';
-      return `${base}/images/${trimmed}`;
-    }
-
-    // Fallback: assume backend-relative path
+  // If it starts with /static, static, /uploads or uploads, treat as backend asset
+  if (
+    trimmed.startsWith('/static') ||
+    trimmed.startsWith('static') ||
+    trimmed.startsWith('/uploads') ||
+    trimmed.startsWith('uploads') ||
+    trimmed.includes('/static/') ||
+    trimmed.includes('/uploads/')
+  ) {
     return toBackendUrl(trimmed);
-  };
+  }
 
-  const mergeItemData = (existing, curr) => ({
-    ...existing,
-    categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
-    available: existing.available || curr.available,
-    // Prefer the first non-empty image
-    imageUrl: existing.imageUrl || curr.imageUrl,
-    // Fill missing description if the existing one is empty
-    description: existing.description || curr.description,
-  });
+  // If it starts with /api, it's a backend URL
+  if (trimmed.startsWith('/api')) {
+    // Remove any leading duplicates
+    const cleanPath = trimmed.replace(/^\/+/, '/');
+    return `${backendBase}${cleanPath}`;
+  }
 
-  const suggestImageByName = (name) => {
-    if (!name) return '';
-    const n = name.toLowerCase();
-    const base = (process.env.PUBLIC_URL || '');
-    const img = (p) => `${base}/images/${p}`;
-    if (n.includes('paneer') || n.includes('panner')) return img('paneer-tikka.jpg');
-    if ((n.includes('butter') && (n.includes('paneer') || n.includes('panner'))) || n.includes('masala')) return img('panner_butter_masala.png');
-    if (n.includes('parotta') || n.includes('paratha')) return img('parotta.jpg');
-    if (n.includes('biryani') || n.includes('biriyani')) return img('veg-biriyani.jpg');
-    if (n.includes('meals')) return img('veg-meals.jpeg');
-    if (n.includes('gulab')) return img('gulab-jamun.jpg');
-    if (n.includes('rasmalai') || n.includes('rasamalai')) return img('rasamalai.webp');
-    if (n.includes('chola') || n.includes('chole') || n.includes('puri')) return img('chola_puri.png');
-    if (n.includes('dal') || n.includes('dhal') || n.includes('makhani') || n.includes('makini')) return img('dhal_makini.png');
-    if (n.includes('fish')) return img('fish_curry.png');
-    if (n.includes('mutton')) return img('mutton_curry.png');
-    if (n.includes('cutlet')) return img('veg-cutlet.webp');
-    return img('chef.png');
-  };
+  // If it starts with /images, it's a frontend public image
+  if (trimmed.startsWith('/images')) {
+    const base = process.env.PUBLIC_URL || '';
+    return `${base}${trimmed}`;
+  }
+
+  // Bare filename? assume in public/images
+  if (!trimmed.includes('/') && !trimmed.startsWith('.')) {
+    const base = process.env.PUBLIC_URL || '';
+    return `${base}/images/${trimmed}`;
+  }
+
+  // Fallback: assume backend-relative path
+  return toBackendUrl(trimmed);
+};
+
+const mergeItemData = (existing, curr) => ({
+  ...existing,
+  categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
+  available: existing.available || curr.available,
+  // Prefer the first non-empty image
+  imageUrl: existing.imageUrl || curr.imageUrl,
+  // Fill missing description if the existing one is empty
+  description: existing.description || curr.description,
+});
+
+const suggestImageByName = (name) => {
+  if (!name) return '';
+  const n = name.toLowerCase();
+  const base = (process.env.PUBLIC_URL || '');
+  const img = (p) => `${base}/images/${p}`;
+  if (n.includes('paneer') || n.includes('panner')) return img('paneer-tikka.jpg');
+  if ((n.includes('butter') && (n.includes('paneer') || n.includes('panner'))) || n.includes('masala')) return img('panner_butter_masala.png');
+  if (n.includes('parotta') || n.includes('paratha')) return img('parotta.jpg');
+  if (n.includes('biryani') || n.includes('biriyani')) return img('veg-biriyani.jpg');
+  if (n.includes('meals')) return img('veg-meals.jpeg');
+  if (n.includes('gulab')) return img('gulab-jamun.jpg');
+  if (n.includes('rasmalai') || n.includes('rasamalai')) return img('rasamalai.webp');
+  if (n.includes('chola') || n.includes('chole') || n.includes('puri')) return img('chola_puri.png');
+  if (n.includes('dal') || n.includes('dhal') || n.includes('makhani') || n.includes('makini')) return img('dhal_makini.png');
+  if (n.includes('fish')) return img('fish_curry.png');
+  if (n.includes('mutton')) return img('mutton_curry.png');
+  if (n.includes('cutlet')) return img('veg-cutlet.webp');
+  return img('chef.png');
+};
+
+export default function AdminDashboard({ onLogout }) {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [menuItems, setMenuItems] = useState([]);
