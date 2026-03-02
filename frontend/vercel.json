@@ -5,10 +5,6 @@
             "destination": "http://16.112.138.215:8000/api/:path*"
         },
         {
-            "source": "/socket.io/:path*",
-            "destination": "http://16.112.138.215:8000/socket.io/:path*"
-        },
-        {
             "source": "/static/:path*",
             "destination": "http://16.112.138.215:8000/static/:path*"
         },
