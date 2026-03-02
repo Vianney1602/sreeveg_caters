@@ -220,23 +220,22 @@ export default function AdminDashboard({ onLogout }) {
           socket.on('reconnect', handleConnect);
         }
 
-        // Verify admin token first
-        const verifyRes = await axios.get('/api/admin/verify', { headers, timeout: 90000 });
-        setAdminInfo(verifyRes.data.admin);
-
         // Fetch all required data in parallel — each call handles its own failure
         const safeGet = (url) => axios.get(url, { headers, timeout: 90000 }).catch(err => {
           console.warn(`Failed to load ${url}:`, err.message);
           return { data: [] };
         });
 
-        const [ordersRes, menuRes, customersRes, statsRes, eventsRes] = await Promise.all([
+        const [verifyRes, ordersRes, menuRes, customersRes, statsRes, eventsRes] = await Promise.all([
+          axios.get('/api/admin/verify', { headers, timeout: 90000 }),
           safeGet('/api/orders'),
           safeGet('/api/menu'),
           safeGet('/api/customers'),
           axios.get('/api/admin/stats', { headers, timeout: 90000 }).catch(() => ({ data: {} })),
           safeGet('/api/events'),
         ]);
+
+        setAdminInfo(verifyRes.data.admin);
 
         // Process and set orders
         const processedOrders = ordersRes.data.map(order => ({

@@ -38,6 +38,8 @@ class SocketService {
       reconnectionAttempts: Infinity,
       timeout: 60000, // Increase to 60s for high-latency environments
       auth: this.lastToken ? { token: this.lastToken } : {},
+      autoConnect: true,
+      forceNew: false, // Reuse connection if possible to avoid frame header issues
       withCredentials: true,
     };
 

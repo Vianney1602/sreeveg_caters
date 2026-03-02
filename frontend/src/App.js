@@ -152,8 +152,8 @@ function App() {
 
   // Initialize WebSocket connection on app mount
   useEffect(() => {
-    // Set minimum display time for loading animation (3 seconds)
-    const minLoadingTime = 3000;
+    // Set minimum display time for loading animation (500ms for smooth transition)
+    const minLoadingTime = 500;
     const startTime = Date.now();
 
     // Check for existing admin session
