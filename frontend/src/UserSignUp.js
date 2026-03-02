@@ -40,7 +40,7 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
     setSuccess('');
 
     try {
-      const response = await axios.post('/api/users/register', { ...form, otp });
+      await axios.post('/api/users/register', { ...form, otp });
       setSuccess('Account created successfully! Redirecting...');
 
       // Auto login if possible or go to sign in
