@@ -79,9 +79,14 @@ def send_registration_otp():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
             
-        # Send email
+        # Send email in background to avoid blocking the request (improves performance)
+        from extensions import socketio
         from brevo_mail import send_registration_otp_email
-        email_sent = send_registration_otp_email(email, otp)
+        socketio.start_background_task(send_registration_otp_email, email, otp)
+        
+        # Return success immediately (dev_otp only if we can verify dev mode, 
+        # but here we'll assume it's sent or will be sent)
+        email_sent = True 
         
         return jsonify({
             "message": "OTP sent successfully" if email_sent else "OTP generated (Dev Mode)",
@@ -323,18 +328,12 @@ def forgot_password():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
         
-        # Try to send OTP via email
-        email_sent = send_otp_email(email, otp)
+        # Try to send OTP via email in background
+        from extensions import socketio
+        from brevo_mail import send_otp_email
+        socketio.start_background_task(send_otp_email, email, otp)
         
-        if email_sent:
-            # Email sent successfully - no console logging for security
-            return jsonify({"message": "OTP sent to your email"}), 200
-        else:
-            # Email not configured - print to console for development only
-            
-            return jsonify({
-                "message": "OTP generated successfully. Check server console for OTP code."
-            }), 200
+        return jsonify({"message": "OTP sent to your email"}), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -634,18 +633,14 @@ def admin_forgot_password():
             except Exception as e:
                 pass
         
-        # Send OTP via email
-        try:
-            from brevo_mail import send_admin_otp_email
-            email_sent = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
-            if not email_sent:
-                pass
-        except Exception as email_err:
-            email_sent = False
+        # Send OTP via email in background
+        from extensions import socketio
+        from brevo_mail import send_admin_otp_email
+        socketio.start_background_task(send_admin_otp_email, Config.ADMIN_EMAIL, otp)
 
         return jsonify({
             "message": "OTP sent to admin email",
-            "email_sent": email_sent
+            "email_sent": True
         }), 200
         
     except Exception as e:

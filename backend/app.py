@@ -43,8 +43,8 @@ def create_app():
     # In production, set CORS_ALLOWED_ORIGINS in .env to your domains.
     import re
     allowed_list = Config.parse_origins(app.config.get("CORS_ALLOWED_ORIGINS"))
-    # Add regex patterns for Vercel preview environments and any hotelshanmugabhavaan subdomains
-    allowed = allowed_list + [re.compile(r"^https?://(.*\.vercel\.app)$"), re.compile(r"^https?://(.*\.hotelshanmugabhavaan\.com)$")]
+    # Add regex patterns for Vercel preview environments and any hotelshanmugabhavaan domains (root + subdomains)
+    allowed = allowed_list + [re.compile(r"^https?://(.*\.vercel\.app)$"), re.compile(r"^https?://((.*\.)?hotelshanmugabhavaan\.com)$")]
     CORS(
         app,
         resources={
@@ -62,12 +62,6 @@ def create_app():
                 "origins": allowed,
                 "methods": ["GET", "OPTIONS"],
                 "allow_headers": ["Content-Type"],
-            },
-            r"/socket.io/*": {
-                "origins": allowed,
-                "methods": ["GET", "POST", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-                "supports_credentials": True,
             }
         },
     )
