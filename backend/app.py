@@ -69,7 +69,7 @@ def create_app():
     # Initialize SocketIO with explicit CORS settings and production-ready config
     socketio.init_app(
         app,
-        cors_allowed_origins=allowed, # Use explicit list instead of "*" for withCredentials support
+        cors_allowed_origins="*", # Allow all origins since frontend no longer sends credentials. This eliminates CORS connection errors.
         async_mode="eventlet",
         allow_upgrades=True,  # allow websocket upgrades for direct EC2 connection
         # Production-ready session settings with extended timeouts for Vercel proxy stability

@@ -29,18 +29,21 @@ class SocketService {
     }
 
     const options = {
-      // Force WebSocket first to bypass polling handshake issues at the proxy level
-      transports: ['websocket', 'polling'],
+      // Polling FIRST allows Socket.IO to establish a connection regardless of Nginx WebSocket support.
+      // It will then seamlessly upgrade to WebSockets in the background if available.
+      // This stops the aggressive reconnection loop that blocks normal API calls.
+      transports: ['polling', 'websocket'],
       upgrade: true,
+      rememberUpgrade: false, // Don't assume WebSockets work forever
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: Infinity,
-      timeout: 60000, // Increase to 60s for high-latency environments
+      timeout: 60000,
       auth: this.lastToken ? { token: this.lastToken } : {},
       autoConnect: true,
-      forceNew: false, // Reuse connection if possible to avoid frame header issues
-      withCredentials: true,
+      forceNew: false,
+      withCredentials: false, // Disabling credentials allows us to use wildcard CORS on the backend, solving all cross-origin proxy issues.
     };
 
     try {
