@@ -176,6 +176,10 @@ def admin_stats():
         delivered = stats.delivered_orders or 0
         cancelled = stats.cancelled_orders or 0
 
+        # Counts for Overview page
+        active_items = MenuItem.query.filter_by(is_available=True).count()
+        total_customers = db.session.query(func.count(Order.customer_id.distinct())).scalar() or 0
+        
         # Top dishes by total_orders_count
         top_dishes = MenuItem.query.order_by(MenuItem.total_orders_count.desc()).limit(5).all()
 
@@ -184,6 +188,8 @@ def admin_stats():
             "revenue": float(revenue),
             "confirmed": confirmed,
             "pending": pending,
+            "active_items": active_items,
+            "total_customers": total_customers,
             "top_dishes": [
                 {"name": d.item_name, "orders": d.total_orders_count or 0}
                 for d in top_dishes
