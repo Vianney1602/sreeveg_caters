@@ -193,52 +193,74 @@ export default function AdminDashboard({ onLogout }) {
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState(null);
 
-  // Fetch data on component mount
+  // Fetch initial "Critical Path" data (Verify + Stats) on mount
   useEffect(() => {
-    // Join admin room when socket connects or reconnects
     const handleConnect = () => {
       socketService.joinRoom('admins');
     };
 
-    const fetchData = async (retryCount = 0) => {
+    const fetchInitialData = async () => {
       try {
         setLoading(true);
         setError('');
-
-        // Get token from sessionStorage
         const token = sessionStorage.getItem('_st');
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Ensure socket connection uses the admin token
+        // 1. Connect socket early
         const socket = socketService.connect(token);
         if (socket) {
-          // Always join admin room - the joinRoom method handles connection state
           socketService.joinRoom('admins');
-
-          // Also listen for connect/reconnect to re-join room
           socket.on('connect', handleConnect);
           socket.on('reconnect', handleConnect);
         }
 
-        // Fetch all required data in parallel — each call handles its own failure
-        const safeGet = (url) => axios.get(url, { headers, timeout: 90000 }).catch(err => {
-          console.warn(`Failed to load ${url}:`, err.message);
-          return { data: [] };
-        });
-
-        const [verifyRes, ordersRes, menuRes, customersRes, statsRes, eventsRes] = await Promise.all([
-          axios.get('/api/admin/verify', { headers, timeout: 90000 }),
-          safeGet('/api/orders'),
-          safeGet('/api/menu'),
-          safeGet('/api/customers'),
-          axios.get('/api/admin/stats', { headers, timeout: 90000 }).catch(() => ({ data: {} })),
-          safeGet('/api/events'),
+        // 2. Fetch only the essentials for the Overview page
+        const [verifyRes, statsRes, eventsRes] = await Promise.all([
+          axios.get('/api/admin/verify', { headers, timeout: 60000 }),
+          axios.get('/api/admin/stats', { headers, timeout: 60000 }).catch(() => ({ data: {} })),
+          axios.get('/api/events', { headers }).catch(() => ({ data: [] })),
         ]);
 
         setAdminInfo(verifyRes.data.admin);
+        setStats({
+          totalOrders: statsRes.data.total_orders || 0,
+          pending: statsRes.data.pending || 0,
+          revenue: `₹${statsRes.data.revenue || 0}`,
+          activeItems: statsRes.data.active_items || 0,
+          customers: statsRes.data.total_customers || 0,
+        });
 
-        // Process and set orders
-        const processedOrders = ordersRes.data.map(order => ({
+        setEventTypes(eventsRes.data.map(event => ({
+          event_type_id: event.id || event.event_type_id,
+          event_name: event.name || event.event_name
+        })));
+
+        setLoading(false);
+      } catch (err) {
+        if (err.response?.status === 401) {
+          setError('Session expired. Logging out...');
+          setTimeout(onLogout, 1500);
+          return;
+        }
+        setError('Failed to load dashboard essentials.');
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, [onLogout]);
+
+  // Lazy load Orders when Orders tab is active
+  useEffect(() => {
+    if (activeTab !== 'orders' || orders.length > 0) return;
+
+    const fetchOrders = async () => {
+      try {
+        const token = sessionStorage.getItem('_st');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await axios.get('/api/orders', { headers, timeout: 60000 });
+
+        const processed = res.data.map(order => ({
           id: order.order_id,
           orderId: order.order_id.toString(),
           customerName: order.customer_name,
@@ -256,18 +278,28 @@ export default function AdminDashboard({ onLogout }) {
           }))) || []
         }));
 
-        // Track all order IDs to prevent duplicates during network issues
         processedOrderIds.current.clear();
-        processedOrders.forEach(order => {
-          if (order.id) {
-            processedOrderIds.current.add(order.id);
-          }
-        });
+        processed.forEach(o => o.id && processedOrderIds.current.add(o.id));
+        setOrders(processed);
+      } catch (err) {
+        showToast('Failed to load orders', 'error');
+      }
+    };
 
-        setOrders(processedOrders);
+    fetchOrders();
+  }, [activeTab, orders.length]);
 
-        // Process and set menu items (merge duplicates by name)
-        const mapped = menuRes.data.map(item => ({
+  // Lazy load Menu when Menu tab is active
+  useEffect(() => {
+    if (activeTab !== 'menu' || menuItems.length > 0) return;
+
+    const fetchMenu = async () => {
+      try {
+        const token = sessionStorage.getItem('_st');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await axios.get('/api/menu', { headers });
+
+        const mapped = res.data.map(item => ({
           id: item.item_id,
           name: item.item_name,
           categories: toCategoryArray(item.category),
@@ -289,1378 +321,1361 @@ export default function AdminDashboard({ onLogout }) {
         }, new Map());
 
         setMenuItems(Array.from(merged.values()));
-
-        // Set customers
-        setCustomers(customersRes.data);
-
-        // Set event types - map response to correct format
-        setEventTypes(eventsRes.data.map(event => ({
-          event_type_id: event.id || event.event_type_id,
-          event_name: event.name || event.event_name
-        })));
-
-        // Set stats
-        setStats({
-          totalOrders: statsRes.data.total_orders || 0,
-          pending: statsRes.data.pending || 0,
-          revenue: `₹${statsRes.data.revenue || 0}`,
-          activeItems: menuRes.data.length,
-          customers: customersRes.data.length,
-        });
-
-        setLoading(false);
       } catch (err) {
-        // Auto-logout on auth error (verify failed)
-        if (err.response?.status === 401) {
-          setError('Session expired. Logging out...');
-          setLoading(false);
-          setTimeout(onLogout, 1500);
-          return;
-        }
-
-        // Retry up to 2 times for network/timeout errors
-        if (retryCount < 2) {
-          console.warn(`Dashboard load failed, retrying (${retryCount + 1}/2)...`);
-          setTimeout(() => fetchData(retryCount + 1), 2000);
-          return;
-        }
-
-        setError('Failed to load dashboard. Please check your connection and try refreshing.');
-        setLoading(false);
+        showToast('Failed to load menu', 'error');
       }
     };
 
-    fetchData();
+    fetchMenu();
+  }, [activeTab, menuItems.length]);
 
-    // Listen for real-time order status changes
-    const onOrderStatusChanged = (data) => {
-      // Update the orders list with new status
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          String(order.id) === String(data.order_id)
-            ? { ...order, status: data.new_status }
-            : order
-        )
-      );
+  // Lazy load Customers when Customers tab is active
+  useEffect(() => {
+    if (activeTab !== 'customers' || customers.length > 0) return;
 
-      if (Notification.permission === 'granted') {
-        new Notification('Order Status Update', {
-          body: `Order #${data.order_id} status changed to ${data.new_status}`,
-          icon: '/images/chef.png'
-        });
+    const fetchCustomers = async () => {
+      try {
+        const token = sessionStorage.getItem('_st');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await axios.get('/api/customers', { headers });
+        setCustomers(res.data);
+      } catch (err) {
+        showToast('Failed to load customers', 'error');
       }
     };
 
-    const onCustomerCreated = (data) => {
-      setCustomers((prev) => {
-        if (!prev) return [data];
-        const exists = prev.some(c => c.customer_id === data.customer_id);
-        if (exists) return prev;
-        return [data, ...prev];
+    fetchCustomers();
+  }, [activeTab, customers.length]);
+
+  // Listen for real-time order status changes
+  const onOrderStatusChanged = (data) => {
+    // Update the orders list with new status
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        String(order.id) === String(data.order_id)
+          ? { ...order, status: data.new_status }
+          : order
+      )
+    );
+
+    if (Notification.permission === 'granted') {
+      new Notification('Order Status Update', {
+        body: `Order #${data.order_id} status changed to ${data.new_status}`,
+        icon: '/images/chef.png'
       });
+    }
+  };
 
-      setStats((prev) => ({
-        ...prev,
-        customers: (prev?.customers || 0) + 1,
-      }));
-    };
+  const onCustomerCreated = (data) => {
+    setCustomers((prev) => {
+      if (!prev) return [data];
+      const exists = prev.some(c => c.customer_id === data.customer_id);
+      if (exists) return prev;
+      return [data, ...prev];
+    });
 
-    socketService.on('order_status_changed', onOrderStatusChanged);
-    socketService.on('customer_created', onCustomerCreated);
+    setStats((prev) => ({
+      ...prev,
+      customers: (prev?.customers || 0) + 1,
+    }));
+  };
 
-    // Listen for new orders in real-time
-    const onOrderCreated = (data) => {
-      // Validate order_id exists
-      if (!data || !data.order_id) {
-        return; // Skip invalid data
+  socketService.on('order_status_changed', onOrderStatusChanged);
+  socketService.on('customer_created', onCustomerCreated);
+
+  // Listen for new orders in real-time
+  const onOrderCreated = (data) => {
+    // Validate order_id exists
+    if (!data || !data.order_id) {
+      return; // Skip invalid data
+    }
+
+    // Check if we've already processed this order ID
+    if (processedOrderIds.current.has(data.order_id)) {
+      return; // Skip duplicate
+    }
+
+    // Mark this order as processed
+    processedOrderIds.current.add(data.order_id);
+
+    setOrders(prev => {
+      // Double-check in the current state array
+      const exists = prev.some(o => String(o.id) === String(data.order_id));
+      if (exists) {
+        return prev;
       }
 
-      // Check if we've already processed this order ID
-      if (processedOrderIds.current.has(data.order_id)) {
-        return; // Skip duplicate
-      }
+      const newOrder = {
+        id: data.order_id,
+        orderId: data.order_id?.toString(),
+        customerName: data.customer_name,
+        phone: data.phone_number,
+        total: data.total_amount,
+        totalLabel: `₹${data.total_amount ?? 0}`,
+        status: data.status,
+        timestamp: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A',
+        address: data.venue_address,
+        eventDate: data.event_date,
+        items: data.items || []
+      };
+      return [newOrder, ...prev];
+    });
 
-      // Mark this order as processed
-      processedOrderIds.current.add(data.order_id);
+    // Optimistically bump stats
+    setStats(prev => ({
+      ...prev,
+      totalOrders: (prev.totalOrders || 0) + 1,
+      pending: (prev.pending || 0) + 1
+    }));
 
-      setOrders(prev => {
-        // Double-check in the current state array
-        const exists = prev.some(o => String(o.id) === String(data.order_id));
-        if (exists) {
-          return prev;
-        }
-
-        const newOrder = {
-          id: data.order_id,
-          orderId: data.order_id?.toString(),
-          customerName: data.customer_name,
-          phone: data.phone_number,
-          total: data.total_amount,
-          totalLabel: `₹${data.total_amount ?? 0}`,
-          status: data.status,
-          timestamp: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A',
-          address: data.venue_address,
-          eventDate: data.event_date,
-          items: data.items || []
-        };
-        return [newOrder, ...prev];
+    if (Notification.permission === 'granted') {
+      new Notification('New Order Received', {
+        body: `Order #${data.order_id} placed by ${data.customer_name || 'Customer'}`,
+        icon: '/images/chef.png'
       });
+    }
+  };
 
-      // Optimistically bump stats
-      setStats(prev => ({
-        ...prev,
-        totalOrders: (prev.totalOrders || 0) + 1,
-        pending: (prev.pending || 0) + 1
-      }));
+  socketService.on('order_created', onOrderCreated);
 
-      if (Notification.permission === 'granted') {
-        new Notification('New Order Received', {
-          body: `Order #${data.order_id} placed by ${data.customer_name || 'Customer'}`,
-          icon: '/images/chef.png'
-        });
-      }
-    };
+  // Listen for cancellation requests
+  const onCancellationRequested = (data) => {
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        String(order.id) === String(data.order_id)
+          ? { ...order, cancellationRequested: true, cancellationData: data }
+          : order
+      )
+    );
 
-    socketService.on('order_created', onOrderCreated);
+    if (Notification.permission === 'granted') {
+      new Notification('Order Cancellation Request', {
+        body: `Customer ${data.customer_name} requested to cancel Order #${data.order_id}`,
+        icon: '/images/chef.png'
+      });
+    }
+  };
 
-    // Listen for cancellation requests
-    const onCancellationRequested = (data) => {
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          String(order.id) === String(data.order_id)
-            ? { ...order, cancellationRequested: true, cancellationData: data }
-            : order
-        )
-      );
+  socketService.on('cancellation_requested', onCancellationRequested);
 
-      if (Notification.permission === 'granted') {
-        new Notification('Order Cancellation Request', {
-          body: `Customer ${data.customer_name} requested to cancel Order #${data.order_id}`,
-          icon: '/images/chef.png'
-        });
-      }
-    };
+  // Listen for menu item changes in real-time
+  const onMenuItemAdded = (data) => {
+    setMenuItems(prev => {
+      // Check if item already exists
+      const exists = prev.some(item => item.id === data.item_id);
+      if (exists) return prev;
 
-    socketService.on('cancellation_requested', onCancellationRequested);
+      const newItem = {
+        id: data.item_id,
+        name: data.item_name,
+        categories: toCategoryArray(data.category),
+        price: data.price_per_plate,
+        description: data.description || '',
+        available: data.is_available,
+        imageUrl: resolveImageUrl(data.image_url),
+      };
+      return [...prev, newItem];
+    });
 
-    // Listen for menu item changes in real-time
-    const onMenuItemAdded = (data) => {
-      setMenuItems(prev => {
-        // Check if item already exists
-        const exists = prev.some(item => item.id === data.item_id);
-        if (exists) return prev;
+    setStats(prev => ({
+      ...prev,
+      activeItems: (prev.activeItems || 0) + 1
+    }));
 
-        const newItem = {
-          id: data.item_id,
+    if (Notification.permission === 'granted') {
+      new Notification('Menu Item Added', {
+        body: `New item "${data.item_name}" has been added to the menu`,
+        icon: '/images/chef.png'
+      });
+    }
+  };
+
+  const onMenuItemUpdated = (data) => {
+    setMenuItems(prev => prev.map(item =>
+      item.id === data.item_id
+        ? {
+          ...item,
           name: data.item_name,
           categories: toCategoryArray(data.category),
           price: data.price_per_plate,
           description: data.description || '',
           available: data.is_available,
           imageUrl: resolveImageUrl(data.image_url),
-        };
-        return [...prev, newItem];
-      });
-
-      setStats(prev => ({
-        ...prev,
-        activeItems: (prev.activeItems || 0) + 1
-      }));
-
-      if (Notification.permission === 'granted') {
-        new Notification('Menu Item Added', {
-          body: `New item "${data.item_name}" has been added to the menu`,
-          icon: '/images/chef.png'
-        });
-      }
-    };
-
-    const onMenuItemUpdated = (data) => {
-      setMenuItems(prev => prev.map(item =>
-        item.id === data.item_id
-          ? {
-            ...item,
-            name: data.item_name,
-            categories: toCategoryArray(data.category),
-            price: data.price_per_plate,
-            description: data.description || '',
-            available: data.is_available,
-            imageUrl: resolveImageUrl(data.image_url),
-          }
-          : item
-      ));
-    };
-
-    const onMenuItemDeleted = (data) => {
-      setMenuItems(prev => prev.filter(item => item.id !== data.item_id));
-
-      setStats(prev => ({
-        ...prev,
-        activeItems: Math.max(0, (prev.activeItems || 1) - 1)
-      }));
-    };
-
-    const onInventoryChanged = (data) => {
-      setMenuItems(prev => prev.map(item =>
-        item.id === data.item_id
-          ? { ...item, available: data.is_available, stockQuantity: data.stock_quantity }
-          : item
-      ));
-    };
-
-    // Listen for stats updates
-    const onStatsUpdated = (data) => {
-      setStats(prev => ({
-        ...prev,
-        totalOrders: data.total_orders,
-        pending: data.pending,
-        revenue: `₹${data.revenue || 0}`,
-        confirmed: data.confirmed,
-        delivered: data.delivered,
-        cancelled: data.cancelled
-      }));
-    };
-
-    socketService.on('menu_item_added', onMenuItemAdded);
-    socketService.on('menu_item_updated', onMenuItemUpdated);
-    socketService.on('menu_item_deleted', onMenuItemDeleted);
-    socketService.on('inventory_changed', onInventoryChanged);
-    socketService.on('stats_updated', onStatsUpdated);
-
-    // Handle socket reconnection - helps with network recovery
-    const handleReconnect = () => {
-      // On reconnect, we might have missed some orders during disconnection
-      // The existing orders are already tracked in processedOrderIds
-      // New orders will be handled by the order_created event
-      // No action needed here as the duplicate prevention will handle it
-    };
-
-    // Listen for reconnect events
-    const socket = socketService.getSocket();
-    if (socket) {
-      socket.on('reconnect', handleReconnect);
-    }
-
-    // Cleanup listener when component unmounts
-    return () => {
-      socketService.off('order_status_changed', onOrderStatusChanged);
-      socketService.off('customer_created', onCustomerCreated);
-      socketService.off('order_created', onOrderCreated);
-      socketService.off('cancellation_requested', onCancellationRequested);
-      socketService.off('menu_item_added', onMenuItemAdded);
-      socketService.off('menu_item_updated', onMenuItemUpdated);
-      socketService.off('menu_item_deleted', onMenuItemDeleted);
-      socketService.off('inventory_changed', onInventoryChanged);
-      socketService.off('stats_updated', onStatsUpdated);
-
-      // Clean up connect listener
-      const socket = socketService.getSocket();
-      if (socket) {
-        socket.off('connect', handleConnect);
-      }
-
-      // Clean up reconnect listener
-      if (socket) {
-        socket.off('reconnect', handleReconnect);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onLogout]);
-
-  const handleAddItem = async (e) => {
-    e.preventDefault();
-
-    const formData = editingItem ? editForm : newItem;
-    const selectedCategories = formData.categories || [];
-
-    if (!formData.name || !formData.price) {
-      showToast('Please fill in all required fields: Name and Price', 'error');
-      return;
-    }
-
-    if (selectedCategories.length === 0) {
-      showToast('Please select at least one category', 'error');
-      return;
-    }
-
-    try {
-      // Get token from sessionStorage
-      const token = sessionStorage.getItem('_st');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      // If a file is selected, upload it first
-      let imageUrl = formData.image || '';
-      const fileToUpload = editingItem ? editImageFile : newImageFile;
-
-      if (fileToUpload) {
-        const fd = new FormData();
-        fd.append('image', fileToUpload);
-        try {
-          const upRes = await axios.post('/api/uploads/image', fd, {
-            headers: { ...headers },
-          });
-          imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
-        } catch (uploadErr) {
-          console.error('Image upload failed:', uploadErr);
-          showToast('Image upload failed. Item will be saved without image.', 'error');
         }
-      }
-
-      const payload = {
-        item_name: formData.name,
-        categories: selectedCategories,
-        price: parseInt(formData.price, 10),
-        description: formData.description,
-        veg: true,
-      };
-
-      if (imageUrl) {
-        payload.image = imageUrl;
-      }
-
-      if (editingItem) {
-        // Update existing item with new categories
-        await axios.put(`/api/menu/${editingItem}`, payload, { headers });
-        showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
-      } else {
-        // Add new item with selected categories
-        await axios.post('/api/menu', payload, { headers });
-        showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
-      }
-
-      // Refresh menu items
-      const res = await axios.get('/api/menu', { headers });
-      const mapped = res.data.map(item => ({
-        id: item.item_id,
-        name: item.item_name,
-        categories: toCategoryArray(item.category),
-        price: item.price_per_plate,
-        description: item.description || '',
-        available: item.is_available,
-        imageUrl: resolveImageUrl(item.image_url)
-      }));
-
-      const merged = mapped.reduce((acc, curr) => {
-        const key = normalizeName(curr.name);
-        const existing = acc.get(key);
-        if (!existing) {
-          acc.set(key, { ...curr });
-          return acc;
-        }
-        acc.set(key, mergeItemData(existing, curr));
-        return acc;
-      }, new Map());
-
-      setMenuItems(Array.from(merged.values()));
-
-      // Reset forms and close
-      cancelEditing();
-    } catch (err) {
-      console.error('Error saving item:', err);
-      showToast(`Failed to save item: ${err.response?.data?.message || err.message}`, 'error');
-    }
-  };
-
-  const toggleItemAvailability = (id) => {
-    const item = menuItems.find(it => it.id === id);
-    if (!item) return;
-
-    const targetStatus = !item.available;
-    const oldMenuItems = [...menuItems]; // Backup for rollback
-
-    // OPTIMISTIC UPDATE: Change UI immediately
-    setMenuItems(menuItems.map(it =>
-      it.id === id ? { ...it, available: targetStatus } : it
+        : item
     ));
-
-    const token = sessionStorage.getItem('_st');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-    axios.put(`/api/menu/${id}`, { is_available: targetStatus }, { headers })
-      .then(() => {
-        const newStatus = targetStatus ? 'Available' : 'Unavailable';
-        const scopeMsg = newStatus === 'Available'
-          ? 'Item will appear on all customer menus.'
-          : 'Item is hidden from all customer menus.';
-        showToast(`"${item.name}" is now ${newStatus}. ${scopeMsg}`, 'success');
-      })
-      .catch(err => {
-        // ROLLBACK on error
-        setMenuItems(oldMenuItems);
-        console.error('Error updating item availability:', err);
-        showToast(`Failed to update item availability: ${err.response?.data?.message || err.message}`, 'error');
-      });
   };
 
-  const deleteItem = (id) => {
-    const item = menuItems.find(it => it.id === id);
-    if (!item) return;
+  const onMenuItemDeleted = (data) => {
+    setMenuItems(prev => prev.filter(item => item.id !== data.item_id));
 
-    // Show custom confirmation modal
-    setConfirmModal({
-      title: 'Delete Menu Item',
-      message: `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
-      onConfirm: () => {
-        setConfirmModal(null);
-        const token = sessionStorage.getItem('_st');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        axios.delete(`/api/menu/${id}`, { headers })
-          .then(() => {
-            setMenuItems(menuItems.filter(item => item.id !== id));
-            if (editingItem && editingItem === id) {
-              cancelEditing();
-            }
-            showToast(`"${item.name}" has been deleted successfully! ✓`, 'success');
-          })
-          .catch(err => {
-            console.error('Error deleting item:', err);
-            showToast(`Failed to delete item: ${err.response?.data?.message || err.message}`, 'error');
-          });
-      },
-      onCancel: () => setConfirmModal(null)
-    });
+    setStats(prev => ({
+      ...prev,
+      activeItems: Math.max(0, (prev.activeItems || 1) - 1)
+    }));
   };
 
-  const startEditingItem = (item) => {
-    setEditingItem(item.id);
-
-    setEditForm({
-      name: item.name,
-      categories: item.categories || [],
-      price: item.price.toString(),
-      description: item.description,
-      image: item.imageUrl || '',
-      isSpeciality: item.isSpeciality || false
-    });
-    setEditImageFile(null);
-    setShowAddForm(true);
+  const onInventoryChanged = (data) => {
+    setMenuItems(prev => prev.map(item =>
+      item.id === data.item_id
+        ? { ...item, available: data.is_available, stockQuantity: data.stock_quantity }
+        : item
+    ));
   };
 
-  const cancelEditing = () => {
-    setShowAddForm(false);
-    setEditingItem(null);
-    setEditForm({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
-    setEditImageFile(null);
-    setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '', isSpeciality: false });
-    setNewImageFile(null);
+  // Listen for stats updates
+  const onStatsUpdated = (data) => {
+    setStats(prev => ({
+      ...prev,
+      totalOrders: data.total_orders,
+      pending: data.pending,
+      revenue: `₹${data.revenue || 0}`,
+      confirmed: data.confirmed,
+      delivered: data.delivered,
+      cancelled: data.cancelled
+    }));
   };
 
-  const toggleOrderDetails = (id) => {
-    setExpandedOrderId(expandedOrderId === id ? null : id);
+  socketService.on('menu_item_added', onMenuItemAdded);
+  socketService.on('menu_item_updated', onMenuItemUpdated);
+  socketService.on('menu_item_deleted', onMenuItemDeleted);
+  socketService.on('inventory_changed', onInventoryChanged);
+  socketService.on('stats_updated', onStatsUpdated);
+
+  // Handle socket reconnection - helps with network recovery
+  const handleReconnect = () => {
+    // On reconnect, we might have missed some orders during disconnection
+    // The existing orders are already tracked in processedOrderIds
+    // New orders will be handled by the order_created event
+    // No action needed here as the duplicate prevention will handle it
   };
 
-  // Sorting function for orders
-  const getSortedOrders = () => {
-    const sorted = [...orders];
-    switch (orderSortBy) {
-      case 'date-desc':
-        return sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      case 'date-asc':
-        return sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      case 'name-asc':
-        return sorted.sort((a, b) => a.customerName.localeCompare(b.customerName));
-      case 'name-desc':
-        return sorted.sort((a, b) => b.customerName.localeCompare(a.customerName));
-      default:
-        return sorted;
-    }
-  };
-
-  // Sorting and filtering function for customers
-  const getFilteredAndSortedCustomers = () => {
-    let filtered = customers;
-
-    // Filter by name
-    if (customerFilterName.trim()) {
-      filtered = filtered.filter(c =>
-        c.full_name.toLowerCase().includes(customerFilterName.toLowerCase()) ||
-        c.email.toLowerCase().includes(customerFilterName.toLowerCase())
-      );
-    }
-
-    // Sort
-    const sorted = [...filtered];
-    switch (customerSortBy) {
-      case 'date-desc':
-        return sorted.sort((a, b) => new Date(b.customer_id) - new Date(a.customer_id));
-      case 'date-asc':
-        return sorted.sort((a, b) => new Date(a.customer_id) - new Date(b.customer_id));
-      case 'name-asc':
-        return sorted.sort((a, b) => a.full_name.localeCompare(b.full_name));
-      case 'name-desc':
-        return sorted.sort((a, b) => b.full_name.localeCompare(a.full_name));
-      default:
-        return sorted;
-    }
-  };
-
-  const updateOrderStatus = (id, newStatus) => {
-    const token = sessionStorage.getItem('_st');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    axios.put(`/api/orders/status/${id}`, { status: newStatus }, { headers })
-      .then((response) => {
-        setOrders(orders.map(order =>
-          order.id === id ? { ...order, status: newStatus } : order
-        ));
-      })
-      .catch(err => {
-        alert('Failed to update order status');
-      });
-  };
-
-  const handleCancellationApproval = async (orderId, approved) => {
-    try {
-      const token = sessionStorage.getItem('_st');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      await axios.post(`/api/orders/${orderId}/approve-cancel`, { approved }, { headers });
-
-      if (approved) {
-        // Update local state immediately (will also be updated via socket)
-        setOrders(orders.map(order =>
-          order.id === orderId
-            ? { ...order, status: 'Cancelled', cancellationRequested: false }
-            : order
-        ));
-        showAdminPopup(`Order #${orderId} has been cancelled successfully. Customer will be notified.`, 'success');
-      } else {
-        // Remove cancellation request flag
-        setOrders(orders.map(order =>
-          order.id === orderId
-            ? { ...order, cancellationRequested: false }
-            : order
-        ));
-        showAdminPopup(`Cancellation request for Order #${orderId} has been rejected. Customer will be notified.`, 'info');
-      }
-    } catch (err) {
-      showAdminPopup('Failed to process cancellation request. Please try again.', 'error');
-      console.error('Cancellation approval error:', err);
-    }
-  };
-
-  if (loading) {
-    return <LoadingAnimation subtitle="Loading dashboard..." />;
+  // Listen for reconnect events
+  const socket = socketService.getSocket();
+  if (socket) {
+    socket.on('reconnect', handleReconnect);
   }
 
-  if (error) {
-    return (
-      <div className="admin-loading-screen">
-        <div className="admin-loading-content">
-          <img src="/images/ShanmugaBhavaan.png" alt="Hotel Shanmuga Bhavaan" className="admin-loading-logo" />
-          <h2 className="admin-loading-title">Hotel Shanmuga Bhavaan</h2>
-          <p className="admin-error-text">{error}</p>
-          <div className="admin-error-actions">
-            <button onClick={() => window.location.reload()} className="admin-error-btn admin-retry-btn">↻ Retry</button>
-            <button onClick={onLogout} className="admin-error-btn admin-logout-btn">→ Logout</button>
-          </div>
-        </div>
-      </div>
+  // Cleanup listener when component unmounts
+  return () => {
+    socketService.off('order_status_changed', onOrderStatusChanged);
+    socketService.off('customer_created', onCustomerCreated);
+    socketService.off('order_created', onOrderCreated);
+    socketService.off('cancellation_requested', onCancellationRequested);
+    socketService.off('menu_item_added', onMenuItemAdded);
+    socketService.off('menu_item_updated', onMenuItemUpdated);
+    socketService.off('menu_item_deleted', onMenuItemDeleted);
+    socketService.off('inventory_changed', onInventoryChanged);
+    socketService.off('stats_updated', onStatsUpdated);
+
+    // Clean up connect listener
+    const socket = socketService.getSocket();
+    if (socket) {
+      socket.off('connect', handleConnect);
+    }
+
+    // Clean up reconnect listener
+    if (socket) {
+      socket.off('reconnect', handleReconnect);
+    }
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [onLogout]);
+
+const handleAddItem = async (e) => {
+  e.preventDefault();
+
+  const formData = editingItem ? editForm : newItem;
+  const selectedCategories = formData.categories || [];
+
+  if (!formData.name || !formData.price) {
+    showToast('Please fill in all required fields: Name and Price', 'error');
+    return;
+  }
+
+  if (selectedCategories.length === 0) {
+    showToast('Please select at least one category', 'error');
+    return;
+  }
+
+  try {
+    // Get token from sessionStorage
+    const token = sessionStorage.getItem('_st');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    // If a file is selected, upload it first
+    let imageUrl = formData.image || '';
+    const fileToUpload = editingItem ? editImageFile : newImageFile;
+
+    if (fileToUpload) {
+      const fd = new FormData();
+      fd.append('image', fileToUpload);
+      try {
+        const upRes = await axios.post('/api/uploads/image', fd, {
+          headers: { ...headers },
+        });
+        imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+      } catch (uploadErr) {
+        console.error('Image upload failed:', uploadErr);
+        showToast('Image upload failed. Item will be saved without image.', 'error');
+      }
+    }
+
+    const payload = {
+      item_name: formData.name,
+      categories: selectedCategories,
+      price: parseInt(formData.price, 10),
+      description: formData.description,
+      veg: true,
+    };
+
+    if (imageUrl) {
+      payload.image = imageUrl;
+    }
+
+    if (editingItem) {
+      // Update existing item with new categories
+      await axios.put(`/api/menu/${editingItem}`, payload, { headers });
+      showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
+    } else {
+      // Add new item with selected categories
+      await axios.post('/api/menu', payload, { headers });
+      showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
+    }
+
+    // Refresh menu items
+    const res = await axios.get('/api/menu', { headers });
+    const mapped = res.data.map(item => ({
+      id: item.item_id,
+      name: item.item_name,
+      categories: toCategoryArray(item.category),
+      price: item.price_per_plate,
+      description: item.description || '',
+      available: item.is_available,
+      imageUrl: resolveImageUrl(item.image_url)
+    }));
+
+    const merged = mapped.reduce((acc, curr) => {
+      const key = normalizeName(curr.name);
+      const existing = acc.get(key);
+      if (!existing) {
+        acc.set(key, { ...curr });
+        return acc;
+      }
+      acc.set(key, mergeItemData(existing, curr));
+      return acc;
+    }, new Map());
+
+    setMenuItems(Array.from(merged.values()));
+
+    // Reset forms and close
+    cancelEditing();
+  } catch (err) {
+    console.error('Error saving item:', err);
+    showToast(`Failed to save item: ${err.response?.data?.message || err.message}`, 'error');
+  }
+};
+
+const toggleItemAvailability = (id) => {
+  const item = menuItems.find(it => it.id === id);
+  if (!item) return;
+
+  const targetStatus = !item.available;
+  const oldMenuItems = [...menuItems]; // Backup for rollback
+
+  // OPTIMISTIC UPDATE: Change UI immediately
+  setMenuItems(menuItems.map(it =>
+    it.id === id ? { ...it, available: targetStatus } : it
+  ));
+
+  const token = sessionStorage.getItem('_st');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  axios.put(`/api/menu/${id}`, { is_available: targetStatus }, { headers })
+    .then(() => {
+      const newStatus = targetStatus ? 'Available' : 'Unavailable';
+      const scopeMsg = newStatus === 'Available'
+        ? 'Item will appear on all customer menus.'
+        : 'Item is hidden from all customer menus.';
+      showToast(`"${item.name}" is now ${newStatus}. ${scopeMsg}`, 'success');
+    })
+    .catch(err => {
+      // ROLLBACK on error
+      setMenuItems(oldMenuItems);
+      console.error('Error updating item availability:', err);
+      showToast(`Failed to update item availability: ${err.response?.data?.message || err.message}`, 'error');
+    });
+};
+
+const deleteItem = (id) => {
+  const item = menuItems.find(it => it.id === id);
+  if (!item) return;
+
+  // Show custom confirmation modal
+  setConfirmModal({
+    title: 'Delete Menu Item',
+    message: `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
+    onConfirm: () => {
+      setConfirmModal(null);
+      const token = sessionStorage.getItem('_st');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      axios.delete(`/api/menu/${id}`, { headers })
+        .then(() => {
+          setMenuItems(menuItems.filter(item => item.id !== id));
+          if (editingItem && editingItem === id) {
+            cancelEditing();
+          }
+          showToast(`"${item.name}" has been deleted successfully! ✓`, 'success');
+        })
+        .catch(err => {
+          console.error('Error deleting item:', err);
+          showToast(`Failed to delete item: ${err.response?.data?.message || err.message}`, 'error');
+        });
+    },
+    onCancel: () => setConfirmModal(null)
+  });
+};
+
+const startEditingItem = (item) => {
+  setEditingItem(item.id);
+
+  setEditForm({
+    name: item.name,
+    categories: item.categories || [],
+    price: item.price.toString(),
+    description: item.description,
+    image: item.imageUrl || '',
+    isSpeciality: item.isSpeciality || false
+  });
+  setEditImageFile(null);
+  setShowAddForm(true);
+};
+
+const cancelEditing = () => {
+  setShowAddForm(false);
+  setEditingItem(null);
+  setEditForm({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
+  setEditImageFile(null);
+  setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '', isSpeciality: false });
+  setNewImageFile(null);
+};
+
+const toggleOrderDetails = (id) => {
+  setExpandedOrderId(expandedOrderId === id ? null : id);
+};
+
+// Sorting function for orders
+const getSortedOrders = () => {
+  const sorted = [...orders];
+  switch (orderSortBy) {
+    case 'date-desc':
+      return sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    case 'date-asc':
+      return sorted.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    case 'name-asc':
+      return sorted.sort((a, b) => a.customerName.localeCompare(b.customerName));
+    case 'name-desc':
+      return sorted.sort((a, b) => b.customerName.localeCompare(a.customerName));
+    default:
+      return sorted;
+  }
+};
+
+// Sorting and filtering function for customers
+const getFilteredAndSortedCustomers = () => {
+  let filtered = customers;
+
+  // Filter by name
+  if (customerFilterName.trim()) {
+    filtered = filtered.filter(c =>
+      c.full_name.toLowerCase().includes(customerFilterName.toLowerCase()) ||
+      c.email.toLowerCase().includes(customerFilterName.toLowerCase())
     );
   }
 
+  // Sort
+  const sorted = [...filtered];
+  switch (customerSortBy) {
+    case 'date-desc':
+      return sorted.sort((a, b) => new Date(b.customer_id) - new Date(a.customer_id));
+    case 'date-asc':
+      return sorted.sort((a, b) => new Date(a.customer_id) - new Date(b.customer_id));
+    case 'name-asc':
+      return sorted.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    case 'name-desc':
+      return sorted.sort((a, b) => b.full_name.localeCompare(a.full_name));
+    default:
+      return sorted;
+  }
+};
+
+const updateOrderStatus = (id, newStatus) => {
+  const token = sessionStorage.getItem('_st');
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  axios.put(`/api/orders/status/${id}`, { status: newStatus }, { headers })
+    .then((response) => {
+      setOrders(orders.map(order =>
+        order.id === id ? { ...order, status: newStatus } : order
+      ));
+    })
+    .catch(err => {
+      alert('Failed to update order status');
+    });
+};
+
+const handleCancellationApproval = async (orderId, approved) => {
+  try {
+    const token = sessionStorage.getItem('_st');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    await axios.post(`/api/orders/${orderId}/approve-cancel`, { approved }, { headers });
+
+    if (approved) {
+      // Update local state immediately (will also be updated via socket)
+      setOrders(orders.map(order =>
+        order.id === orderId
+          ? { ...order, status: 'Cancelled', cancellationRequested: false }
+          : order
+      ));
+      showAdminPopup(`Order #${orderId} has been cancelled successfully. Customer will be notified.`, 'success');
+    } else {
+      // Remove cancellation request flag
+      setOrders(orders.map(order =>
+        order.id === orderId
+          ? { ...order, cancellationRequested: false }
+          : order
+      ));
+      showAdminPopup(`Cancellation request for Order #${orderId} has been rejected. Customer will be notified.`, 'info');
+    }
+  } catch (err) {
+    showAdminPopup('Failed to process cancellation request. Please try again.', 'error');
+    console.error('Cancellation approval error:', err);
+  }
+};
+
+if (loading) {
+  return <LoadingAnimation subtitle="Loading dashboard..." />;
+}
+
+if (error) {
   return (
-    <div className="admin-dashboard">
-      {/* Header */}
-      <div className="admin-header">
-        <div className="admin-header-left">
-          <h1 className="admin-logo"><img src="/images/ShanmugaBhavaan.png" alt="Hotel Shanmuga Bhavaan" className="admin-logo-img" /> Hotel Shanmuga Bhavaan</h1>
-          <span className="admin-badge">Admin</span>
-        </div>
-        <div className="admin-header-right">
-          <span className="admin-email">{adminInfo?.email || 'admin@shanmugabhavaan.com'}</span>
-          <button onClick={onLogout} className="logout-btn">→ Logout</button>
+    <div className="admin-loading-screen">
+      <div className="admin-loading-content">
+        <img src="/images/ShanmugaBhavaan.png" alt="Hotel Shanmuga Bhavaan" className="admin-loading-logo" />
+        <h2 className="admin-loading-title">Hotel Shanmuga Bhavaan</h2>
+        <p className="admin-error-text">{error}</p>
+        <div className="admin-error-actions">
+          <button onClick={() => window.location.reload()} className="admin-error-btn admin-retry-btn">↻ Retry</button>
+          <button onClick={onLogout} className="admin-error-btn admin-logout-btn">→ Logout</button>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Navigation Tabs */}
-      <div className="admin-tabs">
-        <button
-          className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          📊 Overview
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
-          onClick={() => setActiveTab('menu')}
-        >
-          🍽️ Menu Management
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('orders')}
-        >
-          📋 Orders
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'customers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('customers')}
-        >
-          👥 Customers
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'database' ? 'active' : ''}`}
-          onClick={() => setActiveTab('database')}
-        >
-          🗄️ Database
-        </button>
+return (
+  <div className="admin-dashboard">
+    {/* Header */}
+    <div className="admin-header">
+      <div className="admin-header-left">
+        <h1 className="admin-logo"><img src="/images/ShanmugaBhavaan.png" alt="Hotel Shanmuga Bhavaan" className="admin-logo-img" /> Hotel Shanmuga Bhavaan</h1>
+        <span className="admin-badge">Admin</span>
       </div>
+      <div className="admin-header-right">
+        <span className="admin-email">{adminInfo?.email || 'admin@shanmugabhavaan.com'}</span>
+        <button onClick={onLogout} className="logout-btn">→ Logout</button>
+      </div>
+    </div>
 
-      {/* Content */}
-      <div className="admin-content">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <>
-            {/* Stats Grid */}
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon">📦</div>
-                <div className="stat-info">
-                  <div className="stat-label">Total Orders</div>
-                  <div className="stat-value">{stats.totalOrders}</div>
-                  <div className="stat-subtitle">📈 {stats.pending} pending</div>
-                </div>
-              </div>
+    {/* Navigation Tabs */}
+    <div className="admin-tabs">
+      <button
+        className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+        onClick={() => setActiveTab('overview')}
+      >
+        📊 Overview
+      </button>
+      <button
+        className={`tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
+        onClick={() => setActiveTab('menu')}
+      >
+        🍽️ Menu Management
+      </button>
+      <button
+        className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`}
+        onClick={() => setActiveTab('orders')}
+      >
+        📋 Orders
+      </button>
+      <button
+        className={`tab-btn ${activeTab === 'customers' ? 'active' : ''}`}
+        onClick={() => setActiveTab('customers')}
+      >
+        👥 Customers
+      </button>
+      <button
+        className={`tab-btn ${activeTab === 'database' ? 'active' : ''}`}
+        onClick={() => setActiveTab('database')}
+      >
+        🗄️ Database
+      </button>
+    </div>
 
-              <div className="stat-card">
-                <div className="stat-icon">💰</div>
-                <div className="stat-info">
-                  <div className="stat-label">Revenue</div>
-                  <div className="stat-value">{stats.revenue}</div>
-                  <div className="stat-subtitle">📈 All time</div>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">🍽️</div>
-                <div className="stat-info">
-                  <div className="stat-label">Active Items</div>
-                  <div className="stat-value">{stats.activeItems}</div>
-                  <div className="stat-subtitle">📈 of {stats.activeItems} total</div>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">👥</div>
-                <div className="stat-info">
-                  <div className="stat-label">Customers</div>
-                  <div className="stat-value">{stats.customers}</div>
-                  <div className="stat-subtitle">📈 Unique</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="quick-actions">
-              <h3>Quick Actions</h3>
-              <div className="action-buttons">
-                <button onClick={() => setActiveTab('menu')} className="action-btn primary">
-                  🍽️ Manage Menu
-                </button>
-                <button onClick={() => setActiveTab('orders')} className="action-btn secondary">
-                  📋 View Orders
-                </button>
+    {/* Content */}
+    <div className="admin-content">
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Stats Grid */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon">📦</div>
+              <div className="stat-info">
+                <div className="stat-label">Total Orders</div>
+                <div className="stat-value">{stats.totalOrders}</div>
+                <div className="stat-subtitle">📈 {stats.pending} pending</div>
               </div>
             </div>
 
-            {/* Recent Orders */}
-            <div className="recent-section">
-              <div className="section-header">
-                <h3>Recent Orders</h3>
-                <button className="view-all">View All</button>
-              </div>
-              <div className="orders-list">
-                {orders.map(order => (
-                  <div
-                    key={order.id}
-                    className="order-row"
-                    onClick={() => toggleOrderDetails(order.id)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div>
-                      <div className="order-name">{order.customerName}</div>
-                      <div className="order-phone">{order.phone}</div>
-                    </div>
-                    <div className="order-total">₹{order.total}</div>
-                    <div className="order-status">{order.status}</div>
-                  </div>
-                ))}
+            <div className="stat-card">
+              <div className="stat-icon">💰</div>
+              <div className="stat-info">
+                <div className="stat-label">Revenue</div>
+                <div className="stat-value">{stats.revenue}</div>
+                <div className="stat-subtitle">📈 All time</div>
               </div>
             </div>
-          </>
-        )}
 
-        {/* Menu Management Tab */}
-        {activeTab === 'menu' && (
-          <>
-            <div className="menu-header-admin">
-              <h3>Menu Items ({menuItems.length})</h3>
-              <button
-                onClick={() => {
-                  setShowAddForm(true);
-                  setEditingItem(null); // reset to add mode
-                  setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
-                  setEditForm({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
-                  setNewImageFile(null);
-                  setEditImageFile(null);
-                }}
-                className="add-item-btn"
-              >
-                + Add Item
+            <div className="stat-card">
+              <div className="stat-icon">🍽️</div>
+              <div className="stat-info">
+                <div className="stat-label">Active Items</div>
+                <div className="stat-value">{stats.activeItems}</div>
+                <div className="stat-subtitle">📈 of {stats.activeItems} total</div>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon">👥</div>
+              <div className="stat-info">
+                <div className="stat-label">Customers</div>
+                <div className="stat-value">{stats.customers}</div>
+                <div className="stat-subtitle">📈 Unique</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="quick-actions">
+            <h3>Quick Actions</h3>
+            <div className="action-buttons">
+              <button onClick={() => setActiveTab('menu')} className="action-btn primary">
+                🍽️ Manage Menu
+              </button>
+              <button onClick={() => setActiveTab('orders')} className="action-btn secondary">
+                📋 View Orders
               </button>
             </div>
+          </div>
 
-            {/* Add / Edit Item Form */}
-            {showAddForm && (
-              <div className="add-form-container">
-                <form onSubmit={handleAddItem} className="add-item-form">
-                  <input
-                    type="text"
-                    placeholder="Item Name"
-                    value={editingItem ? editForm.name : newItem.name}
-                    onChange={(e) =>
-                      editingItem
-                        ? setEditForm((prev) => {
-                          const name = e.target.value;
-                          return {
-                            ...prev,
-                            name,
-                            image: prev.image || suggestImageByName(name),
-                          };
-                        })
-                        : setNewItem((prev) => {
-                          const name = e.target.value;
-                          return {
-                            ...prev,
-                            name,
-                            image: prev.image || suggestImageByName(name),
-                          };
-                        })
-                    }
-                    required
-                  />
-                  <div className="category-multi-select">
-                    <div className="category-select-label">Select Categories</div>
-                    <div className="category-options">
-                      {['Morning Tiffin Menu', 'Lunch Menu', 'Dinner Menu'].map(category => {
-                        const currentCategories = editingItem ? editForm.categories : newItem.categories;
-                        const isSelected = currentCategories.includes(category);
-                        return (
-                          <label key={category} className="category-checkbox-item">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                let newCategories;
-                                if (e.target.checked) {
-                                  newCategories = [...currentCategories, category];
-                                } else {
-                                  newCategories = currentCategories.filter(c => c !== category);
-                                  if (newCategories.length === 0) return; // Prevent empty selection
-                                }
-                                editingItem
-                                  ? setEditForm({ ...editForm, categories: newCategories })
-                                  : setNewItem({ ...newItem, categories: newCategories });
-                              }}
-                            />
-                            <span className="checkbox-custom"></span>
-                            <span className="category-name">{category}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
+          {/* Recent Orders */}
+          <div className="recent-section">
+            <div className="section-header">
+              <h3>Recent Orders</h3>
+              <button className="view-all">View All</button>
+            </div>
+            <div className="orders-list">
+              {orders.map(order => (
+                <div
+                  key={order.id}
+                  className="order-row"
+                  onClick={() => toggleOrderDetails(order.id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div>
+                    <div className="order-name">{order.customerName}</div>
+                    <div className="order-phone">{order.phone}</div>
                   </div>
-                  <input
-                    type="number"
-                    placeholder="Price"
-                    value={editingItem ? editForm.price : newItem.price}
-                    onChange={(e) =>
-                      editingItem
-                        ? setEditForm({ ...editForm, price: e.target.value })
-                        : setNewItem({ ...newItem, price: e.target.value })
+                  <div className="order-total">₹{order.total}</div>
+                  <div className="order-status">{order.status}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Menu Management Tab */}
+      {activeTab === 'menu' && (
+        <>
+          <div className="menu-header-admin">
+            <h3>Menu Items ({menuItems.length})</h3>
+            <button
+              onClick={() => {
+                setShowAddForm(true);
+                setEditingItem(null); // reset to add mode
+                setNewItem({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
+                setEditForm({ name: '', categories: ['Morning Tiffin Menu'], price: '', description: '', image: '' });
+                setNewImageFile(null);
+                setEditImageFile(null);
+              }}
+              className="add-item-btn"
+            >
+              + Add Item
+            </button>
+          </div>
+
+          {/* Add / Edit Item Form */}
+          {showAddForm && (
+            <div className="add-form-container">
+              <form onSubmit={handleAddItem} className="add-item-form">
+                <input
+                  type="text"
+                  placeholder="Item Name"
+                  value={editingItem ? editForm.name : newItem.name}
+                  onChange={(e) =>
+                    editingItem
+                      ? setEditForm((prev) => {
+                        const name = e.target.value;
+                        return {
+                          ...prev,
+                          name,
+                          image: prev.image || suggestImageByName(name),
+                        };
+                      })
+                      : setNewItem((prev) => {
+                        const name = e.target.value;
+                        return {
+                          ...prev,
+                          name,
+                          image: prev.image || suggestImageByName(name),
+                        };
+                      })
+                  }
+                  required
+                />
+                <div className="category-multi-select">
+                  <div className="category-select-label">Select Categories</div>
+                  <div className="category-options">
+                    {['Morning Tiffin Menu', 'Lunch Menu', 'Dinner Menu'].map(category => {
+                      const currentCategories = editingItem ? editForm.categories : newItem.categories;
+                      const isSelected = currentCategories.includes(category);
+                      return (
+                        <label key={category} className="category-checkbox-item">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              let newCategories;
+                              if (e.target.checked) {
+                                newCategories = [...currentCategories, category];
+                              } else {
+                                newCategories = currentCategories.filter(c => c !== category);
+                                if (newCategories.length === 0) return; // Prevent empty selection
+                              }
+                              editingItem
+                                ? setEditForm({ ...editForm, categories: newCategories })
+                                : setNewItem({ ...newItem, categories: newCategories });
+                            }}
+                          />
+                          <span className="checkbox-custom"></span>
+                          <span className="category-name">{category}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  placeholder="Price"
+                  value={editingItem ? editForm.price : newItem.price}
+                  onChange={(e) =>
+                    editingItem
+                      ? setEditForm({ ...editForm, price: e.target.value })
+                      : setNewItem({ ...newItem, price: e.target.value })
+                  }
+                  required
+                />
+                <textarea
+                  placeholder="Description"
+                  value={editingItem ? editForm.description : newItem.description}
+                  onChange={(e) =>
+                    editingItem
+                      ? setEditForm({ ...editForm, description: e.target.value })
+                      : setNewItem({ ...newItem, description: e.target.value })
+                  }
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0];
+                    if (editingItem) {
+                      setEditImageFile(file || null);
+                      if (file) setEditForm({ ...editForm, image: '' });
+                    } else {
+                      setNewImageFile(file || null);
+                      if (file) setNewItem({ ...newItem, image: '' });
                     }
-                    required
-                  />
-                  <textarea
-                    placeholder="Description"
-                    value={editingItem ? editForm.description : newItem.description}
-                    onChange={(e) =>
-                      editingItem
-                        ? setEditForm({ ...editForm, description: e.target.value })
-                        : setNewItem({ ...newItem, description: e.target.value })
-                    }
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files && e.target.files[0];
-                      if (editingItem) {
-                        setEditImageFile(file || null);
-                        if (file) setEditForm({ ...editForm, image: '' });
-                      } else {
-                        setNewImageFile(file || null);
-                        if (file) setNewItem({ ...newItem, image: '' });
-                      }
+                  }}
+                />
+                <div className="image-preview">
+                  <span>Preview:</span>
+                  <img
+                    src={editingItem
+                      ? (editImageFile
+                        ? URL.createObjectURL(editImageFile)
+                        : (editForm.image || suggestImageByName(editForm.name)))
+                      : (newImageFile
+                        ? URL.createObjectURL(newImageFile)
+                        : (newItem.image || suggestImageByName(newItem.name)))}
+                    alt="preview"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `${process.env.PUBLIC_URL || ''}/images/chef.png`;
                     }}
                   />
-                  <div className="image-preview">
-                    <span>Preview:</span>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="save-btn">
+                    {editingItem ? 'Update Item' : 'Save Item'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    className="cancel-btn"
+                  >
+                    Cancel
+                  </button>
+                  {editingItem && (
+                    <button
+                      type="button"
+                      onClick={() => deleteItem(editingItem)}
+                      className="delete-btn-form"
+                    >
+                      🗑️ Delete Item
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Menu Items List */}
+          <div className="menu-list">
+            {menuItems.map(item => (
+              <div key={item.id} className={`menu-item-row${item.isSpeciality ? ' special-row' : ''}`}>
+                <div className="item-image">
+                  {item.imageUrl ? (
                     <img
-                      src={editingItem
-                        ? (editImageFile
-                          ? URL.createObjectURL(editImageFile)
-                          : (editForm.image || suggestImageByName(editForm.name)))
-                        : (newImageFile
-                          ? URL.createObjectURL(newImageFile)
-                          : (newItem.image || suggestImageByName(newItem.name)))}
-                      alt="preview"
+                      src={item.imageUrl}
+                      alt={item.name}
+                      className="menu-thumb"
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = `${process.env.PUBLIC_URL || ''}/images/chef.png`;
                       }}
                     />
+                  ) : (
+                    <span role="img" aria-label="dish">🍽️</span>
+                  )}
+                </div>
+                <div className="item-details">
+                  {item.isSpeciality && <span className="speciality-badge">🌟 Speciality</span>}
+                  <div className="item-name">{item.name}</div>
+                  <div className="item-categories">
+                    {(item.categories || []).map((cat, idx) => (
+                      <span key={idx} className="category-tag">{cat}</span>
+                    ))}
                   </div>
-                  <div className="form-actions">
-                    <button type="submit" className="save-btn">
-                      {editingItem ? 'Update Item' : 'Save Item'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditing}
-                      className="cancel-btn"
-                    >
-                      Cancel
-                    </button>
-                    {editingItem && (
-                      <button
-                        type="button"
-                        onClick={() => deleteItem(editingItem)}
-                        className="delete-btn-form"
-                      >
-                        🗑️ Delete Item
-                      </button>
-                    )}
-                  </div>
-                </form>
+                  <div className="item-desc">{item.description}</div>
+                </div>
+                <div className="item-price">₹{item.price}</div>
+                <div className="item-actions">
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={item.available}
+                      onChange={() => toggleItemAvailability(item.id)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <button
+                    className="edit-btn"
+                    type="button"
+                    title="Edit item"
+                    onClick={() => startEditingItem(item)}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="delete-btn"
+                    type="button"
+                    title="Delete item"
+                    style={{ display: 'inline-block', visibility: 'visible' }}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        </>
+      )}
 
-            {/* Menu Items List */}
-            <div className="menu-list">
-              {menuItems.map(item => (
-                <div key={item.id} className={`menu-item-row${item.isSpeciality ? ' special-row' : ''}`}>
-                  <div className="item-image">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="menu-thumb"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = `${process.env.PUBLIC_URL || ''}/images/chef.png`;
-                        }}
-                      />
-                    ) : (
-                      <span role="img" aria-label="dish">🍽️</span>
-                    )}
-                  </div>
-                  <div className="item-details">
-                    {item.isSpeciality && <span className="speciality-badge">🌟 Speciality</span>}
-                    <div className="item-name">{item.name}</div>
-                    <div className="item-categories">
-                      {(item.categories || []).map((cat, idx) => (
-                        <span key={idx} className="category-tag">{cat}</span>
-                      ))}
+      {/* Orders Tab with expandable details */}
+      {activeTab === 'orders' && (
+        <div className="orders-section">
+          <div className="orders-header">
+            <h3>All Orders ({orders.length})</h3>
+            <div className="sort-controls">
+              <label htmlFor="order-sort">Sort by:</label>
+              <select
+                id="order-sort"
+                value={orderSortBy}
+                onChange={(e) => setOrderSortBy(e.target.value)}
+                className="sort-select"
+              >
+                <option value="date-desc">📅 Newest First</option>
+                <option value="date-asc">📅 Oldest First</option>
+                <option value="name-asc">👤 Customer A-Z</option>
+                <option value="name-desc">👤 Customer Z-A</option>
+              </select>
+            </div>
+          </div>
+          <div className="orders-table">
+            {getSortedOrders().map(order => (
+              <div key={order.id} className="order-card">
+                <div className="order-card-header">
+                  <div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <strong>{order.orderId}</strong>
+                      <span className={`status-badge ${statusToClass(order.status)}`}>{order.status}</span>
+                      {order.cancellationRequested && (
+                        <span className="status-badge" style={{
+                          background: '#fbbf24',
+                          color: '#92400e',
+                          animation: 'pulse 2s infinite'
+                        }}>
+                          ⚠️ Cancellation Requested
+                        </span>
+                      )}
                     </div>
-                    <div className="item-desc">{item.description}</div>
+                    <div className="order-meta">{order.customerName} • {order.phone}</div>
                   </div>
-                  <div className="item-price">₹{item.price}</div>
-                  <div className="item-actions">
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={item.available}
-                        onChange={() => toggleItemAvailability(item.id)}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
+                  <div style={{ textAlign: 'right' }}>
+                    <div className="order-total-amount">₹{order.total}</div>
+                    <div className="order-time">{order.timestamp}</div>
                     <button
-                      className="edit-btn"
-                      type="button"
-                      title="Edit item"
-                      onClick={() => startEditingItem(item)}
+                      className="expand-btn"
+                      onClick={() => toggleOrderDetails(order.id)}
                     >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => deleteItem(item.id)}
-                      className="delete-btn"
-                      type="button"
-                      title="Delete item"
-                      style={{ display: 'inline-block', visibility: 'visible' }}
-                    >
-                      🗑️
+                      {expandedOrderId === order.id ? '▴' : '▾'}
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
 
-        {/* Orders Tab with expandable details */}
-        {activeTab === 'orders' && (
-          <div className="orders-section">
-            <div className="orders-header">
-              <h3>All Orders ({orders.length})</h3>
-              <div className="sort-controls">
-                <label htmlFor="order-sort">Sort by:</label>
-                <select
-                  id="order-sort"
-                  value={orderSortBy}
-                  onChange={(e) => setOrderSortBy(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="date-desc">📅 Newest First</option>
-                  <option value="date-asc">📅 Oldest First</option>
-                  <option value="name-asc">👤 Customer A-Z</option>
-                  <option value="name-desc">👤 Customer Z-A</option>
-                </select>
-              </div>
-            </div>
-            <div className="orders-table">
-              {getSortedOrders().map(order => (
-                <div key={order.id} className="order-card">
-                  <div className="order-card-header">
-                    <div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <strong>{order.orderId}</strong>
-                        <span className={`status-badge ${statusToClass(order.status)}`}>{order.status}</span>
-                        {order.cancellationRequested && (
-                          <span className="status-badge" style={{
-                            background: '#fbbf24',
-                            color: '#92400e',
-                            animation: 'pulse 2s infinite'
-                          }}>
-                            ⚠️ Cancellation Requested
-                          </span>
-                        )}
+                {expandedOrderId === order.id && (
+                  <div className="order-card-body order-details-grid">
+                    <div className="order-items">
+                      <h4>Order Items</h4>
+                      <div className="items-list">
+                        {order.items.map((it, idx) => (
+                          <div key={idx} className="order-item-row">
+                            <div className="item-name-col">{it.name} × {it.qty}</div>
+                            <div className="item-price-col">₹{it.price}</div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="order-meta">{order.customerName} • {order.phone}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="order-total-amount">₹{order.total}</div>
-                      <div className="order-time">{order.timestamp}</div>
-                      <button
-                        className="expand-btn"
-                        onClick={() => toggleOrderDetails(order.id)}
-                      >
-                        {expandedOrderId === order.id ? '▴' : '▾'}
-                      </button>
-                    </div>
-                  </div>
 
-                  {expandedOrderId === order.id && (
-                    <div className="order-card-body order-details-grid">
-                      <div className="order-items">
-                        <h4>Order Items</h4>
-                        <div className="items-list">
-                          {order.items.map((it, idx) => (
-                            <div key={idx} className="order-item-row">
-                              <div className="item-name-col">{it.name} × {it.qty}</div>
-                              <div className="item-price-col">₹{it.price}</div>
-                            </div>
+                    <div className="order-right">
+                      <h4>Delivery Address</h4>
+                      <p className="delivery-address">{order.address}</p>
+
+                      <h4 style={{ marginTop: '1rem' }}>Event Date</h4>
+                      <p>{order.eventDate}</p>
+
+                      <div className="update-status-section">
+                        <h4>Update Status</h4>
+                        <div className="status-buttons">
+                          {['Pending', 'Paid', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'].map(s => (
+                            <button
+                              key={s}
+                              className={`status-btn ${order.status === s ? 'active' : ''}`}
+                              onClick={() => updateOrderStatus(order.id, s)}
+                              type="button"
+                            >
+                              {s}
+                            </button>
                           ))}
                         </div>
                       </div>
 
-                      <div className="order-right">
-                        <h4>Delivery Address</h4>
-                        <p className="delivery-address">{order.address}</p>
-
-                        <h4 style={{ marginTop: '1rem' }}>Event Date</h4>
-                        <p>{order.eventDate}</p>
-
-                        <div className="update-status-section">
-                          <h4>Update Status</h4>
-                          <div className="status-buttons">
-                            {['Pending', 'Paid', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'].map(s => (
-                              <button
-                                key={s}
-                                className={`status-btn ${order.status === s ? 'active' : ''}`}
-                                onClick={() => updateOrderStatus(order.id, s)}
-                                type="button"
-                              >
-                                {s}
-                              </button>
-                            ))}
+                      {order.cancellationRequested && (
+                        <div className="cancellation-approval-section" style={{
+                          marginTop: '1.5rem',
+                          padding: '1.5rem',
+                          background: 'linear-gradient(135deg, #fff8e6, #ffe6cc)',
+                          border: '2px solid #fbbf24',
+                          borderRadius: '12px'
+                        }}>
+                          <h4 style={{ color: '#92400e', marginTop: 0 }}>⚠️ Cancellation Request</h4>
+                          <p style={{ margin: '0.5rem 0 1rem', color: '#78350f' }}>
+                            Customer has requested to cancel this order. Please approve or reject the request.
+                          </p>
+                          <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button
+                              onClick={() => handleCancellationApproval(order.id, true)}
+                              style={{
+                                flex: 1,
+                                background: '#dc2626',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0.75rem 1rem',
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                              }}
+                              onMouseOver={(e) => e.target.style.background = '#b91c1c'}
+                              onMouseOut={(e) => e.target.style.background = '#dc2626'}
+                            >
+                              ✓ Approve Cancellation
+                            </button>
+                            <button
+                              onClick={() => handleCancellationApproval(order.id, false)}
+                              style={{
+                                flex: 1,
+                                background: '#6b7280',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0.75rem 1rem',
+                                fontSize: '1rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                              }}
+                              onMouseOver={(e) => e.target.style.background = '#4b5563'}
+                              onMouseOut={(e) => e.target.style.background = '#6b7280'}
+                            >
+                              ✗ Reject Request
+                            </button>
                           </div>
                         </div>
-
-                        {order.cancellationRequested && (
-                          <div className="cancellation-approval-section" style={{
-                            marginTop: '1.5rem',
-                            padding: '1.5rem',
-                            background: 'linear-gradient(135deg, #fff8e6, #ffe6cc)',
-                            border: '2px solid #fbbf24',
-                            borderRadius: '12px'
-                          }}>
-                            <h4 style={{ color: '#92400e', marginTop: 0 }}>⚠️ Cancellation Request</h4>
-                            <p style={{ margin: '0.5rem 0 1rem', color: '#78350f' }}>
-                              Customer has requested to cancel this order. Please approve or reject the request.
-                            </p>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                              <button
-                                onClick={() => handleCancellationApproval(order.id, true)}
-                                style={{
-                                  flex: 1,
-                                  background: '#dc2626',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  padding: '0.75rem 1rem',
-                                  fontSize: '1rem',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.3s ease'
-                                }}
-                                onMouseOver={(e) => e.target.style.background = '#b91c1c'}
-                                onMouseOut={(e) => e.target.style.background = '#dc2626'}
-                              >
-                                ✓ Approve Cancellation
-                              </button>
-                              <button
-                                onClick={() => handleCancellationApproval(order.id, false)}
-                                style={{
-                                  flex: 1,
-                                  background: '#6b7280',
-                                  color: '#fff',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  padding: '0.75rem 1rem',
-                                  fontSize: '1rem',
-                                  fontWeight: '600',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.3s ease'
-                                }}
-                                onMouseOver={(e) => e.target.style.background = '#4b5563'}
-                                onMouseOut={(e) => e.target.style.background = '#6b7280'}
-                              >
-                                ✗ Reject Request
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Customers Tab */}
+      {activeTab === 'customers' && (
+        <div className="customers-section">
+          <div className="customers-header">
+            <h3>All Customers ({customers.length})</h3>
+            <div className="filter-sort-controls">
+              <input
+                type="text"
+                placeholder="🔍 Search by name or email..."
+                value={customerFilterName}
+                onChange={(e) => setCustomerFilterName(e.target.value)}
+                className="search-input"
+              />
+              <select
+                value={customerSortBy}
+                onChange={(e) => setCustomerSortBy(e.target.value)}
+                className="sort-select"
+              >
+                <option value="date-desc">📅 Newest First</option>
+                <option value="date-asc">📅 Oldest First</option>
+                <option value="name-asc">👤 Name A-Z</option>
+                <option value="name-desc">👤 Name Z-A</option>
+              </select>
             </div>
           </div>
-        )}
-
-        {/* Customers Tab */}
-        {activeTab === 'customers' && (
-          <div className="customers-section">
-            <div className="customers-header">
-              <h3>All Customers ({customers.length})</h3>
-              <div className="filter-sort-controls">
-                <input
-                  type="text"
-                  placeholder="🔍 Search by name or email..."
-                  value={customerFilterName}
-                  onChange={(e) => setCustomerFilterName(e.target.value)}
-                  className="search-input"
-                />
-                <select
-                  value={customerSortBy}
-                  onChange={(e) => setCustomerSortBy(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="date-desc">📅 Newest First</option>
-                  <option value="date-asc">📅 Oldest First</option>
-                  <option value="name-asc">👤 Name A-Z</option>
-                  <option value="name-desc">👤 Name Z-A</option>
-                </select>
-              </div>
+          <div className="customers-table">
+            <div className="table-header">
+              <div className="table-cell">Customer ID</div>
+              <div className="table-cell">Name</div>
+              <div className="table-cell">Email</div>
+              <div className="table-cell">Phone</div>
+              <div className="table-cell">Total Orders</div>
             </div>
-            <div className="customers-table">
-              <div className="table-header">
-                <div className="table-cell">Customer ID</div>
-                <div className="table-cell">Name</div>
-                <div className="table-cell">Email</div>
-                <div className="table-cell">Phone</div>
-                <div className="table-cell">Total Orders</div>
-              </div>
-              {getFilteredAndSortedCustomers().length > 0 ? (
-                getFilteredAndSortedCustomers().map(customer => (
-                  <div key={customer.customer_id} className="table-row">
-                    <div className="table-cell">#{customer.customer_id}</div>
-                    <div className="table-cell">{customer.full_name}</div>
-                    <div className="table-cell">{customer.email}</div>
-                    <div className="table-cell">{customer.phone_number}</div>
-                    <div className="table-cell">{customer.total_orders_count || 0}</div>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <p>No customers found matching your search.</p>
+            {getFilteredAndSortedCustomers().length > 0 ? (
+              getFilteredAndSortedCustomers().map(customer => (
+                <div key={customer.customer_id} className="table-row">
+                  <div className="table-cell">#{customer.customer_id}</div>
+                  <div className="table-cell">{customer.full_name}</div>
+                  <div className="table-cell">{customer.email}</div>
+                  <div className="table-cell">{customer.phone_number}</div>
+                  <div className="table-cell">{customer.total_orders_count || 0}</div>
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="empty-state">
+                <p>No customers found matching your search.</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Database Tab */}
-        {activeTab === 'database' && (
-          <div className="database-section">
-            <h3>Database Overview</h3>
+      {/* Database Tab */}
+      {activeTab === 'database' && (
+        <div className="database-section">
+          <h3>Database Overview</h3>
 
-            <div className="database-grid">
-              {/* Orders Table */}
-              <div className="db-table-card">
-                <h4>📋 Orders Table</h4>
-                <p className="db-count">{orders.length} records</p>
-                <div className="db-details">
-                  <div className="db-stat">
-                    <span>Pending:</span>
-                    <strong>{orders.filter(o => o.status === 'Pending').length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Paid:</span>
-                    <strong>{orders.filter(o => o.status === 'Paid').length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Delivered:</span>
-                    <strong>{orders.filter(o => o.status === 'Delivered').length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Cancelled:</span>
-                    <strong>{orders.filter(o => o.status === 'Cancelled').length}</strong>
-                  </div>
+          <div className="database-grid">
+            {/* Orders Table */}
+            <div className="db-table-card">
+              <h4>📋 Orders Table</h4>
+              <p className="db-count">{orders.length} records</p>
+              <div className="db-details">
+                <div className="db-stat">
+                  <span>Pending:</span>
+                  <strong>{orders.filter(o => o.status === 'Pending').length}</strong>
                 </div>
-              </div>
-
-              {/* Menu Items Table */}
-              <div className="db-table-card">
-                <h4>🍽️ Menu Items Table</h4>
-                <p className="db-count">{menuItems.length} records</p>
-                <div className="db-details">
-                  <div className="db-stat">
-                    <span>Available:</span>
-                    <strong>{menuItems.filter(m => m.available).length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Unavailable:</span>
-                    <strong>{menuItems.filter(m => !m.available).length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Categories:</span>
-                    <strong>{[...new Set(menuItems.map(m => m.category))].length}</strong>
-                  </div>
+                <div className="db-stat">
+                  <span>Paid:</span>
+                  <strong>{orders.filter(o => o.status === 'Paid').length}</strong>
                 </div>
-              </div>
-
-              {/* Customers Table */}
-              <div className="db-table-card">
-                <h4>👥 Customers Table</h4>
-                <p className="db-count">{customers.length} records</p>
-                <div className="db-details">
-                  <div className="db-stat">
-                    <span>Registered:</span>
-                    <strong>{customers.filter(c => c.password_hash).length}</strong>
-                  </div>
-                  <div className="db-stat">
-                    <span>Guest:</span>
-                    <strong>{customers.filter(c => !c.password_hash).length}</strong>
-                  </div>
+                <div className="db-stat">
+                  <span>Delivered:</span>
+                  <strong>{orders.filter(o => o.status === 'Delivered').length}</strong>
                 </div>
-              </div>
-
-              {/* Event Types Table */}
-              <div className="db-table-card">
-                <h4>🎉 Event Types Table</h4>
-                <p className="db-count">{eventTypes.length} records</p>
-                <div className="db-details">
-                  {eventTypes.map(event => (
-                    <div key={event.event_type_id} className="db-stat">
-                      <span>{event.event_name}:</span>
-                      <strong>Active</strong>
-                    </div>
-                  ))}
+                <div className="db-stat">
+                  <span>Cancelled:</span>
+                  <strong>{orders.filter(o => o.status === 'Cancelled').length}</strong>
                 </div>
               </div>
             </div>
 
-            {/* Recent Database Activity */}
-            <div className="recent-activity">
-              <h4>Recent Activity</h4>
-              <div className="activity-list">
-                {orders.slice(0, 5).map(order => (
-                  <div key={order.id} className="activity-item">
-                    <span className="activity-icon">📝</span>
-                    <span className="activity-text">
-                      New order #{order.orderId} from {order.customerName}
-                    </span>
-                    <span className="activity-time">{order.timestamp}</span>
+            {/* Menu Items Table */}
+            <div className="db-table-card">
+              <h4>🍽️ Menu Items Table</h4>
+              <p className="db-count">{menuItems.length} records</p>
+              <div className="db-details">
+                <div className="db-stat">
+                  <span>Available:</span>
+                  <strong>{menuItems.filter(m => m.available).length}</strong>
+                </div>
+                <div className="db-stat">
+                  <span>Unavailable:</span>
+                  <strong>{menuItems.filter(m => !m.available).length}</strong>
+                </div>
+                <div className="db-stat">
+                  <span>Categories:</span>
+                  <strong>{[...new Set(menuItems.map(m => m.category))].length}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Customers Table */}
+            <div className="db-table-card">
+              <h4>👥 Customers Table</h4>
+              <p className="db-count">{customers.length} records</p>
+              <div className="db-details">
+                <div className="db-stat">
+                  <span>Registered:</span>
+                  <strong>{customers.filter(c => c.password_hash).length}</strong>
+                </div>
+                <div className="db-stat">
+                  <span>Guest:</span>
+                  <strong>{customers.filter(c => !c.password_hash).length}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Types Table */}
+            <div className="db-table-card">
+              <h4>🎉 Event Types Table</h4>
+              <p className="db-count">{eventTypes.length} records</p>
+              <div className="db-details">
+                {eventTypes.map(event => (
+                  <div key={event.event_type_id} className="db-stat">
+                    <span>{event.event_name}:</span>
+                    <strong>Active</strong>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* System Info */}
-            <div className="system-info">
-              <h4>System Information</h4>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span>Database Type:</span>
-                  <strong>SQLite</strong>
+          {/* Recent Database Activity */}
+          <div className="recent-activity">
+            <h4>Recent Activity</h4>
+            <div className="activity-list">
+              {orders.slice(0, 5).map(order => (
+                <div key={order.id} className="activity-item">
+                  <span className="activity-icon">📝</span>
+                  <span className="activity-text">
+                    New order #{order.orderId} from {order.customerName}
+                  </span>
+                  <span className="activity-time">{order.timestamp}</span>
                 </div>
-                <div className="info-item">
-                  <span>Total Tables:</span>
-                  <strong>8</strong>
-                </div>
-                <div className="info-item">
-                  <span>Admin User:</span>
-                  <strong>{adminInfo?.email}</strong>
-                </div>
-                <div className="info-item">
-                  <span>Payment Methods:</span>
-                  <strong>Razorpay, COD</strong>
-                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* System Info */}
+          <div className="system-info">
+            <h4>System Information</h4>
+            <div className="info-grid">
+              <div className="info-item">
+                <span>Database Type:</span>
+                <strong>SQLite</strong>
+              </div>
+              <div className="info-item">
+                <span>Total Tables:</span>
+                <strong>8</strong>
+              </div>
+              <div className="info-item">
+                <span>Admin User:</span>
+                <strong>{adminInfo?.email}</strong>
+              </div>
+              <div className="info-item">
+                <span>Payment Methods:</span>
+                <strong>Razorpay, COD</strong>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Toast Notification */}
-        {toast && (
-          <div className={`toast-notification toast-${toast.type}`}>
-            <div className="toast-content">
-              {toast.type === 'success' && <span className="toast-icon">✓</span>}
-              {toast.type === 'error' && <span className="toast-icon">✕</span>}
-              <span className="toast-message">{toast.message}</span>
-            </div>
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`toast-notification toast-${toast.type}`}>
+          <div className="toast-content">
+            {toast.type === 'success' && <span className="toast-icon">✓</span>}
+            {toast.type === 'error' && <span className="toast-icon">✕</span>}
+            <span className="toast-message">{toast.message}</span>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Confirmation Modal */}
-        {confirmModal && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h3 className="modal-title">{confirmModal.title}</h3>
-              <p className="modal-message">{confirmModal.message}</p>
-              <div className="modal-actions">
-                <button
-                  className="modal-btn modal-btn-confirm"
-                  onClick={confirmModal.onConfirm}
-                >
-                  Yes, Delete
-                </button>
-                <button
-                  className="modal-btn modal-btn-cancel"
-                  onClick={confirmModal.onCancel}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Admin Popup Notification */}
-        {showAdminPopupState && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(128, 0, 0, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            animation: 'fadeIn 0.3s ease-out'
-          }}>
-            <div style={{
-              background: '#fff',
-              borderRadius: '16px',
-              padding: '2.5rem',
-              maxWidth: '500px',
-              width: '90%',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
-              border: '3px solid #d4af37',
-              textAlign: 'center',
-              animation: 'slideUp 0.3s ease-out'
-            }}>
-              <div style={{
-                width: '70px',
-                height: '70px',
-                borderRadius: '50%',
-                background: adminPopupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
-                  : adminPopupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                    : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                margin: '0 auto 1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2rem',
-                color: '#fff',
-                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
-              }}>
-                {adminPopupType === 'success' ? '✓' : adminPopupType === 'error' ? '✕' : 'ℹ'}
-              </div>
-              <h3 style={{
-                color: '#7a0000',
-                marginTop: 0,
-                marginBottom: '1rem',
-                fontSize: '1.5rem',
-                fontWeight: '700'
-              }}>
-                {adminPopupType === 'success' ? 'Success!' : adminPopupType === 'error' ? 'Error' : 'Information'}
-              </h3>
-              <p style={{
-                color: '#4a4a4a',
-                lineHeight: '1.6',
-                marginBottom: '2rem',
-                fontSize: '1.05rem'
-              }}>
-                {adminPopupMessage}
-              </p>
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="modal-title">{confirmModal.title}</h3>
+            <p className="modal-message">{confirmModal.message}</p>
+            <div className="modal-actions">
               <button
-                onClick={() => setShowAdminPopupState(false)}
-                style={{
-                  background: 'linear-gradient(135deg, #d4af37, #f4d03f)',
-                  color: '#7a0000',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.875rem 2.5rem',
-                  fontSize: '1.05rem',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(212, 175, 55, 0.4)',
-                  transition: 'all 0.3s ease',
-                  width: '100%'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 6px 20px rgba(212, 175, 55, 0.6)';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.4)';
-                }}
+                className="modal-btn modal-btn-confirm"
+                onClick={confirmModal.onConfirm}
               >
-                OK
+                Yes, Delete
+              </button>
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={confirmModal.onCancel}
+              >
+                Cancel
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Admin Popup Notification */}
+      {showAdminPopupState && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(128, 0, 0, 0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '16px',
+            padding: '2.5rem',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(212, 175, 55, 0.3)',
+            border: '3px solid #d4af37',
+            textAlign: 'center',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{
+              width: '70px',
+              height: '70px',
+              borderRadius: '50%',
+              background: adminPopupType === 'success' ? 'linear-gradient(135deg, #10b981, #059669)'
+                : adminPopupType === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              margin: '0 auto 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              color: '#fff',
+              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+            }}>
+              {adminPopupType === 'success' ? '✓' : adminPopupType === 'error' ? '✕' : 'ℹ'}
+            </div>
+            <h3 style={{
+              color: '#7a0000',
+              marginTop: 0,
+              marginBottom: '1rem',
+              fontSize: '1.5rem',
+              fontWeight: '700'
+            }}>
+              {adminPopupType === 'success' ? 'Success!' : adminPopupType === 'error' ? 'Error' : 'Information'}
+            </h3>
+            <p style={{
+              color: '#4a4a4a',
+              lineHeight: '1.6',
+              marginBottom: '2rem',
+              fontSize: '1.05rem'
+            }}>
+              {adminPopupMessage}
+            </p>
+            <button
+              onClick={() => setShowAdminPopupState(false)}
+              style={{
+                background: 'linear-gradient(135deg, #d4af37, #f4d03f)',
+                color: '#7a0000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.875rem 2.5rem',
+                fontSize: '1.05rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(212, 175, 55, 0.4)',
+                transition: 'all 0.3s ease',
+                width: '100%'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px rgba(212, 175, 55, 0.6)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.4)';
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }
