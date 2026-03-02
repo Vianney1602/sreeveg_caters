@@ -66,10 +66,10 @@ def create_app():
         },
     )
 
-    # Initialize SocketIO with CORS settings and production-ready config
+    # Initialize SocketIO with explicit CORS settings and production-ready config
     socketio.init_app(
         app,
-        cors_allowed_origins="*",
+        cors_allowed_origins=allowed, # Use explicit list instead of "*" for withCredentials support
         async_mode="eventlet",
         allow_upgrades=True,  # allow websocket upgrades for direct EC2 connection
         # Production-ready session settings with extended timeouts for Vercel proxy stability
@@ -78,6 +78,8 @@ def create_app():
         engineio_logger=True, # Enable debug logs to catch why 400 is returned
         logger=True, 
         manage_session=False, # Don't manage sessions to avoid affinity issues 
+        cookie=None,          # Disable cookies to avoid sticky session issues if polling is used
+        always_connect=True   # Force connection attempt even if handshake is slow
     )
 
     # Import models

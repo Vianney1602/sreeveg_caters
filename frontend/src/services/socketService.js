@@ -29,14 +29,14 @@ class SocketService {
     }
 
     const options = {
-      // Allow both transports with increased timeouts for Vercel/EC2 proxy stability
-      transports: ['polling', 'websocket'],
+      // Force WebSocket first to bypass polling handshake issues at the proxy level
+      transports: ['websocket', 'polling'],
       upgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: Infinity,
-      timeout: 30000, // Increase from 10s to 30s
+      timeout: 60000, // Increase to 60s for high-latency environments
       auth: this.lastToken ? { token: this.lastToken } : {},
       withCredentials: true,
     };

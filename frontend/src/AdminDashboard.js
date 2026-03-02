@@ -667,6 +667,12 @@ export default function AdminDashboard({ onLogout }) {
     if (!item) return;
 
     const targetStatus = !item.available;
+    const oldMenuItems = [...menuItems]; // Backup for rollback
+
+    // OPTIMISTIC UPDATE: Change UI immediately
+    setMenuItems(menuItems.map(it =>
+      it.id === id ? { ...it, available: targetStatus } : it
+    ));
 
     const token = sessionStorage.getItem('_st');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -674,15 +680,14 @@ export default function AdminDashboard({ onLogout }) {
     axios.put(`/api/menu/${id}`, { is_available: targetStatus }, { headers })
       .then(() => {
         const newStatus = targetStatus ? 'Available' : 'Unavailable';
-        setMenuItems(menuItems.map(it =>
-          it.id === id ? { ...it, available: targetStatus } : it
-        ));
         const scopeMsg = newStatus === 'Available'
           ? 'Item will appear on all customer menus.'
           : 'Item is hidden from all customer menus.';
         showToast(`"${item.name}" is now ${newStatus}. ${scopeMsg}`, 'success');
       })
       .catch(err => {
+        // ROLLBACK on error
+        setMenuItems(oldMenuItems);
         console.error('Error updating item availability:', err);
         showToast(`Failed to update item availability: ${err.response?.data?.message || err.message}`, 'error');
       });
