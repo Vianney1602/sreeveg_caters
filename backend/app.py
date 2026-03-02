@@ -83,7 +83,7 @@ def create_app():
         ping_interval=25,
         engineio_logger=True, # Enable debug logs to catch why 400 is returned
         logger=True, 
-        manage_session=True, # Restore session management
+        manage_session=False, # Don't manage sessions to avoid affinity issues 
     )
 
     # Import models
