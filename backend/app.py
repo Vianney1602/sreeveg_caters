@@ -1,6 +1,13 @@
 import eventlet
 eventlet.monkey_patch()
 
+# Initialize psycogreen for non-blocking Postgres I/O with Eventlet
+try:
+    from psycogreen.eventlet import patch_psycopg
+    patch_psycopg()
+except ImportError:
+    pass
+
 import os
 import logging
 
@@ -65,9 +72,9 @@ def create_app():
         cors_allowed_origins="*",
         async_mode="eventlet",
         allow_upgrades=True,  # allow websocket upgrades for direct EC2 connection
-        # Production-ready session settings
-        ping_timeout=15,
-        ping_interval=5,
+        # Production-ready session settings with extended timeouts for Vercel proxy stability
+        ping_timeout=60,
+        ping_interval=25,
         engineio_logger=False,
         manage_session=False,  # Don't manage sessions to avoid encoding issues
     )

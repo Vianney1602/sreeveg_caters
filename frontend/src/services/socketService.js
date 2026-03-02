@@ -29,14 +29,14 @@ class SocketService {
     }
 
     const options = {
-      // Force pure Websocket transport to skip polling and avoid session affinity issues with Vercel Edge
-      transports: ['websocket'],
-      upgrade: false,
+      // Allow both transports with increased timeouts for Vercel/EC2 proxy stability
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: Infinity,
-      timeout: 10000,
+      timeout: 30000, // Increase from 10s to 30s
       auth: this.lastToken ? { token: this.lastToken } : {},
       withCredentials: true,
     };
