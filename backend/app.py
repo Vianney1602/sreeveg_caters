@@ -62,6 +62,12 @@ def create_app():
                 "origins": allowed,
                 "methods": ["GET", "OPTIONS"],
                 "allow_headers": ["Content-Type"],
+            },
+            r"/socket.io/*": {
+                "origins": allowed,
+                "methods": ["GET", "POST", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                "supports_credentials": True,
             }
         },
     )
@@ -75,8 +81,9 @@ def create_app():
         # Production-ready session settings with extended timeouts for Vercel proxy stability
         ping_timeout=60,
         ping_interval=25,
-        engineio_logger=False,
-        manage_session=False,  # Don't manage sessions to avoid encoding issues
+        engineio_logger=True, # Enable debug logs to catch why 400 is returned
+        logger=True, 
+        manage_session=True, # Restore session management
     )
 
     # Import models
