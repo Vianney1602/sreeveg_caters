@@ -123,6 +123,8 @@ const suggestImageByName = (name) => {
 };
 
 export default function AdminDashboard({ onLogout }) {
+  // Track processed order IDs to prevent duplicates during network issues
+  const processedOrderIds = useRef(new Set());
 
   const [activeTab, setActiveTab] = useState('overview');
   const [menuItems, setMenuItems] = useState([]);
