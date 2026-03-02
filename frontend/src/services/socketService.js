@@ -1,8 +1,8 @@
 import { io } from 'socket.io-client';
 
-// Socket.IO URL: use REACT_APP_SOCKET_URL if set (for local dev where proxy can't handle Socket.IO),
-// otherwise fall back to REACT_APP_API_BASE_URL, then current origin
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_BASE_URL || window.location.origin;
+// Socket.IO URL: Bypass Vercel's proxy rewrites entirely in production to prevent WebSocket upgrade headers from being stripped or mangled.
+// Connect directly to the EC2 Nginx server.
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'https://info.hotelshanmugabhavaan.com';
 
 class SocketService {
   constructor() {
