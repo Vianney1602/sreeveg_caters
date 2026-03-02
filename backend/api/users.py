@@ -44,24 +44,94 @@ def validate_otp_format(otp):
     """Validate OTP is a 6-digit string"""
     return isinstance(otp, str) and len(otp) == 6 and otp.isdigit()
 
+
+@users_bp.route("/send-registration-otp", methods=["POST"])
+def send_registration_otp():
+    """Send OTP for new account registration"""
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        
+        if not email:
+            return jsonify({"error": "Email is required"}), 400
+            
+        # Check if user already exists
+        existing_user = Customer.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({"error": "User with this email already exists"}), 400
+            
+        # Generate OTP
+        otp = generate_otp()
+        
+        # Store OTP with registration prefix
+        otp_key = f"reg_otp:{email}"
+        if redis_client:
+            try:
+                redis_client.setex(otp_key, 600, otp)
+            except:
+                otp_storage[otp_key] = {
+                    "otp": otp,
+                    "expires": datetime.utcnow() + timedelta(minutes=10)
+                }
+        else:
+            otp_storage[otp_key] = {
+                "otp": otp,
+                "expires": datetime.utcnow() + timedelta(minutes=10)
+            }
+            
+        # Send email
+        from brevo_mail import send_registration_otp_email
+        email_sent = send_registration_otp_email(email, otp)
+        
+        return jsonify({
+            "message": "OTP sent successfully" if email_sent else "OTP generated (Dev Mode)",
+            "dev_otp": otp if not email_sent else None
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @users_bp.route("/register", methods=["POST"])
 def register():
-    """Register a new user"""
+    """Register a new user with OTP verification"""
     try:
         data = request.get_json()
         name = data.get("name")
         email = data.get("email")
         password = data.get("password")
         phone = data.get("phone", "")
+        otp = data.get("otp")
         
-        if not name or not email or not password:
-            return jsonify({"error": "Name, email, and password are required"}), 400
+        if not name or not email or not password or not otp:
+            return jsonify({"error": "All fields including OTP are required"}), 400
+            
+        # Verify OTP
+        otp_key = f"reg_otp:{email}"
+        is_valid = False
         
-        # Check if user already exists
+        if redis_client:
+            try:
+                stored_otp = redis_client.get(otp_key)
+                if stored_otp and stored_otp == otp:
+                    is_valid = True
+                    redis_client.delete(otp_key)
+            except:
+                pass
+                
+        if not is_valid and otp_key in otp_storage:
+            stored_data = otp_storage[otp_key]
+            if datetime.utcnow() <= stored_data["expires"] and stored_data["otp"] == otp:
+                is_valid = True
+                del otp_storage[otp_key]
+                
+        if not is_valid:
+            return jsonify({"error": "Invalid or expired OTP"}), 400
+            
+        # Check if user already exists (double check)
         existing_user = Customer.query.filter_by(email=email).first()
         if existing_user:
             return jsonify({"error": "User with this email already exists"}), 400
-        
+            
         # Create new user
         password_hash = generate_password_hash(password)
         new_user = Customer(
@@ -76,7 +146,11 @@ def register():
         
         return jsonify({
             "message": "User registered successfully",
-            "user_id": new_user.customer_id
+            "user": {
+                "id": new_user.customer_id,
+                "name": new_user.full_name,
+                "email": new_user.email
+            }
         }), 201
         
     except Exception as e:

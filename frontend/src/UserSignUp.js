@@ -6,6 +6,8 @@ import './home.css';
 
 export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHome }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState(0); // 0: Details, 1: OTP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -14,20 +16,39 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await axios.post('/api/users/send-registration-otp', { email: form.email });
+      setStep(1);
+      setSuccess('Verification code sent to your email!');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
-      await axios.post('/api/users/register', form);
-      setSuccess('Account created successfully! You can now sign in.');
+      const response = await axios.post('/api/users/register', { ...form, otp });
+      setSuccess('Account created successfully! Redirecting...');
+
+      // Auto login if possible or go to sign in
       setTimeout(() => {
         goToSignIn();
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      setError(err.response?.data?.error || 'Registration failed. Please check your OTP.');
     } finally {
       setLoading(false);
     }
@@ -41,16 +62,16 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
         email: decoded.email,
         name: decoded.name
       });
-      
+
       // Store token
       sessionStorage.setItem('_userToken', response.data.token);
       sessionStorage.setItem('_user', JSON.stringify(response.data.user));
-      
+
       // Call success callback
       if (onSignUpSuccess) {
         onSignUpSuccess(response.data.user);
       }
-      
+
       // Redirect to home page
       if (goToHome) {
         goToHome();
@@ -67,60 +88,87 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
   return (
     <div className="auth-container">
       <div className="auth-box">
-        <h2>Create Your Account</h2>
-        <form onSubmit={handleSubmit}>
-          <input 
-            name="name" 
-            type="text" 
-            placeholder="Full Name" 
-            value={form.name} 
-            onChange={handleChange} 
-            required 
-          />
-          <input 
-            name="email" 
-            type="email" 
-            placeholder="Email" 
-            value={form.email} 
-            onChange={handleChange} 
-            required 
-          />
-          <input 
-            name="phone" 
-            type="tel" 
-            placeholder="Phone Number (Optional)" 
-            value={form.phone} 
-            onChange={handleChange} 
-          />
-          <input 
-            name="password" 
-            type="password" 
-            placeholder="Password" 
-            value={form.password} 
-            onChange={handleChange} 
-            required 
-            minLength="6"
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Account'}
-          </button>
-        </form>
-        
+        <h2>{step === 0 ? "Create Your Account" : "Verify Your Email"}</h2>
+
+        {step === 0 ? (
+          <form onSubmit={handleSendOtp}>
+            <input
+              name="name"
+              type="text"
+              placeholder="Full Name"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
+            <input
+              name="email"
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={handleChange}
+              required
+            />
+            <input
+              name="phone"
+              type="tel"
+              placeholder="Phone Number (Optional)"
+              value={form.phone}
+              onChange={handleChange}
+            />
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              required
+              minLength="6"
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? 'Sending Code...' : 'Send Verification Code'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <p className="auth-instruction">Enter the 6-digit code sent to <strong>{form.email}</strong></p>
+            <input
+              type="text"
+              placeholder="6-digit OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              maxLength="6"
+              className="otp-input"
+              style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '8px' }}
+            />
+            <button type="submit" disabled={loading || otp.length !== 6}>
+              {loading ? 'Verifying...' : 'Verify & Create Account'}
+            </button>
+            <div className="auth-links">
+              <span onClick={() => setStep(0)}>Change Email / Edit Details</span>
+            </div>
+          </form>
+        )}
+
         {error && <div className="auth-error">{error}</div>}
         {success && <div className="auth-success">{success}</div>}
-        
-        <div className="auth-divider">or</div>
-        
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={handleGoogleError}
-          text="signup_with"
-          shape="rectangular"
-          theme="filled_blue"
-          size="large"
-          width="400"
-        />
-        
+
+        {step === 0 && (
+          <>
+            <div className="auth-divider">or</div>
+
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              text="signup_with"
+              shape="rectangular"
+              theme="filled_blue"
+              size="large"
+              width="100%"
+            />
+          </>
+        )}
+
         <div className="auth-links">
           <span onClick={goToSignIn}>Already have an account? Sign In</span>
           <span onClick={goBack}>Back</span>

@@ -176,6 +176,36 @@ def send_otp_email(to_email, otp):
     return send_email(to_email, subject, html, text)
 
 
+def send_registration_otp_email(to_email, otp):
+    """Send OTP for new account registration"""
+    subject = "Verify Your Email - Hotel Shanmuga Bhavaan"
+    text = (
+        f"Hello,\n\n"
+        f"Thank you for choosing Hotel Shanmuga Bhavaan! To complete your account registration, please use the following One-Time Password (OTP):\n\n"
+        f"Your Verification Code is: {otp}\n\n"
+        f"This code is valid for 10 minutes. Please do not share this code with anyone.\n\n"
+        f"If you did not request this, please ignore this email.\n\n"
+        f"Best regards,\nHotel Shanmuga Bhavaan Team"
+    )
+    body = f"""
+    {_header_section("Account Verification")}
+    <div class="content">
+        <p>Hello,</p>
+        <p>Thank you for choosing <strong>Hotel Shanmuga Bhavaan</strong>! To complete your registration, please verify your email address.</p>
+        <div class="otp-box" style="background: #e8f5e9; border-color: #4caf50;">
+            <p class="otp-label">Your Verification Code:</p>
+            <div class="otp" style="color: #2e7d32;">{otp}</div>
+            <p class="otp-expiry">Valid for 10 minutes</p>
+        </div>
+        <p><strong>Note:</strong> This code is required to activate your account. Please do not share it with others.</p>
+        <p style="color: #666; font-size: 14px;">If you did not attempt to create an account, please ignore this email.</p>
+    </div>
+    {_footer_section()}
+"""
+    html = _wrap_html(body)
+    return send_email(to_email, subject, html, text)
+
+
 def send_admin_otp_email(to_email, otp):
     """Send OTP for admin password reset"""
     subject = "Admin Password Reset OTP - Hotel Shanmuga Bhavaan"
