@@ -79,18 +79,11 @@ def send_registration_otp():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
             
-        # Send email synchronously so we can report failure to the user
-        from brevo_mail import send_registration_otp_email
-        email_sent = send_registration_otp_email(email, otp)
+        # Send OTP email in background (non-blocking) so response is instant
+        from brevo_mail import send_registration_otp_email_async
+        send_registration_otp_email_async(email, otp)
         
-        if not email_sent:
-            print(f"[OTP] Registration OTP email FAILED for {email}. OTP: {otp}")
-            return jsonify({
-                "message": "OTP generated but email delivery failed. Please try again.",
-                "dev_otp": otp
-            }), 200
-        
-        print(f"[OTP] Registration OTP sent successfully to {email}")
+        print(f"[OTP] Registration OTP dispatched for {email}")
         return jsonify({
             "message": "OTP sent successfully"
         }), 200
@@ -330,15 +323,11 @@ def forgot_password():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
         
-        # Send OTP email synchronously so we can report failure
-        from brevo_mail import send_otp_email
-        email_sent = send_otp_email(email, otp)
+        # Send OTP email in background (non-blocking) so response is instant
+        from brevo_mail import send_otp_email_async
+        send_otp_email_async(email, otp)
         
-        if not email_sent:
-            print(f"[OTP] Password reset OTP email FAILED for {email}. OTP: {otp}")
-            return jsonify({"message": "OTP generated but email delivery failed. Please try again.", "dev_otp": otp}), 200
-        
-        print(f"[OTP] Password reset OTP sent successfully to {email}")
+        print(f"[OTP] Password reset OTP dispatched for {email}")
         return jsonify({"message": "OTP sent to your email"}), 200
         
     except Exception as e:

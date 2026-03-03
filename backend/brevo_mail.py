@@ -3,6 +3,7 @@ Brevo Email Service
 Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
+import eventlet
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
@@ -48,18 +49,22 @@ EMAIL_BASE_STYLE = """
 
 
 def _get_api_instance():
-    """Get configured Brevo API instance"""
+    """Get configured Brevo API instance with proper timeouts"""
     api_key = os.environ.get("BREVO_API_KEY")
     if not api_key:
         print("[BREVO ERROR] BREVO_API_KEY not set in environment variables!")
         return None
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = api_key
-    # Set a short timeout so a bad/rate-limited API key fails fast
-    # instead of blocking the OTP endpoint for minutes.
     configuration.connection_pool_maxsize = 4
     api_client = sib_api_v3_sdk.ApiClient(configuration)
-    api_client.rest_client.pool_manager.connection_pool_kw['timeout'] = 8
+    # Set connect + read timeout (seconds) so requests fail fast
+    try:
+        import urllib3
+        api_client.rest_client.pool_manager.connection_pool_kw['timeout'] = \
+            urllib3.Timeout(connect=5, read=10)
+    except Exception:
+        pass
     return sib_api_v3_sdk.TransactionalEmailsApi(api_client)
 
 
@@ -147,6 +152,18 @@ def send_email(to_email, subject, html_content, text_content=None):
         return False
 
 
+def send_email_async(to_email, subject, html_content, text_content=None):
+    """
+    Fire-and-forget email send using eventlet green thread.
+    Does NOT block the calling request. Errors are logged but not raised.
+    """
+    def _send():
+        try:
+            send_email(to_email, subject, html_content, text_content)
+        except Exception as exc:
+            print(f"[BREVO ASYNC ERROR] {to_email}: {exc}")
+    eventlet.spawn_n(_send)
+
 
 # ── Pre-built email templates ────────────────────────────────────────────
 
@@ -180,6 +197,16 @@ def send_otp_email(to_email, otp):
     return send_email(to_email, subject, html, text)
 
 
+def send_otp_email_async(to_email, otp):
+    """Non-blocking OTP email for password reset — returns immediately"""
+    def _send():
+        try:
+            send_otp_email(to_email, otp)
+        except Exception as exc:
+            print(f"[BREVO ASYNC ERROR] Password reset OTP to {to_email}: {exc}")
+    eventlet.spawn_n(_send)
+
+
 def send_registration_otp_email(to_email, otp):
     """Send OTP for new account registration"""
     subject = "Verify Your Email - Hotel Shanmuga Bhavaan"
@@ -208,6 +235,16 @@ def send_registration_otp_email(to_email, otp):
 """
     html = _wrap_html(body)
     return send_email(to_email, subject, html, text)
+
+
+def send_registration_otp_email_async(to_email, otp):
+    """Non-blocking OTP email for account registration — returns immediately"""
+    def _send():
+        try:
+            send_registration_otp_email(to_email, otp)
+        except Exception as exc:
+            print(f"[BREVO ASYNC ERROR] Registration OTP to {to_email}: {exc}")
+    eventlet.spawn_n(_send)
 
 
 def send_admin_otp_email(to_email, otp):
