@@ -45,6 +45,40 @@ def validate_otp_format(otp):
     return isinstance(otp, str) and len(otp) == 6 and otp.isdigit()
 
 
+@users_bp.route("/test-brevo", methods=["GET"])
+def test_brevo():
+    """Diagnostic: Test Brevo API connectivity. Hit /api/users/test-brevo to check."""
+    import socket
+    results = {}
+    
+    # 1. Check BREVO_API_KEY
+    api_key = os.environ.get("BREVO_API_KEY", "")
+    results["api_key_set"] = bool(api_key)
+    results["api_key_preview"] = api_key[:12] + "..." if api_key else "NOT SET"
+    
+    # 2. DNS resolution test
+    try:
+        addrs = socket.getaddrinfo("api.brevo.com", 443, socket.AF_INET)
+        results["dns_ipv4"] = [a[4][0] for a in addrs[:3]]
+    except Exception as e:
+        results["dns_error"] = str(e)
+    
+    # 3. Try sending a test email
+    try:
+        from brevo_mail import send_email
+        sent = send_email(
+            "test-diagnostic@example.com",
+            "Brevo Connectivity Test",
+            "<p>This is a diagnostic test from the server.</p>",
+            "Diagnostic test"
+        )
+        results["send_test"] = "SUCCESS" if sent else "FAILED (returned False)"
+    except Exception as e:
+        results["send_test"] = f"EXCEPTION: {type(e).__name__}: {str(e)}"
+    
+    return jsonify(results), 200
+
+
 @users_bp.route("/send-registration-otp", methods=["POST"])
 def send_registration_otp():
     """Send OTP for new account registration"""
@@ -92,13 +126,16 @@ def send_registration_otp():
         
         if email_sent:
             print(f"[OTP] Registration OTP email SENT to {email}")
+            return jsonify({
+                "message": "OTP sent successfully",
+                "email_sent": True
+            }), 200
         else:
             print(f"[OTP] Registration OTP email FAILED for {email}, OTP={otp}")
-        
-        return jsonify({
-            "message": "OTP sent successfully" if email_sent else "OTP generated but email failed. Please try again.",
-            "email_sent": email_sent
-        }), 200
+            return jsonify({
+                "error": "Failed to send verification email. Please try again.",
+                "email_sent": False
+            }), 502
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -348,10 +385,10 @@ def forgot_password():
         
         if email_sent:
             print(f"[OTP] Password reset OTP email SENT to {email}")
+            return jsonify({"message": "OTP sent to your email"}), 200
         else:
             print(f"[OTP] Password reset OTP email FAILED for {email}, OTP={otp}")
-        
-        return jsonify({"message": "OTP sent to your email" if email_sent else "OTP generated but email failed. Please try again."}), 200
+            return jsonify({"error": "Failed to send OTP email. Please try again."}), 502
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500

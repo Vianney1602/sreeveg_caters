@@ -141,11 +141,16 @@ def send_email(to_email, subject, html_content, text_content=None):
     Send a transactional email via Brevo API.
     Returns True on success, False on failure.
     """
+    print(f"[BREVO] send_email called: to={to_email}, subject={subject}")
+    
     api_instance = _get_api_instance()
     if not api_instance:
+        print("[BREVO ERROR] No API instance - BREVO_API_KEY missing?")
         return False
 
     sender = _get_sender()
+    print(f"[BREVO] Sender: {sender['email']}, connecting to Brevo API...")
+    
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": to_email}],
         sender={"name": sender["name"], "email": sender["email"]},
@@ -155,14 +160,16 @@ def send_email(to_email, subject, html_content, text_content=None):
     )
 
     try:
-        api_instance.send_transac_email(send_smtp_email)
-        print(f"[BREVO] Email sent successfully to {to_email}: {subject}")
+        response = api_instance.send_transac_email(send_smtp_email)
+        print(f"[BREVO OK] Email sent to {to_email}: {subject} | Response: {response}")
         return True
     except ApiException as e:
-        print(f"[BREVO ERROR] ApiException sending to {to_email}: {e.status} {e.reason} - {e.body}")
+        print(f"[BREVO ERROR] ApiException sending to {to_email}: status={e.status} reason={e.reason} body={e.body}")
         return False
     except Exception as e:
-        print(f"[BREVO ERROR] Exception sending to {to_email}: {str(e)}")
+        print(f"[BREVO ERROR] Exception sending to {to_email}: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

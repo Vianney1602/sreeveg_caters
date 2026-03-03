@@ -17,17 +17,20 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
   };
 
   const handleSendOtp = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      await axios.post('/api/users/send-registration-otp', { email: form.email });
+      const res = await axios.post('/api/users/send-registration-otp', { email: form.email });
       setStep(1);
-      setSuccess('Verification code sent to your email!');
+      setSuccess(res.data?.message || 'Verification code sent to your email!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send verification code.');
+      const msg = err.response?.data?.error || 'Failed to send verification code.';
+      setError(msg);
+      // If we already reached step 1, stay there so user can resend
+      if (step === 0) setStep(0);
     } finally {
       setLoading(false);
     }
@@ -145,6 +148,9 @@ export default function UserSignUp({ goToSignIn, goBack, onSignUpSuccess, goToHo
               {loading ? 'Verifying...' : 'Verify & Create Account'}
             </button>
             <div className="auth-links">
+              <span onClick={() => { if (!loading) handleSendOtp(); }} style={{ cursor: loading ? 'not-allowed' : 'pointer' }}>
+                {loading ? 'Sending...' : 'Resend OTP'}
+              </span>
               <span onClick={() => setStep(0)}>Change Email / Edit Details</span>
             </div>
           </form>
