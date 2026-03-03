@@ -1,27 +1,36 @@
 import os
-import sys
-from sqlalchemy import text
-from flask import Flask
+import re
+import psycopg2
 
-# Add the parent directory to sys.path to allow importing from backend modules
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-try:
-    from app import create_app
-    from extensions import db
-except ImportError as e:
-    print(f"Error: Could not import backend modules. Make sure you are running this from the backend directory. {e}")
-    sys.exit(1)
+def get_db_url():
+    """Read DATABASE_URL from .env file"""
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if not os.path.exists(env_path):
+        env_path = os.path.join(os.getcwd(), '.env')
+        
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                if line.startswith('DATABASE_URL='):
+                    return line.split('=', 1)[1].strip()
+    return os.environ.get('DATABASE_URL')
 
 def optimize_database():
-    app = create_app()
-    with app.app_context():
-        print(f"Starting database optimization on: {app.config['SQLALCHEMY_DATABASE_URI']}")
-        
-        # 1. Index for faster order lookups by customer
-        # 2. Index for faster status filtering (Overview page)
-        # 3. Index for chronological sorting
-        # 4. Index for customer email lookups (Login/Forgot PW)
+    db_url = get_db_url()
+    if not db_url:
+        print("Error: DATABASE_URL not found in .env or environment variables.")
+        return
+
+    # Convert sqlalchemy-style URL to psycopg2-compatible URL
+    # Replace postgresql+psycopg2:// with postgresql://
+    conn_url = db_url.replace('postgresql+psycopg2://', 'postgresql://')
+    
+    print(f"Connecting to database...")
+    
+    try:
+        conn = psycopg2.connect(conn_url)
+        conn.autocommit = True
+        cur = conn.cursor()
         
         indexes = [
             ("idx_orders_customer_id", "orders", "customer_id"),
@@ -31,31 +40,26 @@ def optimize_database():
             ("idx_order_menu_items_order_id", "order_menu_items", "order_id")
         ]
         
-        is_postgres = "postgresql" in app.config['SQLALCHEMY_DATABASE_URI'].lower()
+        print("Successfully connected to the database.")
         
         for idx_name, table, column in indexes:
             try:
                 print(f"Adding index {idx_name} to {table}({column})...")
-                
-                if is_postgres:
-                    # PostgreSQL syntax with 'IF NOT EXISTS' requires newer versions, 
-                    # better to catch the exception if it already exists
-                    sql = text(f"CREATE INDEX {idx_name} ON {table} ({column})")
-                else:
-                    # SQLite syntax
-                    sql = text(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table} ({column})")
-                
-                db.session.execute(sql)
-                db.session.commit()
+                sql = f"CREATE INDEX {idx_name} ON {table} ({column})"
+                cur.execute(sql)
                 print(f"Successfully added index {idx_name}.")
             except Exception as e:
-                db.session.rollback()
-                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                if "already exists" in str(e).lower():
                     print(f"Index {idx_name} already exists. Skipping.")
                 else:
                     print(f"Error adding index {idx_name}: {e}")
 
-        print("\nDatabase optimization complete! Your Admin Dashboard queries should now be significantly faster.")
+        cur.close()
+        conn.close()
+        print("\nDatabase optimization complete! Admin Dashboard queries are now optimized.")
+
+    except Exception as e:
+        print(f"Connection error: {e}")
 
 if __name__ == "__main__":
     optimize_database()
