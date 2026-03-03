@@ -3,9 +3,24 @@ Brevo Email Service
 Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
-import eventlet
+import socket
+import threading
+import traceback
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
+
+# ── IPv4 enforcement ─────────────────────────────────────────────────────
+# EC2 ap-south-2 has no IPv6 connectivity.  DNS returns AAAA records for
+# api.brevo.com, and urllib3 tries them first → connection timeout.
+# Patch socket.getaddrinfo once so ALL outbound connections use IPv4.
+if not getattr(socket, '_ipv4_patched', False):
+    _orig_getaddrinfo = socket.getaddrinfo
+    def _ipv4_only_getaddrinfo(*args, **kwargs):
+        results = _orig_getaddrinfo(*args, **kwargs)
+        ipv4 = [r for r in results if r[0] == socket.AF_INET]
+        return ipv4 if ipv4 else results
+    socket.getaddrinfo = _ipv4_only_getaddrinfo
+    socket._ipv4_patched = True
 
 # Hotel logo URL (served from the live website)
 LOGO_URL = "https://hotelshanmugabhavaan.com/images/ShanmugaBhavaan.png"
@@ -154,15 +169,21 @@ def send_email(to_email, subject, html_content, text_content=None):
 
 def send_email_async(to_email, subject, html_content, text_content=None):
     """
-    Fire-and-forget email send using eventlet green thread.
+    Fire-and-forget email send using a daemon thread.
     Does NOT block the calling request. Errors are logged but not raised.
+    Uses threading.Thread (proven reliable in orders.py).
     """
     def _send():
         try:
-            send_email(to_email, subject, html_content, text_content)
+            print(f"[BREVO THREAD] Starting email send to {to_email}: {subject}")
+            result = send_email(to_email, subject, html_content, text_content)
+            if not result:
+                print(f"[BREVO THREAD] Email send returned False for {to_email}")
         except Exception as exc:
-            print(f"[BREVO ASYNC ERROR] {to_email}: {exc}")
-    eventlet.spawn_n(_send)
+            print(f"[BREVO THREAD ERROR] {to_email}: {exc}")
+            traceback.print_exc()
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
 
 
 # ── Pre-built email templates ────────────────────────────────────────────
@@ -201,10 +222,17 @@ def send_otp_email_async(to_email, otp):
     """Non-blocking OTP email for password reset — returns immediately"""
     def _send():
         try:
-            send_otp_email(to_email, otp)
+            print(f"[BREVO THREAD] Sending password reset OTP to {to_email}")
+            result = send_otp_email(to_email, otp)
+            if result:
+                print(f"[BREVO THREAD] Password reset OTP sent OK to {to_email}")
+            else:
+                print(f"[BREVO THREAD] Password reset OTP FAILED for {to_email}")
         except Exception as exc:
-            print(f"[BREVO ASYNC ERROR] Password reset OTP to {to_email}: {exc}")
-    eventlet.spawn_n(_send)
+            print(f"[BREVO THREAD ERROR] Password reset OTP to {to_email}: {exc}")
+            traceback.print_exc()
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
 
 
 def send_registration_otp_email(to_email, otp):
@@ -241,10 +269,17 @@ def send_registration_otp_email_async(to_email, otp):
     """Non-blocking OTP email for account registration — returns immediately"""
     def _send():
         try:
-            send_registration_otp_email(to_email, otp)
+            print(f"[BREVO THREAD] Sending registration OTP to {to_email}")
+            result = send_registration_otp_email(to_email, otp)
+            if result:
+                print(f"[BREVO THREAD] Registration OTP sent OK to {to_email}")
+            else:
+                print(f"[BREVO THREAD] Registration OTP FAILED for {to_email}")
         except Exception as exc:
-            print(f"[BREVO ASYNC ERROR] Registration OTP to {to_email}: {exc}")
-    eventlet.spawn_n(_send)
+            print(f"[BREVO THREAD ERROR] Registration OTP to {to_email}: {exc}")
+            traceback.print_exc()
+    thread = threading.Thread(target=_send, daemon=True)
+    thread.start()
 
 
 def send_admin_otp_email(to_email, otp):

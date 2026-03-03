@@ -628,10 +628,19 @@ def admin_forgot_password():
             except Exception as e:
                 pass
         
-        # Send OTP via email in background
-        from extensions import socketio
+        # Send OTP via email in background (non-blocking)
         from brevo_mail import send_admin_otp_email
-        socketio.start_background_task(send_admin_otp_email, Config.ADMIN_EMAIL, otp)
+        import threading
+        def _send_admin_otp():
+            try:
+                result = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
+                if result:
+                    print(f"[OTP] Admin OTP email sent OK to {Config.ADMIN_EMAIL}")
+                else:
+                    print(f"[OTP] Admin OTP email FAILED for {Config.ADMIN_EMAIL}")
+            except Exception as exc:
+                print(f"[OTP] Admin OTP email error: {exc}")
+        threading.Thread(target=_send_admin_otp, daemon=True).start()
 
         return jsonify({
             "message": "OTP sent to admin email",
