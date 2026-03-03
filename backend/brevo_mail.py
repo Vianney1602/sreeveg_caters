@@ -142,14 +142,16 @@ def send_email(to_email, subject, html_content, text_content=None):
     sender = _get_sender()
     
     # Try curl first (bypasses eventlet's broken greendns on EC2)
-    if shutil.which("curl"):
-        return _send_via_curl(api_key, sender, to_email, subject, html_content, text_content)
+    # Use absolute path because eventlet monkey-patches shutil.which/subprocess
+    curl_path = "/usr/bin/curl"
+    if os.path.isfile(curl_path):
+        return _send_via_curl(api_key, sender, to_email, subject, html_content, text_content, curl_path)
     
     # Fallback: use SDK (works on local dev / Windows)
     return _send_via_sdk(api_key, sender, to_email, subject, html_content, text_content)
 
 
-def _send_via_curl(api_key, sender, to_email, subject, html_content, text_content=None):
+def _send_via_curl(api_key, sender, to_email, subject, html_content, text_content=None, curl_path="/usr/bin/curl"):
     """Send email using curl subprocess — bypasses eventlet's DNS entirely."""
     payload = {
         "sender": {"name": sender["name"], "email": sender["email"]},
@@ -163,7 +165,7 @@ def _send_via_curl(api_key, sender, to_email, subject, html_content, text_conten
     try:
         result = subprocess.run(
             [
-                "curl", "-4", "-s",
+                curl_path, "-4", "-s",
                 "-w", "\n%{http_code}",
                 "-X", "POST",
                 "https://api.brevo.com/v3/smtp/email",

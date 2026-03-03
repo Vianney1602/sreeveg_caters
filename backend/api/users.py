@@ -58,13 +58,15 @@ def test_brevo():
     results["api_key_set"] = bool(api_key)
     results["api_key_preview"] = api_key[:12] + "..." if api_key else "NOT SET"
     
-    # 2. Check curl availability
-    results["curl_available"] = shutil.which("curl") is not None
+    # 2. Check curl availability (use absolute path — shutil.which broken under eventlet)
+    import os as _os
+    curl_path = "/usr/bin/curl"
+    results["curl_available"] = _os.path.isfile(curl_path)
     
     # 3. Test curl DNS + connectivity to Brevo
     try:
         r = subprocess.run(
-            ["curl", "-4", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+            [curl_path, "-4", "-s", "-o", "/dev/null", "-w", "%{http_code}",
              "-X", "GET", "https://api.brevo.com/v3/account",
              "-H", f"api-key: {api_key}"],
             capture_output=True, text=True, timeout=15
