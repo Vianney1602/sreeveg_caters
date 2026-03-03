@@ -79,18 +79,20 @@ def send_registration_otp():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
             
-        # Send email in background to avoid blocking the request (improves performance)
-        from extensions import socketio
+        # Send email synchronously so we can report failure to the user
         from brevo_mail import send_registration_otp_email
-        socketio.start_background_task(send_registration_otp_email, email, otp)
+        email_sent = send_registration_otp_email(email, otp)
         
-        # Return success immediately (dev_otp only if we can verify dev mode, 
-        # but here we'll assume it's sent or will be sent)
-        email_sent = True 
+        if not email_sent:
+            print(f"[OTP] Registration OTP email FAILED for {email}. OTP: {otp}")
+            return jsonify({
+                "message": "OTP generated but email delivery failed. Please try again.",
+                "dev_otp": otp
+            }), 200
         
+        print(f"[OTP] Registration OTP sent successfully to {email}")
         return jsonify({
-            "message": "OTP sent successfully" if email_sent else "OTP generated (Dev Mode)",
-            "dev_otp": otp if not email_sent else None
+            "message": "OTP sent successfully"
         }), 200
         
     except Exception as e:
@@ -328,11 +330,15 @@ def forgot_password():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
         
-        # Try to send OTP via email in background
-        from extensions import socketio
+        # Send OTP email synchronously so we can report failure
         from brevo_mail import send_otp_email
-        socketio.start_background_task(send_otp_email, email, otp)
+        email_sent = send_otp_email(email, otp)
         
+        if not email_sent:
+            print(f"[OTP] Password reset OTP email FAILED for {email}. OTP: {otp}")
+            return jsonify({"message": "OTP generated but email delivery failed. Please try again.", "dev_otp": otp}), 200
+        
+        print(f"[OTP] Password reset OTP sent successfully to {email}")
         return jsonify({"message": "OTP sent to your email"}), 200
         
     except Exception as e:

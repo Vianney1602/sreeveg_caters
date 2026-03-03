@@ -51,6 +51,7 @@ def _get_api_instance():
     """Get configured Brevo API instance"""
     api_key = os.environ.get("BREVO_API_KEY")
     if not api_key:
+        print("[BREVO ERROR] BREVO_API_KEY not set in environment variables!")
         return None
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = api_key
@@ -136,10 +137,13 @@ def send_email(to_email, subject, html_content, text_content=None):
 
     try:
         api_instance.send_transac_email(send_smtp_email)
+        print(f"[BREVO] Email sent successfully to {to_email}: {subject}")
         return True
     except ApiException as e:
+        print(f"[BREVO ERROR] ApiException sending to {to_email}: {e.status} {e.reason} - {e.body}")
         return False
     except Exception as e:
+        print(f"[BREVO ERROR] Exception sending to {to_email}: {str(e)}")
         return False
 
 
