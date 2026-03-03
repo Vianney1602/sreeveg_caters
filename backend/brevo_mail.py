@@ -3,23 +3,9 @@ Brevo Email Service
 Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
-import socket
 import traceback
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-
-# ── IPv4 enforcement ─────────────────────────────────────────────────────
-# EC2 ap-south-2 has no IPv6 connectivity.  DNS returns AAAA records for
-# api.brevo.com, and urllib3 tries them first → connection timeout.
-# Patch socket.getaddrinfo once so ALL outbound connections use IPv4.
-if not getattr(socket, '_ipv4_patched', False):
-    _orig_getaddrinfo = socket.getaddrinfo
-    def _ipv4_only_getaddrinfo(*args, **kwargs):
-        results = _orig_getaddrinfo(*args, **kwargs)
-        ipv4 = [r for r in results if r[0] == socket.AF_INET]
-        return ipv4 if ipv4 else results
-    socket.getaddrinfo = _ipv4_only_getaddrinfo
-    socket._ipv4_patched = True
 
 # Hotel logo URL (served from the live website)
 LOGO_URL = "https://hotelshanmugabhavaan.com/images/ShanmugaBhavaan.png"

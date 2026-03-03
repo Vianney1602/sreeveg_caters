@@ -1,17 +1,22 @@
+# ── CRITICAL: Save the REAL system DNS resolver BEFORE eventlet replaces it ──
+# Eventlet's greendns module causes DNS lookup timeouts on EC2 ap-south-2.
+# We grab the real C-level getaddrinfo first, then restore it after monkey_patch.
+import socket as _stdlib_socket
+_real_getaddrinfo = _stdlib_socket.getaddrinfo
+
 import os
-# Disable eventlet's broken greendns resolver — it causes DNS lookup timeouts
-# on EC2 ap-south-2. Use the system's native DNS resolver instead.
 os.environ['EVENTLET_NO_GREENDNS'] = 'yes'
 
 import eventlet
 eventlet.monkey_patch()
 
-# Force IPv4 only — EC2 has no IPv6 connectivity, and DNS returns AAAA records
-# that cause connection timeouts when urllib3 tries IPv6 first
+# Restore the REAL system DNS resolver (not eventlet's greendns)
 import socket
-_original_getaddrinfo = socket.getaddrinfo
+socket.getaddrinfo = _real_getaddrinfo
+
+# Now layer IPv4-only filter on top of the REAL resolver
 def _ipv4_only_getaddrinfo(*args, **kwargs):
-    responses = _original_getaddrinfo(*args, **kwargs)
+    responses = _real_getaddrinfo(*args, **kwargs)
     ipv4 = [r for r in responses if r[0] == socket.AF_INET]
     return ipv4 if ipv4 else responses
 socket.getaddrinfo = _ipv4_only_getaddrinfo
