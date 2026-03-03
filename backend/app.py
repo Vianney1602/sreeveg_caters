@@ -1,3 +1,8 @@
+import os
+# Disable eventlet's broken greendns resolver — it causes DNS lookup timeouts
+# on EC2 ap-south-2. Use the system's native DNS resolver instead.
+os.environ['EVENTLET_NO_GREENDNS'] = 'yes'
+
 import eventlet
 eventlet.monkey_patch()
 
