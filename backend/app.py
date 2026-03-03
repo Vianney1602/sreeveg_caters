@@ -1,6 +1,16 @@
 import eventlet
 eventlet.monkey_patch()
 
+# Force IPv4 only — EC2 has no IPv6 connectivity, and DNS returns AAAA records
+# that cause connection timeouts when urllib3 tries IPv6 first
+import socket
+_original_getaddrinfo = socket.getaddrinfo
+def _ipv4_only_getaddrinfo(*args, **kwargs):
+    responses = _original_getaddrinfo(*args, **kwargs)
+    ipv4 = [r for r in responses if r[0] == socket.AF_INET]
+    return ipv4 if ipv4 else responses
+socket.getaddrinfo = _ipv4_only_getaddrinfo
+
 # Initialize psycogreen for non-blocking Postgres I/O with Eventlet
 try:
     from psycogreen.eventlet import patch_psycopg
