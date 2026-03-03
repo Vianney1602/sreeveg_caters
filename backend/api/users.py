@@ -47,8 +47,10 @@ def validate_otp_format(otp):
 
 @users_bp.route("/test-brevo", methods=["GET"])
 def test_brevo():
-    """Diagnostic: Test Brevo API connectivity. Hit /api/users/test-brevo to check."""
+    """Diagnostic: Test Brevo API connectivity."""
     import socket
+    import shutil
+    import subprocess
     results = {}
     
     # 1. Check BREVO_API_KEY
@@ -56,23 +58,38 @@ def test_brevo():
     results["api_key_set"] = bool(api_key)
     results["api_key_preview"] = api_key[:12] + "..." if api_key else "NOT SET"
     
-    # 2. DNS resolution test
+    # 2. Check curl availability
+    results["curl_available"] = shutil.which("curl") is not None
+    
+    # 3. Test curl DNS + connectivity to Brevo
+    try:
+        r = subprocess.run(
+            ["curl", "-4", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+             "-X", "GET", "https://api.brevo.com/v3/account",
+             "-H", f"api-key: {api_key}"],
+            capture_output=True, text=True, timeout=15
+        )
+        results["curl_brevo_http"] = r.stdout.strip()
+    except Exception as e:
+        results["curl_brevo_error"] = str(e)
+    
+    # 4. Test eventlet DNS (expected to fail)
     try:
         addrs = socket.getaddrinfo("api.brevo.com", 443, socket.AF_INET)
-        results["dns_ipv4"] = [a[4][0] for a in addrs[:3]]
+        results["eventlet_dns"] = [a[4][0] for a in addrs[:3]]
     except Exception as e:
-        results["dns_error"] = str(e)
+        results["eventlet_dns_error"] = str(e)
     
-    # 3. Try sending a test email
+    # 5. Try sending a real test email via send_email (uses curl on Linux)
     try:
         from brevo_mail import send_email
         sent = send_email(
             "test-diagnostic@example.com",
             "Brevo Connectivity Test",
-            "<p>This is a diagnostic test from the server.</p>",
+            "<p>This is a diagnostic test.</p>",
             "Diagnostic test"
         )
-        results["send_test"] = "SUCCESS" if sent else "FAILED (returned False)"
+        results["send_test"] = "SUCCESS" if sent else "FAILED"
     except Exception as e:
         results["send_test"] = f"EXCEPTION: {type(e).__name__}: {str(e)}"
     

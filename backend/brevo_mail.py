@@ -3,6 +3,9 @@ Brevo Email Service
 Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
+import json
+import subprocess
+import shutil
 import traceback
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
@@ -125,17 +128,81 @@ def _footer_section():
 def send_email(to_email, subject, html_content, text_content=None):
     """
     Send a transactional email via Brevo API.
+    Uses curl on Linux (bypasses eventlet's broken DNS resolver).
+    Falls back to SDK on Windows/local dev.
     Returns True on success, False on failure.
     """
     print(f"[BREVO] send_email called: to={to_email}, subject={subject}")
     
-    api_instance = _get_api_instance()
-    if not api_instance:
-        print("[BREVO ERROR] No API instance - BREVO_API_KEY missing?")
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        print("[BREVO ERROR] BREVO_API_KEY not set!")
+        return False
+    
+    sender = _get_sender()
+    
+    # Try curl first (bypasses eventlet's broken greendns on EC2)
+    if shutil.which("curl"):
+        return _send_via_curl(api_key, sender, to_email, subject, html_content, text_content)
+    
+    # Fallback: use SDK (works on local dev / Windows)
+    return _send_via_sdk(api_key, sender, to_email, subject, html_content, text_content)
+
+
+def _send_via_curl(api_key, sender, to_email, subject, html_content, text_content=None):
+    """Send email using curl subprocess — bypasses eventlet's DNS entirely."""
+    payload = {
+        "sender": {"name": sender["name"], "email": sender["email"]},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_content,
+    }
+    if text_content:
+        payload["textContent"] = text_content
+    
+    try:
+        result = subprocess.run(
+            [
+                "curl", "-4", "-s",
+                "-w", "\n%{http_code}",
+                "-X", "POST",
+                "https://api.brevo.com/v3/smtp/email",
+                "-H", f"api-key: {api_key}",
+                "-H", "Content-Type: application/json",
+                "-H", "Accept: application/json",
+                "-d", json.dumps(payload),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        
+        lines = result.stdout.strip().rsplit("\n", 1)
+        body = lines[0] if len(lines) > 1 else ""
+        http_code = lines[-1].strip()
+        
+        print(f"[BREVO CURL] HTTP {http_code} for {to_email}")
+        
+        if http_code.startswith("2"):
+            print(f"[BREVO OK] Email sent to {to_email}: {subject}")
+            return True
+        else:
+            print(f"[BREVO ERROR] HTTP {http_code}: {body}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"[BREVO ERROR] curl timed out sending to {to_email}")
+        return False
+    except Exception as e:
+        print(f"[BREVO ERROR] curl failed: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return False
 
-    sender = _get_sender()
-    print(f"[BREVO] Sender: {sender['email']}, connecting to Brevo API...")
+
+def _send_via_sdk(api_key, sender, to_email, subject, html_content, text_content=None):
+    """Send email using Brevo Python SDK (for local dev / Windows)."""
+    api_instance = _get_api_instance()
+    if not api_instance:
+        return False
     
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": to_email}],
@@ -150,11 +217,10 @@ def send_email(to_email, subject, html_content, text_content=None):
         print(f"[BREVO OK] Email sent to {to_email}: {subject} | Response: {response}")
         return True
     except ApiException as e:
-        print(f"[BREVO ERROR] ApiException sending to {to_email}: status={e.status} reason={e.reason} body={e.body}")
+        print(f"[BREVO ERROR] ApiException: status={e.status} reason={e.reason} body={e.body}")
         return False
     except Exception as e:
-        print(f"[BREVO ERROR] Exception sending to {to_email}: {type(e).__name__}: {str(e)}")
-        import traceback
+        print(f"[BREVO ERROR] {type(e).__name__}: {str(e)}")
         traceback.print_exc()
         return False
 
