@@ -4,7 +4,6 @@ Handles all transactional emails: OTP, order confirmation, order cancellation
 """
 import os
 import socket
-import threading
 import traceback
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
@@ -167,25 +166,6 @@ def send_email(to_email, subject, html_content, text_content=None):
         return False
 
 
-def send_email_async(to_email, subject, html_content, text_content=None):
-    """
-    Fire-and-forget email send using a daemon thread.
-    Does NOT block the calling request. Errors are logged but not raised.
-    Uses threading.Thread (proven reliable in orders.py).
-    """
-    def _send():
-        try:
-            print(f"[BREVO THREAD] Starting email send to {to_email}: {subject}")
-            result = send_email(to_email, subject, html_content, text_content)
-            if not result:
-                print(f"[BREVO THREAD] Email send returned False for {to_email}")
-        except Exception as exc:
-            print(f"[BREVO THREAD ERROR] {to_email}: {exc}")
-            traceback.print_exc()
-    thread = threading.Thread(target=_send, daemon=True)
-    thread.start()
-
-
 # ── Pre-built email templates ────────────────────────────────────────────
 
 def send_otp_email(to_email, otp):
@@ -218,23 +198,6 @@ def send_otp_email(to_email, otp):
     return send_email(to_email, subject, html, text)
 
 
-def send_otp_email_async(to_email, otp):
-    """Non-blocking OTP email for password reset — returns immediately"""
-    def _send():
-        try:
-            print(f"[BREVO THREAD] Sending password reset OTP to {to_email}")
-            result = send_otp_email(to_email, otp)
-            if result:
-                print(f"[BREVO THREAD] Password reset OTP sent OK to {to_email}")
-            else:
-                print(f"[BREVO THREAD] Password reset OTP FAILED for {to_email}")
-        except Exception as exc:
-            print(f"[BREVO THREAD ERROR] Password reset OTP to {to_email}: {exc}")
-            traceback.print_exc()
-    thread = threading.Thread(target=_send, daemon=True)
-    thread.start()
-
-
 def send_registration_otp_email(to_email, otp):
     """Send OTP for new account registration"""
     subject = "Verify Your Email - Hotel Shanmuga Bhavaan"
@@ -263,23 +226,6 @@ def send_registration_otp_email(to_email, otp):
 """
     html = _wrap_html(body)
     return send_email(to_email, subject, html, text)
-
-
-def send_registration_otp_email_async(to_email, otp):
-    """Non-blocking OTP email for account registration — returns immediately"""
-    def _send():
-        try:
-            print(f"[BREVO THREAD] Sending registration OTP to {to_email}")
-            result = send_registration_otp_email(to_email, otp)
-            if result:
-                print(f"[BREVO THREAD] Registration OTP sent OK to {to_email}")
-            else:
-                print(f"[BREVO THREAD] Registration OTP FAILED for {to_email}")
-        except Exception as exc:
-            print(f"[BREVO THREAD ERROR] Registration OTP to {to_email}: {exc}")
-            traceback.print_exc()
-    thread = threading.Thread(target=_send, daemon=True)
-    thread.start()
 
 
 def send_admin_otp_email(to_email, otp):

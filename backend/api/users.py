@@ -79,13 +79,25 @@ def send_registration_otp():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
             
-        # Send OTP email in background (non-blocking) so response is instant
-        from brevo_mail import send_registration_otp_email_async
-        send_registration_otp_email_async(email, otp)
+        # Send OTP email SYNCHRONOUSLY (same pattern as order confirmation which works)
+        from brevo_mail import send_registration_otp_email
+        print(f"[OTP] Sending registration OTP email to {email}...")
+        try:
+            email_sent = send_registration_otp_email(email, otp)
+        except Exception as mail_err:
+            print(f"[OTP] Registration OTP email EXCEPTION for {email}: {mail_err}")
+            import traceback
+            traceback.print_exc()
+            email_sent = False
         
-        print(f"[OTP] Registration OTP dispatched for {email}")
+        if email_sent:
+            print(f"[OTP] Registration OTP email SENT to {email}")
+        else:
+            print(f"[OTP] Registration OTP email FAILED for {email}, OTP={otp}")
+        
         return jsonify({
-            "message": "OTP sent successfully"
+            "message": "OTP sent successfully" if email_sent else "OTP generated but email failed. Please try again.",
+            "email_sent": email_sent
         }), 200
         
     except Exception as e:
@@ -323,12 +335,23 @@ def forgot_password():
                 "expires": datetime.utcnow() + timedelta(minutes=10)
             }
         
-        # Send OTP email in background (non-blocking) so response is instant
-        from brevo_mail import send_otp_email_async
-        send_otp_email_async(email, otp)
+        # Send OTP email SYNCHRONOUSLY (same pattern as order confirmation which works)
+        from brevo_mail import send_otp_email
+        print(f"[OTP] Sending password reset OTP email to {email}...")
+        try:
+            email_sent = send_otp_email(email, otp)
+        except Exception as mail_err:
+            print(f"[OTP] Password reset OTP email EXCEPTION for {email}: {mail_err}")
+            import traceback
+            traceback.print_exc()
+            email_sent = False
         
-        print(f"[OTP] Password reset OTP dispatched for {email}")
-        return jsonify({"message": "OTP sent to your email"}), 200
+        if email_sent:
+            print(f"[OTP] Password reset OTP email SENT to {email}")
+        else:
+            print(f"[OTP] Password reset OTP email FAILED for {email}, OTP={otp}")
+        
+        return jsonify({"message": "OTP sent to your email" if email_sent else "OTP generated but email failed. Please try again."}), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -628,19 +651,21 @@ def admin_forgot_password():
             except Exception as e:
                 pass
         
-        # Send OTP via email in background (non-blocking)
+        # Send OTP via email SYNCHRONOUSLY (same pattern as order confirmation which works)
         from brevo_mail import send_admin_otp_email
-        import threading
-        def _send_admin_otp():
-            try:
-                result = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
-                if result:
-                    print(f"[OTP] Admin OTP email sent OK to {Config.ADMIN_EMAIL}")
-                else:
-                    print(f"[OTP] Admin OTP email FAILED for {Config.ADMIN_EMAIL}")
-            except Exception as exc:
-                print(f"[OTP] Admin OTP email error: {exc}")
-        threading.Thread(target=_send_admin_otp, daemon=True).start()
+        print(f"[OTP] Sending admin OTP email to {Config.ADMIN_EMAIL}...")
+        try:
+            email_sent = send_admin_otp_email(Config.ADMIN_EMAIL, otp)
+        except Exception as mail_err:
+            print(f"[OTP] Admin OTP email EXCEPTION: {mail_err}")
+            import traceback
+            traceback.print_exc()
+            email_sent = False
+        
+        if email_sent:
+            print(f"[OTP] Admin OTP email SENT to {Config.ADMIN_EMAIL}")
+        else:
+            print(f"[OTP] Admin OTP email FAILED for {Config.ADMIN_EMAIL}")
 
         return jsonify({
             "message": "OTP sent to admin email",
