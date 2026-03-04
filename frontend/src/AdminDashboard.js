@@ -590,7 +590,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and upload directly to backend → S3
+      // If a file is selected, compress and upload via same-origin proxy → S3
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -599,17 +599,13 @@ export default function AdminDashboard({ onLogout }) {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
 
-          // Upload directly to backend (bypasses Vercel proxy for speed)
-          const backendUrl = process.env.REACT_APP_API_BASE_URL || '';
-          const uploadEndpoint = backendUrl
-            ? `${backendUrl}/api/uploads/image`
-            : `${window.location.origin}/api/uploads/image`;
-
+          // Upload through same-origin Vercel proxy (avoids CORS entirely)
+          // Compressed image is ~50-150KB, well within proxy limits
           const fd = new FormData();
           fd.append('image', compressedFile);
 
           showToast('Uploading image...', 'info');
-          const uploadResp = await fetch(uploadEndpoint, {
+          const uploadResp = await fetch('/api/uploads/image', {
             method: 'POST',
             headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             body: fd,
