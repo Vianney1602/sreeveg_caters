@@ -675,6 +675,12 @@ export default function AdminDashboard({ onLogout }) {
         }
         saved = true;
       } catch (proxyErr) {
+        // If backend returned 409 (duplicate), show error and stop — don't retry
+        if (proxyErr.response && proxyErr.response.status === 409) {
+          const msg = proxyErr.response.data?.message || 'This item already exists in the menu';
+          showToast(msg, 'error');
+          return;
+        }
         console.warn('Proxy save failed, trying direct...', proxyErr.message);
       }
 
@@ -693,6 +699,11 @@ export default function AdminDashboard({ onLogout }) {
         });
         if (!resp.ok) {
           const errData = await resp.json().catch(() => ({}));
+          // Handle 409 duplicate from direct backend too
+          if (resp.status === 409) {
+            showToast(errData.message || 'This item already exists in the menu', 'error');
+            return;
+          }
           throw new Error(errData.message || `Server returned ${resp.status}`);
         }
       }

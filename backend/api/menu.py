@@ -190,12 +190,24 @@ def get_menu():
 @menu_bp.route("/", methods=["POST"])
 def add_menu_item():
     data = request.json
+    
+    # Check for duplicate item name (case-insensitive)
+    item_name = data.get("item_name", "").strip()
+    if not item_name:
+        return jsonify({"message": "Item name is required"}), 400
+    
+    existing = MenuItem.query.filter(
+        db.func.lower(MenuItem.item_name) == item_name.lower()
+    ).first()
+    if existing:
+        return jsonify({"message": f'"{item_name}" is already available in the menu'}), 409
+    
     categories = data.get("categories", [data.get("category")])
     if isinstance(categories, str):
         categories = [categories]
     
     item = MenuItem(
-        item_name=data["item_name"],
+        item_name=item_name,
         category=categories,
         price_per_plate=data["price"],
         is_vegetarian=data.get("veg", True),
@@ -225,6 +237,16 @@ def update_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     data = request.json
     
+    # Check for duplicate name if renaming (case-insensitive)
+    new_name = data.get("item_name", item.item_name).strip()
+    if new_name.lower() != item.item_name.strip().lower():
+        existing = MenuItem.query.filter(
+            db.func.lower(MenuItem.item_name) == new_name.lower(),
+            MenuItem.item_id != id
+        ).first()
+        if existing:
+            return jsonify({"message": f'"{new_name}" is already available in the menu'}), 409
+    
     new_image_url = data.get("image", "")
     old_image_url = item.image_url
     
@@ -232,7 +254,7 @@ def update_menu_item(id):
     if new_image_url and new_image_url != old_image_url:
         _delete_image_asset_background(old_image_url)
     
-    item.item_name = data.get("item_name", item.item_name)
+    item.item_name = new_name
     
     # Handle categories - support both single and multiple
     if "categories" in data:
