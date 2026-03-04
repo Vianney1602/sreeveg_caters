@@ -519,7 +519,7 @@ export default function AdminDashboard({ onLogout }) {
   }, []); // Run only once
 
   // Compress image on the client side before uploading for speed
-  const compressImage = (file, maxWidth = 800, quality = 0.65) => {
+  const compressImage = (file, maxWidth = 600, quality = 0.5) => {
     return new Promise((resolve) => {
       // Skip compression for non-image types only; always compress images
       if (!file.type.startsWith('image/')) {
@@ -542,24 +542,31 @@ export default function AdminDashboard({ onLogout }) {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(
-            (blob) => {
-              if (blob && blob.size < file.size) {
-                // Update filename extension to .jpg since we compressed to JPEG
-                const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
-                const compressed = new File([blob], nameWithoutExt + '.jpg', {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                });
-                resolve(compressed);
-              } else {
-                // Compression didn't help, use original
-                resolve(file);
-              }
-            },
-            'image/jpeg',
-            quality
-          );
+
+          // Try WebP first (much smaller), fall back to JPEG
+          const tryFormat = (format, q) => {
+            return new Promise((res) => {
+              canvas.toBlob((blob) => res(blob), format, q);
+            });
+          };
+
+          (async () => {
+            let blob = await tryFormat('image/webp', quality);
+            let ext = '.webp';
+            let mime = 'image/webp';
+            // If browser doesn't support WebP or result is bad, use JPEG
+            if (!blob || blob.size === 0) {
+              blob = await tryFormat('image/jpeg', quality);
+              ext = '.jpg';
+              mime = 'image/jpeg';
+            }
+            if (blob && blob.size < file.size) {
+              const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
+              resolve(new File([blob], nameWithoutExt + ext, { type: mime, lastModified: Date.now() }));
+            } else {
+              resolve(file);
+            }
+          })();
         };
         img.onerror = () => resolve(file);
         img.src = e.target.result;
@@ -598,43 +605,65 @@ export default function AdminDashboard({ onLogout }) {
 
       if (fileToUpload) {
         try {
-          showToast('Compressing image...', 'info');
-          const compressedFile = await compressImage(fileToUpload);
+          showToast('Preparing image...', 'info');
 
-          // Get pre-signed URL — try proxy first, then direct backend
-          const presignParams = new URLSearchParams({
-            filename: compressedFile.name,
-            content_type: compressedFile.type || 'image/jpeg',
-          });
+          // Run compression and presign URL fetch IN PARALLEL to save time
           const presignHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-          let presignData = null;
+          // Start compression immediately
+          const compressPromise = compressImage(fileToUpload);
 
-          // Try 1: Through Vercel proxy (same-origin)
-          try {
-            const resp1 = await fetch(`/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
-            if (resp1.ok) presignData = await resp1.json();
-          } catch (e) { /* proxy failed, will try direct */ }
+          // Fetch presign URL using original filename while compressing
+          const origName = fileToUpload.name.replace(/\.[^.]+$/, '') + '.webp';
+          const presignParams = new URLSearchParams({
+            filename: origName,
+            content_type: 'image/webp',
+          });
 
-          // Try 2: Direct to backend (cross-origin)
-          if (!presignData) {
+          const fetchPresign = async () => {
+            // Try 1: Through Vercel proxy (same-origin)
+            try {
+              const resp1 = await fetch(`/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
+              if (resp1.ok) return await resp1.json();
+            } catch (e) { /* proxy failed */ }
+            // Try 2: Direct to backend (cross-origin)
             try {
               const resp2 = await fetch(`${directBackend}/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
-              if (resp2.ok) presignData = await resp2.json();
+              if (resp2.ok) return await resp2.json();
             } catch (e) { /* direct also failed */ }
+            return null;
+          };
+
+          // Wait for both to finish (they run simultaneously)
+          const [compressedFile, presignData] = await Promise.all([
+            compressPromise,
+            fetchPresign(),
+          ]);
+
+          // If compressed file is JPEG (not WebP), get a new presign with correct type
+          let finalPresign = presignData;
+          if (compressedFile.type !== 'image/webp' && presignData) {
+            const jpgParams = new URLSearchParams({
+              filename: compressedFile.name,
+              content_type: compressedFile.type || 'image/jpeg',
+            });
+            try {
+              const resp = await fetch(`/api/uploads/presign?${jpgParams}`, { headers: presignHeaders });
+              if (resp.ok) finalPresign = await resp.json();
+            } catch (e) { /* use original presign */ }
           }
 
-          if (presignData && presignData.upload_url) {
+          if (finalPresign && finalPresign.upload_url) {
             // Upload file directly to S3 (browser → S3, no proxy involved)
             showToast('Uploading image...', 'info');
-            const s3Resp = await fetch(presignData.upload_url, {
+            const s3Resp = await fetch(finalPresign.upload_url, {
               method: 'PUT',
               body: compressedFile,
               headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
             });
 
             if (s3Resp.ok) {
-              imageUrl = presignData.file_url;
+              imageUrl = finalPresign.file_url;
             } else {
               console.warn('S3 upload failed:', s3Resp.status);
               showToast('Image upload failed. Saving without image.', 'error');

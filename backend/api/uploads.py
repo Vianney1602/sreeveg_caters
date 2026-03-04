@@ -185,8 +185,8 @@ def presign_upload():
     short_id = uuid.uuid4().hex[:8]
     key = f"menu items/{name}_{short_id}{ext}"
 
-    # Ensure S3 CORS is configured for direct browser uploads
-    ensure_s3_cors()
+    # S3 CORS is configured at deploy time — no need to call ensure_s3_cors()
+    # on every presign request (it was adding 1-3s per cold worker start).
 
     try:
         s3 = get_s3_presign_client()
