@@ -111,39 +111,63 @@ def _delete_image_asset_background(image_url: str):
     thread.start()
 
 
-def _handle_base64_image(image_value):
-    """If image_value is a base64 data URL, decode and upload to S3.
-    Returns the S3 URL on success, or the original value if not base64."""
-    if not image_value or not isinstance(image_value, str):
-        return image_value
-    if not image_value.startswith('data:image/'):
-        return image_value
+def _is_base64_image(value):
+    """Check if a value is a base64 data URL."""
+    return bool(value and isinstance(value, str) and value.startswith('data:image/'))
 
-    try:
-        # Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
-        header, b64data = image_value.split(',', 1)
-        # Extract mime type
-        mime_type = header.split(':')[1].split(';')[0]  # e.g. image/jpeg
-        ext_map = {
-            'image/jpeg': '.jpg', 'image/png': '.png',
-            'image/webp': '.webp', 'image/gif': '.gif',
-        }
-        ext = ext_map.get(mime_type, '.jpg')
-        file_bytes = base64.b64decode(b64data)
-        filename = f"menu_item_{uuid.uuid4().hex[:10]}{ext}"
 
-        # Import upload_to_s3 from uploads module
-        from api.uploads import upload_to_s3
-        s3_url = upload_to_s3(file_bytes, filename, mime_type)
-        if s3_url:
-            print(f"[OK] Base64 image uploaded to S3: {s3_url}")
-            return s3_url
-        else:
-            print("[WARN] S3 upload returned None, keeping data URL trimmed")
-            return ''  # Don't store huge base64 in DB
-    except Exception as e:
-        print(f"[WARN] Base64 image processing failed: {e}")
-        return ''
+def _upload_base64_to_s3_background(item_id, base64_data, old_image_url=None):
+    """Decode base64 image and upload to S3 in a background thread.
+    Updates the menu item's image_url in the DB when done."""
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    def _do_upload():
+        with app.app_context():
+            try:
+                # Parse data URL
+                header, b64data = base64_data.split(',', 1)
+                mime_type = header.split(':')[1].split(';')[0]
+                ext_map = {
+                    'image/jpeg': '.jpg', 'image/png': '.png',
+                    'image/webp': '.webp', 'image/gif': '.gif',
+                }
+                ext = ext_map.get(mime_type, '.jpg')
+                file_bytes = base64.b64decode(b64data)
+                filename = f"menu_item_{uuid.uuid4().hex[:10]}{ext}"
+
+                from api.uploads import upload_to_s3
+                s3_url = upload_to_s3(file_bytes, filename, mime_type)
+
+                if s3_url:
+                    item = MenuItem.query.get(item_id)
+                    if item:
+                        item.image_url = s3_url
+                        db.session.commit()
+                        print(f"[OK] Async S3 upload done for item {item_id}: {s3_url}")
+                        # Delete old image if replaced
+                        if old_image_url:
+                            _delete_image_asset(old_image_url)
+                        # Broadcast update so frontend refreshes
+                        socketio.emit('menu_item_updated', {
+                            'item_id': item.item_id,
+                            'item_name': item.item_name,
+                            'price_per_plate': float(item.price_per_plate),
+                            'category': item.category,
+                            'is_vegetarian': item.is_vegetarian,
+                            'image_url': s3_url,
+                            'description': item.description,
+                            'is_available': item.is_available,
+                            'stock_quantity': item.stock_quantity if item.stock_quantity is not None else 100
+                        }, namespace='/')
+                else:
+                    print(f"[WARN] S3 upload returned None for item {item_id}")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[WARN] Async base64 upload failed for item {item_id}: {e}")
+
+    thread = threading.Thread(target=_do_upload, daemon=True)
+    thread.start()
 
 
 menu_bp = Blueprint("menu", __name__)
@@ -170,19 +194,24 @@ def add_menu_item():
     if isinstance(categories, str):
         categories = [categories]
     
-    # Handle base64 image inline upload
-    image_url = _handle_base64_image(data.get("image"))
+    raw_image = data.get("image", "")
+    # If base64, save item first with empty image, upload async
+    is_base64 = _is_base64_image(raw_image)
     
     item = MenuItem(
         item_name=data["item_name"],
-        category=categories,  # Store as JSON array
+        category=categories,
         price_per_plate=data["price"],
         is_vegetarian=data.get("veg", True),
-        image_url=image_url,
+        image_url='' if is_base64 else raw_image,
         description=data.get("description")
     )
     db.session.add(item)
     db.session.commit()
+    
+    # If base64 image, upload to S3 asynchronously (does not block response)
+    if is_base64:
+        _upload_base64_to_s3_background(item.item_id, raw_image)
     
     # Broadcast new menu item to all clients
     socketio.start_background_task(emit_with_namespace, 'menu_item_added', {
@@ -204,12 +233,9 @@ def update_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     data = request.json
     
-    # Handle base64 image inline upload
-    new_image_url = _handle_base64_image(data.get("image"))
-    
-    # If new image is provided and different from old, delete old image in background
-    if new_image_url and new_image_url != item.image_url:
-        _delete_image_asset_background(item.image_url)
+    raw_image = data.get("image", "")
+    is_base64 = _is_base64_image(raw_image)
+    old_image_url = item.image_url
     
     item.item_name = data.get("item_name", item.item_name)
     
@@ -228,10 +254,21 @@ def update_menu_item(id):
     
     item.price_per_plate = data.get("price", item.price_per_plate)
     item.is_vegetarian = data.get("veg", item.is_vegetarian)
-    item.image_url = new_image_url if new_image_url else item.image_url
+    # If base64, keep old image for now — async thread will update it
+    if not is_base64 and raw_image:
+        item.image_url = raw_image
     item.description = data.get("description", item.description)
     item.is_available = data.get("is_available", item.is_available)
-    # Get the ID before the background thread
+    
+    db.session.commit()
+    
+    # If base64 image, upload to S3 asynchronously (does not block response)
+    if is_base64:
+        _upload_base64_to_s3_background(item.item_id, raw_image, old_image_url)
+    elif raw_image and raw_image != old_image_url:
+        _delete_image_asset_background(old_image_url)
+    
+    # Snapshot for socket broadcast
     item_id = item.item_id
     item_name = item.item_name
     price_per_plate = float(item.price_per_plate)
@@ -241,12 +278,6 @@ def update_menu_item(id):
     description = item.description
     is_available = item.is_available
     stock_quantity = item.stock_quantity if item.stock_quantity is not None else 100
-
-    import time
-    t0 = time.time()
-    db.session.commit()
-    t1 = time.time()
-    print(f"DB COMMIT TIME: {t1-t0:.3f}s")
     
     # Broadcast updated menu item to all clients in background thread
     socketio.start_background_task(emit_with_namespace, 'menu_item_updated', {

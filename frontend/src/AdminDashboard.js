@@ -590,8 +590,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and embed as base64 in the menu payload
-      // The backend decodes base64 → uploads to S3 → stores short S3 URL in DB
+      // If a file is selected, compress and convert to base64
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -599,8 +598,7 @@ export default function AdminDashboard({ onLogout }) {
         try {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
-
-          // Convert to base64 data URL to embed in the JSON payload
+          // Convert to base64 data URL
           imageUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
@@ -627,14 +625,29 @@ export default function AdminDashboard({ onLogout }) {
 
       showToast('Saving item...', 'info');
 
+      // Use fetch() with relative URL to go through Vercel proxy (avoids CORS)
+      // Backend saves item instantly; S3 image upload happens async in background
+      const menuUrl = editingItem ? `/api/menu/${editingItem}` : '/api/menu';
+      const method = editingItem ? 'PUT' : 'POST';
+      const resp = await fetch(menuUrl, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.message || `Server returned ${resp.status}`);
+      }
+
+      const hasImage = imageUrl && imageUrl.startsWith('data:image/');
       if (editingItem) {
-        // Update existing item — longer timeout for base64 image processing on server
-        await axios.put(`/api/menu/${editingItem}`, payload, { headers, timeout: 120000 });
-        showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
+        showToast(`"${formData.name}" updated!${hasImage ? ' Image uploading in background...' : ''} ✓`, 'success');
       } else {
-        // Add new item — longer timeout for base64 image processing on server
-        await axios.post('/api/menu', payload, { headers, timeout: 120000 });
-        showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
+        showToast(`"${formData.name}" added!${hasImage ? ' Image uploading in background...' : ''} ✓`, 'success');
       }
 
       // Refresh menu items
