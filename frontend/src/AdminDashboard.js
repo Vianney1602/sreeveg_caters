@@ -602,36 +602,63 @@ export default function AdminDashboard({ onLogout }) {
           // Strategy 1: Pre-signed URL (direct browser → S3, fastest)
           let uploaded = false;
           try {
-            const presignRes = await axios.post('/api/uploads/presign', {
-              filename: compressedFile.name,
-              content_type: compressedFile.type || 'image/jpeg',
-            }, { headers, timeout: 15000 });
+            // Use same-origin fetch for presign request (goes through Vercel proxy, tiny JSON)
+            const presignUrl = window.location.origin + '/api/uploads/presign';
+            const presignResp = await fetch(presignUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                filename: compressedFile.name,
+                content_type: compressedFile.type || 'image/jpeg',
+              }),
+            });
 
-            if (presignRes.data && presignRes.data.upload_url) {
-              showToast('Uploading to cloud...', 'info');
-              // PUT directly to S3 (no proxy, no CORS issues, fastest path)
-              await fetch(presignRes.data.upload_url, {
-                method: 'PUT',
-                body: compressedFile,
-                headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
-              });
-              imageUrl = presignRes.data.file_url;
-              uploaded = true;
+            if (presignResp.ok) {
+              const presignData = await presignResp.json();
+              if (presignData.upload_url) {
+                showToast('Uploading to cloud...', 'info');
+                // PUT directly to S3 (no proxy needed, fastest path)
+                const s3Resp = await fetch(presignData.upload_url, {
+                  method: 'PUT',
+                  body: compressedFile,
+                  headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
+                });
+                if (s3Resp.ok) {
+                  imageUrl = presignData.file_url;
+                  uploaded = true;
+                } else {
+                  console.warn('S3 PUT failed:', s3Resp.status);
+                }
+              }
+            } else {
+              console.warn('Presign request failed:', presignResp.status);
             }
           } catch (presignErr) {
             console.warn('Pre-signed upload failed, trying server upload...', presignErr.message);
           }
 
-          // Strategy 2: Fallback to server-side upload
+          // Strategy 2: Fallback — server-side upload via same-origin
           if (!uploaded) {
-            showToast('Uploading via server...', 'info');
-            const fd = new FormData();
-            fd.append('image', compressedFile);
-            const upRes = await axios.post('/api/uploads/image', fd, {
-              headers: { ...headers },
-              timeout: 120000,
-            });
-            imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+            try {
+              showToast('Uploading via server...', 'info');
+              const fd = new FormData();
+              fd.append('image', compressedFile);
+              const fallbackUrl = window.location.origin + '/api/uploads/image';
+              const fallbackResp = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: fd,
+              });
+              if (fallbackResp.ok) {
+                const fallbackData = await fallbackResp.json();
+                imageUrl = fallbackData.url || imageUrl;
+              }
+            } catch (fallbackErr) {
+              console.warn('Server upload also failed:', fallbackErr.message);
+            }
           }
         } catch (uploadErr) {
           console.error('Image upload failed:', uploadErr);
