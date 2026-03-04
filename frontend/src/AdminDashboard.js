@@ -590,7 +590,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and embed as base64 in payload
+      // If a file is selected, compress and upload directly to backend → S3
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -599,20 +599,33 @@ export default function AdminDashboard({ onLogout }) {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
 
-          // Convert compressed file to base64 data URL
-          const base64DataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(compressedFile);
+          // Upload directly to backend (bypasses Vercel proxy for speed)
+          const backendUrl = process.env.REACT_APP_API_BASE_URL || '';
+          const uploadEndpoint = backendUrl
+            ? `${backendUrl}/api/uploads/image`
+            : `${window.location.origin}/api/uploads/image`;
+
+          const fd = new FormData();
+          fd.append('image', compressedFile);
+
+          showToast('Uploading image...', 'info');
+          const uploadResp = await fetch(uploadEndpoint, {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: fd,
           });
 
-          // Send base64 directly in payload — backend decodes and uploads to S3
-          imageUrl = base64DataUrl;
-          showToast('Uploading...', 'info');
+          if (uploadResp.ok) {
+            const uploadData = await uploadResp.json();
+            imageUrl = uploadData.url || '';
+          } else {
+            const errText = await uploadResp.text().catch(() => '');
+            console.warn('Image upload failed:', uploadResp.status, errText);
+            showToast('Image upload failed. Saving item without image.', 'error');
+          }
         } catch (uploadErr) {
-          console.error('Image processing failed:', uploadErr);
-          showToast('Image processing failed. Item will be saved without image.', 'error');
+          console.error('Image upload error:', uploadErr);
+          showToast('Image upload failed. Saving item without image.', 'error');
         }
       }
 
