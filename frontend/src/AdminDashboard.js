@@ -596,30 +596,43 @@ export default function AdminDashboard({ onLogout }) {
 
       if (fileToUpload) {
         try {
-          // Compress image before upload for faster transfer
-          showToast('Uploading image...', 'info');
+          showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
-          const fd = new FormData();
-          fd.append('image', compressedFile);
-          // Use same-origin URL to go through Vercel proxy (avoids CORS issues)
-          // Falls back to direct backend URL if same-origin fails
-          const sameOriginUrl = window.location.origin + '/api/uploads/image';
-          let upRes;
+
+          // Strategy 1: Pre-signed URL (direct browser → S3, fastest)
+          let uploaded = false;
           try {
-            upRes = await axios.post(sameOriginUrl, fd, {
-              headers: { ...headers },
-              timeout: 120000,
-              baseURL: '', // bypass axios default baseURL
-            });
-          } catch (proxyErr) {
-            // Fallback: try direct backend URL
-            console.warn('Same-origin upload failed, trying direct backend...', proxyErr.message);
-            upRes = await axios.post('/api/uploads/image', fd, {
-              headers: { ...headers },
-              timeout: 120000,
-            });
+            const presignRes = await axios.post('/api/uploads/presign', {
+              filename: compressedFile.name,
+              content_type: compressedFile.type || 'image/jpeg',
+            }, { headers, timeout: 15000 });
+
+            if (presignRes.data && presignRes.data.upload_url) {
+              showToast('Uploading to cloud...', 'info');
+              // PUT directly to S3 (no proxy, no CORS issues, fastest path)
+              await fetch(presignRes.data.upload_url, {
+                method: 'PUT',
+                body: compressedFile,
+                headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
+              });
+              imageUrl = presignRes.data.file_url;
+              uploaded = true;
+            }
+          } catch (presignErr) {
+            console.warn('Pre-signed upload failed, trying server upload...', presignErr.message);
           }
-          imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+
+          // Strategy 2: Fallback to server-side upload
+          if (!uploaded) {
+            showToast('Uploading via server...', 'info');
+            const fd = new FormData();
+            fd.append('image', compressedFile);
+            const upRes = await axios.post('/api/uploads/image', fd, {
+              headers: { ...headers },
+              timeout: 120000,
+            });
+            imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
+          }
         } catch (uploadErr) {
           console.error('Image upload failed:', uploadErr);
           showToast('Image upload failed. Item will be saved without image.', 'error');
