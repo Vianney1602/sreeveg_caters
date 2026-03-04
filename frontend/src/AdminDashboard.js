@@ -593,25 +593,39 @@ export default function AdminDashboard({ onLogout }) {
       // If a file is selected, compress and upload directly to S3 via pre-signed URL
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
+      // Backend URL for direct access (fallback when proxy fails)
+      const directBackend = 'https://info.hotelshanmugabhavaan.com';
 
       if (fileToUpload) {
         try {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
 
-          // Step 1: Get pre-signed URL via GET (small request, goes through proxy)
+          // Get pre-signed URL — try proxy first, then direct backend
           const presignParams = new URLSearchParams({
             filename: compressedFile.name,
             content_type: compressedFile.type || 'image/jpeg',
           });
-          const presignResp = await fetch(`/api/uploads/presign?${presignParams}`, {
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-          });
+          const presignHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-          if (presignResp.ok) {
-            const presignData = await presignResp.json();
+          let presignData = null;
 
-            // Step 2: Upload file directly to S3 (browser → S3, no proxy)
+          // Try 1: Through Vercel proxy (same-origin)
+          try {
+            const resp1 = await fetch(`/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
+            if (resp1.ok) presignData = await resp1.json();
+          } catch (e) { /* proxy failed, will try direct */ }
+
+          // Try 2: Direct to backend (cross-origin)
+          if (!presignData) {
+            try {
+              const resp2 = await fetch(`${directBackend}/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
+              if (resp2.ok) presignData = await resp2.json();
+            } catch (e) { /* direct also failed */ }
+          }
+
+          if (presignData && presignData.upload_url) {
+            // Upload file directly to S3 (browser → S3, no proxy involved)
             showToast('Uploading image...', 'info');
             const s3Resp = await fetch(presignData.upload_url, {
               method: 'PUT',
@@ -623,19 +637,19 @@ export default function AdminDashboard({ onLogout }) {
               imageUrl = presignData.file_url;
             } else {
               console.warn('S3 upload failed:', s3Resp.status);
-              showToast('Image upload failed. Saving item without image.', 'error');
+              showToast('Image upload failed. Saving without image.', 'error');
             }
           } else {
-            console.warn('Presign failed:', presignResp.status);
-            showToast('Image upload failed. Saving item without image.', 'error');
+            console.warn('Could not get presign URL');
+            showToast('Image upload failed. Saving without image.', 'error');
           }
         } catch (uploadErr) {
           console.error('Image upload error:', uploadErr);
-          showToast('Image upload failed. Saving item without image.', 'error');
+          showToast('Image upload failed. Saving without image.', 'error');
         }
       }
 
-      // Step 3: Save menu item with the short S3 URL (tiny JSON, proxy handles fine)
+      // Save menu item with short S3 URL — try proxy (axios), then direct fetch
       const payload = {
         item_name: formData.name,
         categories: selectedCategories,
@@ -650,20 +664,37 @@ export default function AdminDashboard({ onLogout }) {
 
       showToast('Saving item...', 'info');
 
-      const menuUrl = editingItem ? `/api/menu/${editingItem}` : '/api/menu';
-      const method = editingItem ? 'PUT' : 'POST';
-      const resp = await fetch(menuUrl, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
+      let saved = false;
 
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.message || `Server returned ${resp.status}`);
+      // Try 1: Through Vercel proxy via axios (works for all other operations)
+      try {
+        if (editingItem) {
+          await axios.put(`/api/menu/${editingItem}`, payload, { headers, timeout: 15000 });
+        } else {
+          await axios.post('/api/menu', payload, { headers, timeout: 15000 });
+        }
+        saved = true;
+      } catch (proxyErr) {
+        console.warn('Proxy save failed, trying direct...', proxyErr.message);
+      }
+
+      // Try 2: Direct to backend (cross-origin)
+      if (!saved) {
+        const menuUrl = editingItem
+          ? `${directBackend}/api/menu/${editingItem}`
+          : `${directBackend}/api/menu`;
+        const resp = await fetch(menuUrl, {
+          method: editingItem ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.message || `Server returned ${resp.status}`);
+        }
       }
 
       if (editingItem) {
