@@ -590,7 +590,8 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and upload via same-origin proxy → S3
+      // If a file is selected, compress and embed as base64 in the menu payload
+      // The backend decodes base64 → uploads to S3 → stores short S3 URL in DB
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -599,29 +600,16 @@ export default function AdminDashboard({ onLogout }) {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
 
-          // Upload through same-origin Vercel proxy (avoids CORS entirely)
-          // Compressed image is ~50-150KB, well within proxy limits
-          const fd = new FormData();
-          fd.append('image', compressedFile);
-
-          showToast('Uploading image...', 'info');
-          const uploadResp = await fetch('/api/uploads/image', {
-            method: 'POST',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            body: fd,
+          // Convert to base64 data URL to embed in the JSON payload
+          imageUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(compressedFile);
           });
-
-          if (uploadResp.ok) {
-            const uploadData = await uploadResp.json();
-            imageUrl = uploadData.url || '';
-          } else {
-            const errText = await uploadResp.text().catch(() => '');
-            console.warn('Image upload failed:', uploadResp.status, errText);
-            showToast('Image upload failed. Saving item without image.', 'error');
-          }
         } catch (uploadErr) {
-          console.error('Image upload error:', uploadErr);
-          showToast('Image upload failed. Saving item without image.', 'error');
+          console.error('Image processing error:', uploadErr);
+          showToast('Image processing failed. Saving item without image.', 'error');
         }
       }
 
@@ -637,13 +625,15 @@ export default function AdminDashboard({ onLogout }) {
         payload.image = imageUrl;
       }
 
+      showToast('Saving item...', 'info');
+
       if (editingItem) {
-        // Update existing item with new categories
-        await axios.put(`/api/menu/${editingItem}`, payload, { headers });
+        // Update existing item — longer timeout for base64 image processing on server
+        await axios.put(`/api/menu/${editingItem}`, payload, { headers, timeout: 120000 });
         showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
-        // Add new item with selected categories
-        await axios.post('/api/menu', payload, { headers });
+        // Add new item — longer timeout for base64 image processing on server
+        await axios.post('/api/menu', payload, { headers, timeout: 120000 });
         showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
