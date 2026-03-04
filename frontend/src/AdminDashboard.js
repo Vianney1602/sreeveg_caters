@@ -518,6 +518,57 @@ export default function AdminDashboard({ onLogout }) {
     };
   }, []); // Run only once
 
+  // Compress image on the client side before uploading for speed
+  const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
+    return new Promise((resolve) => {
+      // Skip compression for small files (< 200KB) or non-image types
+      if (file.size < 200 * 1024 || !file.type.startsWith('image/')) {
+        resolve(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // Scale down if wider than maxWidth
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < file.size) {
+                // Update filename extension to .jpg since we compressed to JPEG
+                const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
+                const compressed = new File([blob], nameWithoutExt + '.jpg', {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressed);
+              } else {
+                // Compression didn't help, use original
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAddItem = async (e) => {
     e.preventDefault();
 
@@ -539,16 +590,19 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, upload it first
+      // If a file is selected, compress and upload it
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
       if (fileToUpload) {
-        const fd = new FormData();
-        fd.append('image', fileToUpload);
         try {
+          // Compress image before upload for faster transfer
+          const compressedFile = await compressImage(fileToUpload);
+          const fd = new FormData();
+          fd.append('image', compressedFile);
           const upRes = await axios.post('/api/uploads/image', fd, {
             headers: { ...headers },
+            timeout: 30000, // 30s timeout for upload
           });
           imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
         } catch (uploadErr) {
