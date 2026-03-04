@@ -590,7 +590,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and upload it
+      // If a file is selected, compress and embed as base64 in payload
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -599,70 +599,20 @@ export default function AdminDashboard({ onLogout }) {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
 
-          // Strategy 1: Pre-signed URL (direct browser → S3, fastest)
-          let uploaded = false;
-          try {
-            // Use same-origin fetch for presign request (goes through Vercel proxy, tiny JSON)
-            const presignUrl = window.location.origin + '/api/uploads/presign';
-            const presignResp = await fetch(presignUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify({
-                filename: compressedFile.name,
-                content_type: compressedFile.type || 'image/jpeg',
-              }),
-            });
+          // Convert compressed file to base64 data URL
+          const base64DataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(compressedFile);
+          });
 
-            if (presignResp.ok) {
-              const presignData = await presignResp.json();
-              if (presignData.upload_url) {
-                showToast('Uploading to cloud...', 'info');
-                // PUT directly to S3 (no proxy needed, fastest path)
-                const s3Resp = await fetch(presignData.upload_url, {
-                  method: 'PUT',
-                  body: compressedFile,
-                  headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
-                });
-                if (s3Resp.ok) {
-                  imageUrl = presignData.file_url;
-                  uploaded = true;
-                } else {
-                  console.warn('S3 PUT failed:', s3Resp.status);
-                }
-              }
-            } else {
-              console.warn('Presign request failed:', presignResp.status);
-            }
-          } catch (presignErr) {
-            console.warn('Pre-signed upload failed, trying server upload...', presignErr.message);
-          }
-
-          // Strategy 2: Fallback — server-side upload via same-origin
-          if (!uploaded) {
-            try {
-              showToast('Uploading via server...', 'info');
-              const fd = new FormData();
-              fd.append('image', compressedFile);
-              const fallbackUrl = window.location.origin + '/api/uploads/image';
-              const fallbackResp = await fetch(fallbackUrl, {
-                method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: fd,
-              });
-              if (fallbackResp.ok) {
-                const fallbackData = await fallbackResp.json();
-                imageUrl = fallbackData.url || imageUrl;
-              }
-            } catch (fallbackErr) {
-              console.warn('Server upload also failed:', fallbackErr.message);
-            }
-          }
+          // Send base64 directly in payload — backend decodes and uploads to S3
+          imageUrl = base64DataUrl;
+          showToast('Uploading...', 'info');
         } catch (uploadErr) {
-          console.error('Image upload failed:', uploadErr);
-          showToast('Image upload failed. Item will be saved without image.', 'error');
+          console.error('Image processing failed:', uploadErr);
+          showToast('Image processing failed. Item will be saved without image.', 'error');
         }
       }
 
