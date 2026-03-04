@@ -59,11 +59,11 @@ class MenuItem(db.Model):
     __tablename__ = "menu_items"
 
     item_id = db.Column(db.Integer, primary_key=True)
-    item_name = db.Column(db.String(100), nullable=False)
+    item_name = db.Column(db.String(100), nullable=False, unique=True)
     category = db.Column(db.JSON)  # Changed to JSON to support multiple categories
     price_per_plate = db.Column(db.Float)
     is_vegetarian = db.Column(db.Boolean, default=True)
-    image_url = db.Column(db.String(255))
+    image_url = db.Column(db.Text)  # Text for long S3 URLs
     description = db.Column(db.String(255))
     total_orders_count = db.Column(db.Integer, default=0)
     is_available = db.Column(db.Boolean, default=True)

@@ -5,7 +5,6 @@ import './admin-dashboard.css';
 import LoadingAnimation from './components/LoadingAnimation';
 
 // Helper Functions Extracted to satisfy ESLint hooks rules
-const normalizeName = (name = '') => String(name).trim().toLowerCase();
 const normalizeCategoryLabel = (cat = '') => {
   const c = String(cat).trim().toLowerCase();
   if (c.includes('lunch menu')) return 'Lunch Menu';
@@ -91,16 +90,6 @@ const resolveImageUrl = (url) => {
   // Fallback: assume backend-relative path
   return toBackendUrl(trimmed);
 };
-
-const mergeItemData = (existing, curr) => ({
-  ...existing,
-  categories: Array.from(new Set([...(existing.categories || []), ...(curr.categories || [])])),
-  available: existing.available || curr.available,
-  // Prefer the first non-empty image
-  imageUrl: existing.imageUrl || curr.imageUrl,
-  // Fill missing description if the existing one is empty
-  description: existing.description || curr.description,
-});
 
 const suggestImageByName = (name) => {
   if (!name) return '';
@@ -300,7 +289,7 @@ export default function AdminDashboard({ onLogout }) {
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await axios.get('/api/menu', { headers });
 
-        const mapped = res.data.map(item => ({
+        setMenuItems(res.data.map(item => ({
           id: item.item_id,
           name: item.item_name,
           categories: toCategoryArray(item.category),
@@ -308,20 +297,7 @@ export default function AdminDashboard({ onLogout }) {
           description: item.description || '',
           available: item.is_available,
           imageUrl: resolveImageUrl(item.image_url),
-        }));
-
-        const merged = mapped.reduce((acc, curr) => {
-          const key = normalizeName(curr.name);
-          const existing = acc.get(key);
-          if (!existing) {
-            acc.set(key, { ...curr });
-            return acc;
-          }
-          acc.set(key, mergeItemData(existing, curr));
-          return acc;
-        }, new Map());
-
-        setMenuItems(Array.from(merged.values()));
+        })));
       } catch (err) {
         showToast('Failed to load menu', 'error');
       }
@@ -650,7 +626,13 @@ export default function AdminDashboard({ onLogout }) {
             try {
               const resp = await fetch(`/api/uploads/presign?${jpgParams}`, { headers: presignHeaders });
               if (resp.ok) finalPresign = await resp.json();
-            } catch (e) { /* use original presign */ }
+            } catch (e) {
+              // Try direct backend as fallback
+              try {
+                const resp2 = await fetch(`${directBackend}/api/uploads/presign?${jpgParams}`, { headers: presignHeaders });
+                if (resp2.ok) finalPresign = await resp2.json();
+              } catch (e2) { /* use original presign */ }
+            }
           }
 
           if (finalPresign && finalPresign.upload_url) {
@@ -745,7 +727,7 @@ export default function AdminDashboard({ onLogout }) {
 
       // Refresh menu items
       const res = await axios.get('/api/menu', { headers });
-      const mapped = res.data.map(item => ({
+      setMenuItems(res.data.map(item => ({
         id: item.item_id,
         name: item.item_name,
         categories: toCategoryArray(item.category),
@@ -753,20 +735,7 @@ export default function AdminDashboard({ onLogout }) {
         description: item.description || '',
         available: item.is_available,
         imageUrl: resolveImageUrl(item.image_url)
-      }));
-
-      const merged = mapped.reduce((acc, curr) => {
-        const key = normalizeName(curr.name);
-        const existing = acc.get(key);
-        if (!existing) {
-          acc.set(key, { ...curr });
-          return acc;
-        }
-        acc.set(key, mergeItemData(existing, curr));
-        return acc;
-      }, new Map());
-
-      setMenuItems(Array.from(merged.values()));
+      })));
 
       // Reset forms and close
       cancelEditing();
