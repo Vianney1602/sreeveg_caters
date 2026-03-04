@@ -179,6 +179,26 @@ def create_app():
         app.logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return jsonify({"error": "Internal server error", "message": "An unexpected error occurred"}), 500
 
+    # Ensure CORS headers are present on ALL responses (safety net for error pages)
+    @app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get('Origin', '')
+        if origin:
+            # Check if origin matches allowed patterns
+            is_allowed = (
+                origin in allowed_list or
+                'hotelshanmugabhavaan.com' in origin or
+                origin.endswith('.vercel.app') or
+                'localhost' in origin or
+                '127.0.0.1' in origin
+            )
+            if is_allowed and 'Access-Control-Allow-Origin' not in response.headers:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        return response
+
     # Compatibility endpoints expected by the React frontend
     @app.route('/api/event_types', methods=['GET'])
     def event_types_alias():

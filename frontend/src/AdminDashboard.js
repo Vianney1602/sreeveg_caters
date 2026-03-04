@@ -601,10 +601,24 @@ export default function AdminDashboard({ onLogout }) {
           const compressedFile = await compressImage(fileToUpload);
           const fd = new FormData();
           fd.append('image', compressedFile);
-          const upRes = await axios.post('/api/uploads/image', fd, {
-            headers: { ...headers },
-            timeout: 120000, // 2 min timeout for upload
-          });
+          // Use same-origin URL to go through Vercel proxy (avoids CORS issues)
+          // Falls back to direct backend URL if same-origin fails
+          const sameOriginUrl = window.location.origin + '/api/uploads/image';
+          let upRes;
+          try {
+            upRes = await axios.post(sameOriginUrl, fd, {
+              headers: { ...headers },
+              timeout: 120000,
+              baseURL: '', // bypass axios default baseURL
+            });
+          } catch (proxyErr) {
+            // Fallback: try direct backend URL
+            console.warn('Same-origin upload failed, trying direct backend...', proxyErr.message);
+            upRes = await axios.post('/api/uploads/image', fd, {
+              headers: { ...headers },
+              timeout: 120000,
+            });
+          }
           imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
         } catch (uploadErr) {
           console.error('Image upload failed:', uploadErr);
