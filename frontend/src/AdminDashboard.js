@@ -519,10 +519,10 @@ export default function AdminDashboard({ onLogout }) {
   }, []); // Run only once
 
   // Compress image on the client side before uploading for speed
-  const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
+  const compressImage = (file, maxWidth = 800, quality = 0.65) => {
     return new Promise((resolve) => {
-      // Skip compression for small files (< 200KB) or non-image types
-      if (file.size < 200 * 1024 || !file.type.startsWith('image/')) {
+      // Skip compression for non-image types only; always compress images
+      if (!file.type.startsWith('image/')) {
         resolve(file);
         return;
       }
@@ -597,12 +597,13 @@ export default function AdminDashboard({ onLogout }) {
       if (fileToUpload) {
         try {
           // Compress image before upload for faster transfer
+          showToast('Uploading image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
           const fd = new FormData();
           fd.append('image', compressedFile);
           const upRes = await axios.post('/api/uploads/image', fd, {
             headers: { ...headers },
-            timeout: 30000, // 30s timeout for upload
+            timeout: 120000, // 2 min timeout for upload
           });
           imageUrl = (upRes && upRes.data && upRes.data.url) || imageUrl;
         } catch (uploadErr) {

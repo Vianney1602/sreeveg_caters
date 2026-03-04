@@ -60,7 +60,7 @@ sleep 2
 # Start new gunicorn process in background
 echo "Starting gunicorn on port 8000..."
 cd backend
-nohup gunicorn -w 4 -b 0.0.0.0:8000 wsgi:app > gunicorn.log 2>&1 &
+nohup gunicorn --worker-class eventlet -w 1 --timeout 120 -b 0.0.0.0:8000 wsgi:app > gunicorn.log 2>&1 &
 GUNICORN_PID=$!
 sleep 3
 
