@@ -590,7 +590,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = sessionStorage.getItem('_st');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // If a file is selected, compress and convert to base64
+      // If a file is selected, compress and upload directly to S3 via pre-signed URL
       let imageUrl = formData.image || '';
       const fileToUpload = editingItem ? editImageFile : newImageFile;
 
@@ -598,19 +598,44 @@ export default function AdminDashboard({ onLogout }) {
         try {
           showToast('Compressing image...', 'info');
           const compressedFile = await compressImage(fileToUpload);
-          // Convert to base64 data URL
-          imageUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(compressedFile);
+
+          // Step 1: Get pre-signed URL via GET (small request, goes through proxy)
+          const presignParams = new URLSearchParams({
+            filename: compressedFile.name,
+            content_type: compressedFile.type || 'image/jpeg',
           });
+          const presignResp = await fetch(`/api/uploads/presign?${presignParams}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          });
+
+          if (presignResp.ok) {
+            const presignData = await presignResp.json();
+
+            // Step 2: Upload file directly to S3 (browser → S3, no proxy)
+            showToast('Uploading image...', 'info');
+            const s3Resp = await fetch(presignData.upload_url, {
+              method: 'PUT',
+              body: compressedFile,
+              headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
+            });
+
+            if (s3Resp.ok) {
+              imageUrl = presignData.file_url;
+            } else {
+              console.warn('S3 upload failed:', s3Resp.status);
+              showToast('Image upload failed. Saving item without image.', 'error');
+            }
+          } else {
+            console.warn('Presign failed:', presignResp.status);
+            showToast('Image upload failed. Saving item without image.', 'error');
+          }
         } catch (uploadErr) {
-          console.error('Image processing error:', uploadErr);
-          showToast('Image processing failed. Saving item without image.', 'error');
+          console.error('Image upload error:', uploadErr);
+          showToast('Image upload failed. Saving item without image.', 'error');
         }
       }
 
+      // Step 3: Save menu item with the short S3 URL (tiny JSON, proxy handles fine)
       const payload = {
         item_name: formData.name,
         categories: selectedCategories,
@@ -625,8 +650,6 @@ export default function AdminDashboard({ onLogout }) {
 
       showToast('Saving item...', 'info');
 
-      // Use fetch() with relative URL to go through Vercel proxy (avoids CORS)
-      // Backend saves item instantly; S3 image upload happens async in background
       const menuUrl = editingItem ? `/api/menu/${editingItem}` : '/api/menu';
       const method = editingItem ? 'PUT' : 'POST';
       const resp = await fetch(menuUrl, {
@@ -643,11 +666,10 @@ export default function AdminDashboard({ onLogout }) {
         throw new Error(errData.message || `Server returned ${resp.status}`);
       }
 
-      const hasImage = imageUrl && imageUrl.startsWith('data:image/');
       if (editingItem) {
-        showToast(`"${formData.name}" updated!${hasImage ? ' Image uploading in background...' : ''} ✓`, 'success');
+        showToast(`"${formData.name}" has been updated successfully! ✓`, 'success');
       } else {
-        showToast(`"${formData.name}" added!${hasImage ? ' Image uploading in background...' : ''} ✓`, 'success');
+        showToast(`"${formData.name}" has been added to the menu! ✓`, 'success');
       }
 
       // Refresh menu items

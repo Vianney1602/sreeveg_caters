@@ -151,23 +151,29 @@ def upload_to_s3(file_bytes, filename, mime_type):
         return None
 
 
-@uploads_bp.route("/presign", methods=["POST"])
+@uploads_bp.route("/presign", methods=["GET", "POST"])
 def presign_upload():
     """Generate a pre-signed S3 URL for direct browser-to-S3 upload.
     
     This bypasses the backend for file transfer — the browser uploads
     directly to S3, making it much faster and avoiding proxy limits.
     
-    Request JSON: { "filename": "photo.jpg", "content_type": "image/jpeg" }
+    GET:  /presign?filename=photo.jpg&content_type=image/jpeg
+    POST: { "filename": "photo.jpg", "content_type": "image/jpeg" }
     Response: { "upload_url": "https://s3...", "file_url": "https://s3...", "key": "menu items/..." }
     """
     from config import Config
     if not Config.AWS_S3_ENABLED:
         return jsonify({"error": "S3 not configured"}), 503
 
-    data = request.get_json(silent=True) or {}
-    filename = data.get("filename", "image.jpg")
-    content_type = data.get("content_type", "image/jpeg")
+    # Support both GET query params and POST JSON body
+    if request.method == "GET":
+        filename = request.args.get("filename", "image.jpg")
+        content_type = request.args.get("content_type", "image/jpeg")
+    else:
+        data = request.get_json(silent=True) or {}
+        filename = data.get("filename", "image.jpg")
+        content_type = data.get("content_type", "image/jpeg")
 
     # Validate extension
     if not allowed_file(filename):

@@ -194,24 +194,16 @@ def add_menu_item():
     if isinstance(categories, str):
         categories = [categories]
     
-    raw_image = data.get("image", "")
-    # If base64, save item first with empty image, upload async
-    is_base64 = _is_base64_image(raw_image)
-    
     item = MenuItem(
         item_name=data["item_name"],
         category=categories,
         price_per_plate=data["price"],
         is_vegetarian=data.get("veg", True),
-        image_url='' if is_base64 else raw_image,
+        image_url=data.get("image", ""),
         description=data.get("description")
     )
     db.session.add(item)
     db.session.commit()
-    
-    # If base64 image, upload to S3 asynchronously (does not block response)
-    if is_base64:
-        _upload_base64_to_s3_background(item.item_id, raw_image)
     
     # Broadcast new menu item to all clients
     socketio.start_background_task(emit_with_namespace, 'menu_item_added', {
@@ -233,9 +225,12 @@ def update_menu_item(id):
     item = MenuItem.query.get_or_404(id)
     data = request.json
     
-    raw_image = data.get("image", "")
-    is_base64 = _is_base64_image(raw_image)
+    new_image_url = data.get("image", "")
     old_image_url = item.image_url
+    
+    # If new image provided and different from old, delete old in background
+    if new_image_url and new_image_url != old_image_url:
+        _delete_image_asset_background(old_image_url)
     
     item.item_name = data.get("item_name", item.item_name)
     
@@ -254,43 +249,27 @@ def update_menu_item(id):
     
     item.price_per_plate = data.get("price", item.price_per_plate)
     item.is_vegetarian = data.get("veg", item.is_vegetarian)
-    # If base64, keep old image for now — async thread will update it
-    if not is_base64 and raw_image:
-        item.image_url = raw_image
+    if new_image_url:
+        item.image_url = new_image_url
     item.description = data.get("description", item.description)
     item.is_available = data.get("is_available", item.is_available)
     
     db.session.commit()
     
-    # If base64 image, upload to S3 asynchronously (does not block response)
-    if is_base64:
-        _upload_base64_to_s3_background(item.item_id, raw_image, old_image_url)
-    elif raw_image and raw_image != old_image_url:
-        _delete_image_asset_background(old_image_url)
-    
     # Snapshot for socket broadcast
-    item_id = item.item_id
-    item_name = item.item_name
-    price_per_plate = float(item.price_per_plate)
-    category = item.category
-    is_vegetarian = item.is_vegetarian
-    image_url = item.image_url
-    description = item.description
-    is_available = item.is_available
-    stock_quantity = item.stock_quantity if item.stock_quantity is not None else 100
+    item_data = {
+        'item_id': item.item_id,
+        'item_name': item.item_name,
+        'price_per_plate': float(item.price_per_plate),
+        'category': item.category,
+        'is_vegetarian': item.is_vegetarian,
+        'image_url': item.image_url,
+        'description': item.description,
+        'is_available': item.is_available,
+        'stock_quantity': item.stock_quantity if item.stock_quantity is not None else 100
+    }
     
-    # Broadcast updated menu item to all clients in background thread
-    socketio.start_background_task(emit_with_namespace, 'menu_item_updated', {
-        'item_id': item_id,
-        'item_name': item_name,
-        'price_per_plate': price_per_plate,
-        'category': category,
-        'is_vegetarian': is_vegetarian,
-        'image_url': image_url,
-        'description': description,
-        'is_available': is_available,
-        'stock_quantity': stock_quantity
-    })
+    socketio.start_background_task(emit_with_namespace, 'menu_item_updated', item_data)
     
     return jsonify({"message": "Item Updated"})
 
