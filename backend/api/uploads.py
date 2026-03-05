@@ -181,7 +181,6 @@ def presign_upload():
             Params={
                 'Bucket': AppConfig.AWS_S3_BUCKET_NAME,
                 'Key': key,
-                'ContentType': content_type,
             },
             ExpiresIn=300,
         )

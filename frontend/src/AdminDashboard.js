@@ -593,7 +593,6 @@ export default function AdminDashboard({ onLogout }) {
           const origName = fileToUpload.name.replace(/\.[^.]+$/, '') + '.webp';
           const presignParams = new URLSearchParams({
             filename: origName,
-            content_type: 'image/webp',
           });
 
           const fetchPresign = async () => {
@@ -621,7 +620,6 @@ export default function AdminDashboard({ onLogout }) {
             const s3Resp = await fetch(presignData.upload_url, {
               method: 'PUT',
               body: compressedFile,
-              headers: { 'Content-Type': compressedFile.type || 'image/webp' },
             });
 
             if (s3Resp.ok) {
