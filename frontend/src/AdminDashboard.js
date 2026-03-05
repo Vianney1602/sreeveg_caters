@@ -153,6 +153,7 @@ export default function AdminDashboard({ onLogout }) {
   // Image file selection for add/edit
   const [newImageFile, setNewImageFile] = useState(null);
   const [editImageFile, setEditImageFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
@@ -555,16 +556,21 @@ export default function AdminDashboard({ onLogout }) {
   const handleAddItem = async (e) => {
     e.preventDefault();
 
+    if (isSubmitting) return; // Prevent double submission
+    setIsSubmitting(true);
+
     const formData = editingItem ? editForm : newItem;
     const selectedCategories = formData.categories || [];
 
     if (!formData.name || !formData.price) {
       showToast('Please fill in all required fields: Name and Price', 'error');
+      setIsSubmitting(false);
       return;
     }
 
     if (selectedCategories.length === 0) {
       showToast('Please select at least one category', 'error');
+      setIsSubmitting(false);
       return;
     }
 
@@ -670,6 +676,7 @@ export default function AdminDashboard({ onLogout }) {
         if (resp.status === 409) {
           const errData = await resp.json().catch(() => ({}));
           showToast(errData.message || 'This item already exists in the menu', 'error');
+          setIsSubmitting(false);
           return;
         }
         if (resp.ok) saved = true;
@@ -690,6 +697,7 @@ export default function AdminDashboard({ onLogout }) {
           if (proxyErr.response && proxyErr.response.status === 409) {
             const msg = proxyErr.response.data?.message || 'This item already exists in the menu';
             showToast(msg, 'error');
+            setIsSubmitting(false);
             return;
           }
           throw proxyErr;
@@ -719,6 +727,8 @@ export default function AdminDashboard({ onLogout }) {
     } catch (err) {
       console.error('Error saving item:', err);
       showToast(`Failed to save item: ${err.response?.data?.message || err.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1184,8 +1194,8 @@ export default function AdminDashboard({ onLogout }) {
                     />
                   </div>
                   <div className="form-actions">
-                    <button type="submit" className="save-btn">
-                      {editingItem ? 'Update Item' : 'Save Item'}
+                    <button type="submit" className="save-btn" disabled={isSubmitting}>
+                      {isSubmitting ? 'Saving...' : (editingItem ? 'Update Item' : 'Save Item')}
                     </button>
                     <button
                       type="button"

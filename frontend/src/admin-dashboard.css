@@ -506,9 +506,16 @@
   flex: 1;
 }
 
-.save-btn:hover {
+.save-btn:hover:not(:disabled) {
   background: #e66a35;
   box-shadow: 0 4px 12px rgba(255, 122, 69, 0.3);
+}
+
+.save-btn:disabled {
+  background: #ccc;
+  color: #888;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .cancel-btn {
