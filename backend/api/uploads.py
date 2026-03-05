@@ -5,6 +5,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from extensions import db
 from models import UploadedImage
+from config import Config as AppConfig
 
 uploads_bp = Blueprint("uploads", __name__)
 
@@ -19,13 +20,12 @@ def get_s3_client():
     if _s3_client is None:
         try:
             import boto3
-            from config import Config
-            if Config.AWS_S3_ENABLED:
+            if AppConfig.AWS_S3_ENABLED:
                 _s3_client = boto3.client(
                     's3',
-                    aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-                    region_name=Config.AWS_S3_REGION
+                    aws_access_key_id=AppConfig.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=AppConfig.AWS_SECRET_ACCESS_KEY,
+                    region_name=AppConfig.AWS_S3_REGION
                 )
         except ImportError:
             pass
@@ -39,13 +39,12 @@ def get_s3_presign_client():
         try:
             import boto3
             from botocore.config import Config as BotoConfig
-            from config import Config
-            if Config.AWS_S3_ENABLED:
+            if AppConfig.AWS_S3_ENABLED:
                 _s3_presign_client = boto3.client(
                     's3',
-                    aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-                    region_name=Config.AWS_S3_REGION,
+                    aws_access_key_id=AppConfig.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=AppConfig.AWS_SECRET_ACCESS_KEY,
+                    region_name=AppConfig.AWS_S3_REGION,
                     config=BotoConfig(s3={'addressing_style': 'path'})
                 )
         except ImportError:
@@ -62,9 +61,8 @@ def ensure_s3_cors():
         s3 = get_s3_client()
         if not s3:
             return
-        from config import Config
         s3.put_bucket_cors(
-            Bucket=Config.AWS_S3_BUCKET_NAME,
+            Bucket=AppConfig.AWS_S3_BUCKET_NAME,
             CORSConfiguration={
                 'CORSRules': [{
                     'AllowedHeaders': ['*'],
@@ -86,17 +84,11 @@ def ensure_s3_cors():
         print(f"[WARN] S3 CORS setup failed (non-fatal): {e}")
         _s3_cors_configured = True  # Don't retry every request
 
-def _allowed_extensions():
-    exts = current_app.config.get("ALLOWED_IMAGE_EXTENSIONS")
-    if isinstance(exts, (set, list, tuple)):
-        return set(map(str.lower, exts))
-    if isinstance(exts, str):
-        return set(x.strip().lower() for x in exts.split(",") if x.strip())
-    return {"png", "jpg", "jpeg", "gif", "webp"}
-
+# Allowed image extensions (constant)
+_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in _allowed_extensions()
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in _ALLOWED_EXTENSIONS
 
 
 def upload_to_s3(file_bytes, filename, mime_type):
@@ -107,8 +99,7 @@ def upload_to_s3(file_bytes, filename, mime_type):
             print("S3 client not available")
             return None
         
-        from config import Config
-        bucket_name = Config.AWS_S3_BUCKET_NAME
+        bucket_name = AppConfig.AWS_S3_BUCKET_NAME
         
         # Generate unique key to avoid filename collisions
         file_name_clean = secure_filename(filename)
@@ -137,7 +128,7 @@ def upload_to_s3(file_bytes, filename, mime_type):
             s3_client.put_object(**put_params)
         
         # Construct S3 URL (path-style to avoid SSL issues with dots in bucket name)
-        region = Config.AWS_S3_REGION
+        region = AppConfig.AWS_S3_REGION
         # Encode spaces as + to match existing DB URL format (menu+items/...)
         url_key = unique_filename.replace(' ', '+')
         s3_url = f"https://s3.{region}.amazonaws.com/{bucket_name}/{url_key}"
@@ -157,13 +148,8 @@ def presign_upload():
     
     This bypasses the backend for file transfer — the browser uploads
     directly to S3, making it much faster and avoiding proxy limits.
-    
-    GET:  /presign?filename=photo.jpg&content_type=image/jpeg
-    POST: { "filename": "photo.jpg", "content_type": "image/jpeg" }
-    Response: { "upload_url": "https://s3...", "file_url": "https://s3...", "key": "menu items/..." }
     """
-    from config import Config
-    if not Config.AWS_S3_ENABLED:
+    if not AppConfig.AWS_S3_ENABLED:
         return jsonify({"error": "S3 not configured"}), 503
 
     # Support both GET query params and POST JSON body
@@ -185,29 +171,24 @@ def presign_upload():
     short_id = uuid.uuid4().hex[:8]
     key = f"menu items/{name}_{short_id}{ext}"
 
-    # S3 CORS is configured at deploy time — no need to call ensure_s3_cors()
-    # on every presign request (it was adding 1-3s per cold worker start).
-
     try:
         s3 = get_s3_presign_client()
         if not s3:
             return jsonify({"error": "S3 client unavailable"}), 503
 
-        # Generate pre-signed PUT URL (path-style for dotted bucket names)
         upload_url = s3.generate_presigned_url(
             'put_object',
             Params={
-                'Bucket': Config.AWS_S3_BUCKET_NAME,
+                'Bucket': AppConfig.AWS_S3_BUCKET_NAME,
                 'Key': key,
                 'ContentType': content_type,
             },
-            ExpiresIn=300,  # 5 minutes
+            ExpiresIn=300,
         )
 
-        # Construct the final public URL for the uploaded file
-        region = Config.AWS_S3_REGION
+        region = AppConfig.AWS_S3_REGION
         url_key = key.replace(' ', '+')
-        file_url = f"https://s3.{region}.amazonaws.com/{Config.AWS_S3_BUCKET_NAME}/{url_key}"
+        file_url = f"https://s3.{region}.amazonaws.com/{AppConfig.AWS_S3_BUCKET_NAME}/{url_key}"
 
         return jsonify({
             "upload_url": upload_url,
@@ -253,9 +234,8 @@ def upload_image():
         return jsonify({"error": "File too large", "max_bytes": max_size}), 413
 
     # Try S3 upload first
-    from config import Config
     s3_url = None
-    if Config.AWS_S3_ENABLED:
+    if AppConfig.AWS_S3_ENABLED:
         s3_url = upload_to_s3(file_bytes, filename, file.mimetype or "application/octet-stream")
         if s3_url:
             return jsonify({"url": s3_url, "storage": "s3"}), 200

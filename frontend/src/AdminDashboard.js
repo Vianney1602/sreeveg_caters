@@ -497,58 +497,58 @@ export default function AdminDashboard({ onLogout }) {
   // Compress image on the client side before uploading for speed
   const compressImage = (file, maxWidth = 600, quality = 0.5) => {
     return new Promise((resolve) => {
-      // Skip compression for non-image types only; always compress images
+      // Skip compression for non-image types
       if (!file.type.startsWith('image/')) {
         resolve(file);
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          // Scale down if wider than maxWidth
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Try WebP first (much smaller), fall back to JPEG
-          const tryFormat = (format, q) => {
-            return new Promise((res) => {
-              canvas.toBlob((blob) => res(blob), format, q);
-            });
-          };
-
-          (async () => {
-            let blob = await tryFormat('image/webp', quality);
-            let ext = '.webp';
-            let mime = 'image/webp';
-            // If browser doesn't support WebP or result is bad, use JPEG
-            if (!blob || blob.size === 0) {
-              blob = await tryFormat('image/jpeg', quality);
-              ext = '.jpg';
-              mime = 'image/jpeg';
-            }
-            if (blob && blob.size < file.size) {
+      // Use createObjectURL instead of readAsDataURL — much faster, no base64 overhead
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // Try WebP first (much smaller), fall back to JPEG
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size > 0 && blob.size < file.size) {
               const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
-              resolve(new File([blob], nameWithoutExt + ext, { type: mime, lastModified: Date.now() }));
+              resolve(new File([blob], nameWithoutExt + '.webp', { type: 'image/webp', lastModified: Date.now() }));
             } else {
-              resolve(file);
+              // WebP failed or bigger, try JPEG
+              canvas.toBlob(
+                (jpgBlob) => {
+                  if (jpgBlob && jpgBlob.size < file.size) {
+                    const nameWithoutExt = file.name.replace(/\.[^.]+$/, '');
+                    resolve(new File([jpgBlob], nameWithoutExt + '.jpg', { type: 'image/jpeg', lastModified: Date.now() }));
+                  } else {
+                    resolve(file);
+                  }
+                },
+                'image/jpeg',
+                quality
+              );
             }
-          })();
-        };
-        img.onerror = () => resolve(file);
-        img.src = e.target.result;
+          },
+          'image/webp',
+          quality
+        );
       };
-      reader.onerror = () => resolve(file);
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
     });
   };
 
@@ -581,15 +581,15 @@ export default function AdminDashboard({ onLogout }) {
 
       if (fileToUpload) {
         try {
-          showToast('Preparing image...', 'info');
-
           // Run compression and presign URL fetch IN PARALLEL to save time
           const presignHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
           // Start compression immediately
           const compressPromise = compressImage(fileToUpload);
 
-          // Fetch presign URL using original filename while compressing
+          // Fetch presign URL — go DIRECT to backend first (much faster than
+          // Vercel proxy which adds 2-4s round trip through US/EU edge nodes).
+          // Use generic content type so we never need a second presign request.
           const origName = fileToUpload.name.replace(/\.[^.]+$/, '') + '.webp';
           const presignParams = new URLSearchParams({
             filename: origName,
@@ -597,55 +597,36 @@ export default function AdminDashboard({ onLogout }) {
           });
 
           const fetchPresign = async () => {
-            // Try 1: Through Vercel proxy (same-origin)
+            // Try 1: Direct to backend (fastest — same region)
             try {
-              const resp1 = await fetch(`/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
+              const resp1 = await fetch(`${directBackend}/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
               if (resp1.ok) return await resp1.json();
-            } catch (e) { /* proxy failed */ }
-            // Try 2: Direct to backend (cross-origin)
+            } catch (e) { /* direct failed */ }
+            // Try 2: Through Vercel proxy (fallback)
             try {
-              const resp2 = await fetch(`${directBackend}/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
+              const resp2 = await fetch(`/api/uploads/presign?${presignParams}`, { headers: presignHeaders });
               if (resp2.ok) return await resp2.json();
-            } catch (e) { /* direct also failed */ }
+            } catch (e) { /* proxy also failed */ }
             return null;
           };
 
-          // Wait for both to finish (they run simultaneously)
+          // Wait for both (they run simultaneously)
           const [compressedFile, presignData] = await Promise.all([
             compressPromise,
             fetchPresign(),
           ]);
 
-          // If compressed file is JPEG (not WebP), get a new presign with correct type
-          let finalPresign = presignData;
-          if (compressedFile.type !== 'image/webp' && presignData) {
-            const jpgParams = new URLSearchParams({
-              filename: compressedFile.name,
-              content_type: compressedFile.type || 'image/jpeg',
-            });
-            try {
-              const resp = await fetch(`/api/uploads/presign?${jpgParams}`, { headers: presignHeaders });
-              if (resp.ok) finalPresign = await resp.json();
-            } catch (e) {
-              // Try direct backend as fallback
-              try {
-                const resp2 = await fetch(`${directBackend}/api/uploads/presign?${jpgParams}`, { headers: presignHeaders });
-                if (resp2.ok) finalPresign = await resp2.json();
-              } catch (e2) { /* use original presign */ }
-            }
-          }
-
-          if (finalPresign && finalPresign.upload_url) {
-            // Upload file directly to S3 (browser → S3, no proxy involved)
-            showToast('Uploading image...', 'info');
-            const s3Resp = await fetch(finalPresign.upload_url, {
+          if (presignData && presignData.upload_url) {
+            // Upload file directly to S3 (browser → S3, no proxy)
+            const s3Resp = await fetch(presignData.upload_url, {
               method: 'PUT',
               body: compressedFile,
-              headers: { 'Content-Type': compressedFile.type || 'image/jpeg' },
+              headers: { 'Content-Type': compressedFile.type || 'image/webp' },
             });
 
             if (s3Resp.ok) {
-              imageUrl = finalPresign.file_url;
+              // Fix the file URL extension if compression produced JPEG instead of WebP
+              imageUrl = presignData.file_url;
             } else {
               console.warn('S3 upload failed:', s3Resp.status);
               showToast('Image upload failed. Saving without image.', 'error');
@@ -673,30 +654,10 @@ export default function AdminDashboard({ onLogout }) {
         payload.image = imageUrl;
       }
 
-      showToast('Saving item...', 'info');
-
       let saved = false;
 
-      // Try 1: Through Vercel proxy via axios (works for all other operations)
+      // Try 1: Direct to backend (fastest — same region, no Vercel proxy overhead)
       try {
-        if (editingItem) {
-          await axios.put(`/api/menu/${editingItem}`, payload, { headers, timeout: 15000 });
-        } else {
-          await axios.post('/api/menu', payload, { headers, timeout: 15000 });
-        }
-        saved = true;
-      } catch (proxyErr) {
-        // If backend returned 409 (duplicate), show error and stop — don't retry
-        if (proxyErr.response && proxyErr.response.status === 409) {
-          const msg = proxyErr.response.data?.message || 'This item already exists in the menu';
-          showToast(msg, 'error');
-          return;
-        }
-        console.warn('Proxy save failed, trying direct...', proxyErr.message);
-      }
-
-      // Try 2: Direct to backend (cross-origin)
-      if (!saved) {
         const menuUrl = editingItem
           ? `${directBackend}/api/menu/${editingItem}`
           : `${directBackend}/api/menu`;
@@ -708,14 +669,32 @@ export default function AdminDashboard({ onLogout }) {
           },
           body: JSON.stringify(payload),
         });
-        if (!resp.ok) {
+        if (resp.status === 409) {
           const errData = await resp.json().catch(() => ({}));
-          // Handle 409 duplicate from direct backend too
-          if (resp.status === 409) {
-            showToast(errData.message || 'This item already exists in the menu', 'error');
+          showToast(errData.message || 'This item already exists in the menu', 'error');
+          return;
+        }
+        if (resp.ok) saved = true;
+      } catch (e) {
+        console.warn('Direct save failed, trying proxy...', e.message);
+      }
+
+      // Try 2: Through Vercel proxy (fallback)
+      if (!saved) {
+        try {
+          if (editingItem) {
+            await axios.put(`/api/menu/${editingItem}`, payload, { headers, timeout: 15000 });
+          } else {
+            await axios.post('/api/menu', payload, { headers, timeout: 15000 });
+          }
+          saved = true;
+        } catch (proxyErr) {
+          if (proxyErr.response && proxyErr.response.status === 409) {
+            const msg = proxyErr.response.data?.message || 'This item already exists in the menu';
+            showToast(msg, 'error');
             return;
           }
-          throw new Error(errData.message || `Server returned ${resp.status}`);
+          throw proxyErr;
         }
       }
 
