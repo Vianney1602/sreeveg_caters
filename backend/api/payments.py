@@ -83,92 +83,91 @@ def create_razorpay_order():
 
 @payments_bp.route("/verify", methods=["POST"])
 def verify_payment():
+    data = request.json
+    payment_id = data.get("payment_id") if data else None
+    order_id = data.get("order_id") if data else None
+    razorpay_order_id = data.get("razorpay_order_id") if data else None
+    razorpay_signature = data.get("razorpay_signature") if data else None
+
+    print(f"\n[RAZORPAY_VERIFY] Verifying payment: payment_id={payment_id}, razorpay_order_id={razorpay_order_id}")
+
+    if not all([payment_id, order_id, razorpay_order_id, razorpay_signature]):
+        print(f"[RAZORPAY_VERIFY] ERROR: Missing payment details")
+        return jsonify({"error": "All payment details required"}), 400
+
+    # Verify signature
     try:
-        data = request.json
-        payment_id = data.get("payment_id")
-        order_id = data.get("order_id")
-        razorpay_order_id = data.get("razorpay_order_id")
-        razorpay_signature = data.get("razorpay_signature")
+        rzp_client = get_razorpay_client()
+        print(f"[RAZORPAY_VERIFY] Verifying signature with Razorpay")
+        
+        rzp_client.utility.verify_payment_signature({
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": payment_id,
+            "razorpay_signature": razorpay_signature
+        })
+        print(f"[RAZORPAY_VERIFY] Signature verified successfully")
 
-        print(f"\n[RAZORPAY_VERIFY] Verifying payment: payment_id={payment_id}, razorpay_order_id={razorpay_order_id}")
-
-        if not all([payment_id, order_id, razorpay_order_id, razorpay_signature]):
-            print(f"[RAZORPAY_VERIFY] ERROR: Missing payment details")
-            return jsonify({"error": "All payment details required"}), 400
-
-        # Verify signature
-        try:
-            rzp_client = get_razorpay_client()
-            print(f"[RAZORPAY_VERIFY] Verifying signature with Razorpay")
+        # Update order status to paid
+        order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
+        if order:
+            previous_status = order.status or "Pending"
+            print(f"[RAZORPAY_VERIFY] Order found: {order.order_id}, current status: {previous_status}")
             
-            rzp_client.utility.verify_payment_signature({
-                "razorpay_order_id": razorpay_order_id,
-                "razorpay_payment_id": payment_id,
-                "razorpay_signature": razorpay_signature
-            })
-            print(f"[RAZORPAY_VERIFY] Signature verified successfully")
+            if previous_status == "Paid":
+                print(f"[RAZORPAY_VERIFY] Order already paid")
+                return jsonify({"message": "Payment already verified"}), 200
 
-            # Update order status to paid
-            order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
-            if order:
-                previous_status = order.status or "Pending"
-                print(f"[RAZORPAY_VERIFY] Order found: {order.order_id}, current status: {previous_status}")
-                
-                if previous_status == "Paid":
-                    print(f"[RAZORPAY_VERIFY] Order already paid")
-                    return jsonify({"message": "Payment already verified"}), 200
+            order.status = "Paid"
+            db.session.commit()
+            print(f"[RAZORPAY_VERIFY] Order status updated to Paid")
+            current_app.logger.info(f"Payment verified for order {order.order_id}")
 
-                order.status = "Paid"
-                db.session.commit()
-                print(f"[RAZORPAY_VERIFY] Order status updated to Paid")
-                current_app.logger.info(f"Payment verified for order {order.order_id}")
+            # Trigger confirmation email
+            from api.orders import trigger_order_confirmation_email
+            trigger_order_confirmation_email(order.order_id)
 
-                # Trigger confirmation email
-                from api.orders import trigger_order_confirmation_email
-                trigger_order_confirmation_email(order.order_id)
+            # Emit real-time status change so admin dashboard updates immediately
+            try:
+                payload = {
+                    'order_id': order.order_id,
+                    'customer_id': order.customer_id,
+                    'old_status': previous_status,
+                    'new_status': 'Paid',
+                    'customer_name': order.customer_name,
+                    'timestamp': order.updated_at.isoformat() if order.updated_at else None
+                }
+                socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload, room='admins')
+                socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload)
+            except Exception:
+                pass
 
-                # Emit real-time status change so admin dashboard updates immediately
-                try:
-                    payload = {
-                        'order_id': order.order_id,
-                        'customer_id': order.customer_id,
-                        'old_status': previous_status,
-                        'new_status': 'Paid',
-                        'customer_name': order.customer_name,
-                        'timestamp': order.updated_at.isoformat() if order.updated_at else None
-                    }
-                    socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload, room='admins')
-                    socketio.start_background_task(emit_with_namespace, 'order_status_changed', payload)
-                except Exception:
-                    pass
+            # If this is the customer's first successful (paid) order, broadcast customer_created
+            if order.customer_id:
+                customer = Customer.query.get(order.customer_id)
+                if customer:
+                    try:
+                        orders_for_customer = Order.query.filter_by(customer_id=order.customer_id).all()
+                        total_spent = sum((o.total_amount or 0) for o in orders_for_customer)
+                        orders_count = len(orders_for_customer)
 
-                # If this is the customer's first successful (paid) order, broadcast customer_created
-                if order.customer_id:
-                    customer = Customer.query.get(order.customer_id)
-                    if customer:
-                        try:
-                            orders_for_customer = Order.query.filter_by(customer_id=order.customer_id).all()
-                            total_spent = sum((o.total_amount or 0) for o in orders_for_customer)
-                            orders_count = len(orders_for_customer)
+                        customer.total_orders_count = orders_count
+                        db.session.commit()
 
-                            customer.total_orders_count = orders_count
-                            db.session.commit()
-
-                            is_guest = not bool(customer.password_hash)
-                            if is_guest and orders_count == 1:
-                                payload = {
-                                    "customer_id": customer.customer_id,
-                                    "full_name": customer.full_name,
-                                    "phone_number": customer.phone_number,
-                                    "email": customer.email,
-                                    "total_orders_count": orders_count,
-                                    "total_spent": float(total_spent),
-                                    "created_at": customer.created_at.isoformat() if customer.created_at else None,
-                                    "is_registered": False,
-                                }
-                                socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
-                        except Exception:
-                            current_app.logger.warning("Failed to emit customer_created after payment", exc_info=True)
+                        is_guest = not bool(customer.password_hash)
+                        if is_guest and orders_count == 1:
+                            payload = {
+                                "customer_id": customer.customer_id,
+                                "full_name": customer.full_name,
+                                "phone_number": customer.phone_number,
+                                "email": customer.email,
+                                "total_orders_count": orders_count,
+                                "total_spent": float(total_spent),
+                                "created_at": customer.created_at.isoformat() if customer.created_at else None,
+                                "is_registered": False,
+                            }
+                            socketio.start_background_task(emit_with_namespace, 'customer_created', payload, room='admins')
+                    except Exception:
+                        current_app.logger.warning("Failed to emit customer_created after payment", exc_info=True)
 
         return jsonify({"message": "Payment verified successfully"})
     except razorpay.errors.SignatureVerificationError as e:
@@ -184,60 +183,4 @@ def verify_payment():
             "error": "Payment verification error",
             "details": str(e)
         }), 500
-
-
-@payments_bp.route("/cancel", methods=["POST"])
-def cancel_payment():
-    data = request.json or {}
-    razorpay_order_id = data.get("razorpay_order_id")
-    order_id = data.get("order_id")
-
-    if not razorpay_order_id and not order_id:
-        return jsonify({"error": "order_id or razorpay_order_id required"}), 400
-
-    try:
-        order = None
-        if razorpay_order_id:
-            order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
-        if not order and order_id:
-            order = Order.query.get(order_id)
-
-        if not order:
-            return jsonify({"error": "Order not found"}), 404
-
-        # Update status to Cancelled
-        previous_status = order.status
-        order.status = "Cancelled"
-        db.session.commit()
-
-        # Emit real-time status change to admins (and user room if applicable)
-        try:
-            socketio.start_background_task(emit_with_namespace, 
-                'order_status_changed',
-                {
-                    'order_id': order.order_id,
-                    'customer_id': order.customer_id,
-                    'old_status': previous_status,
-                    'new_status': 'Cancelled',
-                    'customer_name': order.customer_name,
-                    'timestamp': order.updated_at.isoformat() if order.updated_at else None
-                },
-                room='admins'
-            )
-            # Also broadcast to all for compatibility
-            socketio.start_background_task(emit_with_namespace, 'order_status_changed', {
-                'order_id': order.order_id,
-                'customer_id': order.customer_id,
-                'old_status': previous_status,
-                'new_status': 'Cancelled',
-                'customer_name': order.customer_name,
-                'timestamp': order.updated_at.isoformat() if order.updated_at else None
-            })
-        except Exception:
-            pass
-
-        return jsonify({"message": "Payment cancelled"})
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Payment cancel error: {str(e)}", exc_info=True)
         return jsonify({"error": "Payment cancel error"}), 500
