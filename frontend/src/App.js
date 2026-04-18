@@ -498,11 +498,55 @@ function App() {
   // Payment function using Razorpay (LIVE MODE)
   const initiatePayment = (orderId, amount, customerDetails, onSuccess, onError) => {
     const razorpayKey = process.env.REACT_APP_RAZORPAY_KEY;
+    console.log('[Razorpay] Initiating payment with key:', razorpayKey?.substring(0, 15) + '***');
+    console.log('[Razorpay] Order ID:', orderId, 'Amount:', amount);
+    
     if (!razorpayKey) {
-      console.error('Razorpay key not configured');
-      if (onError) onError(new Error('Payment configuration error'));
+      console.error('[Razorpay] ERROR: Razorpay key not configured in .env');
+      setPaymentStatus({
+        type: 'error',
+        message: 'Payment configuration error: Razorpay key not found. Please contact support.'
+      });
+      setTimeout(() => setPaymentStatus(null), 5000);
+      if (onError) onError(new Error('Payment configuration error: Razorpay key not found'));
       return;
     }
+
+    // Validate Razorpay key format
+    if (!razorpayKey.startsWith('rzp_')) {
+      console.error('[Razorpay] ERROR: Invalid Razorpay key format. Should start with rzp_');
+      setPaymentStatus({
+        type: 'error',
+        message: 'Invalid Razorpay configuration. Please contact support.'
+      });
+      setTimeout(() => setPaymentStatus(null), 5000);
+      if (onError) onError(new Error('Invalid Razorpay key format'));
+      return;
+    }
+
+    if (razorpayKey.length < 20) {
+      console.warn('[Razorpay] WARNING: Razorpay key appears to be incomplete (too short)');
+      setPaymentStatus({
+        type: 'error',
+        message: 'Razorpay key is incomplete. Please contact support.'
+      });
+      setTimeout(() => setPaymentStatus(null), 5000);
+      if (onError) onError(new Error('Invalid Razorpay key length'));
+      return;
+    }
+
+    // Check if Razorpay script is loaded
+    if (!window.Razorpay) {
+      console.error('[Razorpay] ERROR: Razorpay script not loaded. Check index.html for script tag.');
+      setPaymentStatus({
+        type: 'error',
+        message: 'Payment service not available. Please refresh the page and try again.'
+      });
+      setTimeout(() => setPaymentStatus(null), 5000);
+      if (onError) onError(new Error('Razorpay script not loaded'));
+      return;
+    }
+
     const options = {
       key: razorpayKey,
       amount: amount * 100, // Amount in paisa
@@ -511,6 +555,7 @@ function App() {
       description: 'Order Payment',
       order_id: orderId, // Razorpay order ID from backend
       handler: function (response) {
+        console.log('[Razorpay] Payment successful, response:', response);
         // Handle successful payment
         axios.post('/api/payments/verify', {
           payment_id: response.razorpay_payment_id,
@@ -518,6 +563,7 @@ function App() {
           razorpay_order_id: response.razorpay_order_id,
           razorpay_signature: response.razorpay_signature
         }).then(() => {
+          console.log('[Razorpay] Payment verified successfully');
           setPaymentStatus({
             type: 'success',
             message: 'Payment successful! Order confirmed.',
@@ -527,9 +573,10 @@ function App() {
           setTimeout(() => setPaymentStatus(null), 5000);
           if (onSuccess) onSuccess();
         }).catch(err => {
+          console.error('[Razorpay] Payment verification failed:', err);
           setPaymentStatus({
             type: 'error',
-            message: 'Payment verification failed. Please contact support.'
+            message: 'Payment verification failed. Please contact support. Order ID: ' + orderId
           });
           // Auto-hide after 5 seconds
           setTimeout(() => setPaymentStatus(null), 5000);
@@ -538,6 +585,7 @@ function App() {
       },
       modal: {
         ondismiss: function () {
+          console.log('[Razorpay] User cancelled payment');
           // User closed/cancelled the payment modal
           axios.post('/api/payments/cancel', { razorpay_order_id: orderId }).catch(() => { });
           setPaymentStatus({
@@ -557,8 +605,20 @@ function App() {
         color: '#3399cc'
       }
     };
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+    
+    try {
+      console.log('[Razorpay] Opening Razorpay with options:', options);
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error('[Razorpay] ERROR opening Razorpay:', err);
+      setPaymentStatus({
+        type: 'error',
+        message: 'Could not open payment. Error: ' + err.message
+      });
+      setTimeout(() => setPaymentStatus(null), 5000);
+      if (onError) onError(err);
+    }
   };
 
   // Fetch event types and menu items from backend

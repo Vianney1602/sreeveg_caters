@@ -127,12 +127,17 @@ def get_orders():
 @orders_bp.route("/", methods=["POST"])
 def create_order():
     try:
+        print("\n[CREATE_ORDER] Request received")
         data = request.json or {}
+        print(f"[CREATE_ORDER] Payload: {data}")
         
         # Validate menu_items
         menu_items = data.get("menu_items", [])
         if not menu_items:
+            print("[CREATE_ORDER] ERROR: No menu_items provided")
             return jsonify({"error": "menu_items is required"}), 400
+
+        print(f"[CREATE_ORDER] Menu items to add: {len(menu_items)} items - {menu_items}")
 
         # Duplicate detection: Check if same email created order in last 5 seconds
         email = data.get("email", "").lower().strip()
@@ -147,6 +152,7 @@ def create_order():
                 
                 # If within 5 seconds, return cached order (likely duplicate submission)
                 if time_diff < 5:
+                    print("[CREATE_ORDER] Duplicate order detected in cache")
                     return jsonify({
                         "message": "Order already exists",
                         "order_id": cached_order_id,
@@ -174,7 +180,9 @@ def create_order():
                 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
                 decoded = jwt.decode(user_token, SECRET_KEY, algorithms=["HS256"])
                 user_customer_id = decoded.get('user_id')
-            except:
+                print(f"[CREATE_ORDER] JWT verified, user_customer_id: {user_customer_id}")
+            except Exception as jwt_err:
+                print(f"[CREATE_ORDER] JWT decode error: {jwt_err}")
                 pass
 
         # Handle customer_id from JWT - FIX: handle both string and dict
@@ -198,6 +206,7 @@ def create_order():
         # Check authorization if both are present
         if payload_customer_id and identity_customer_id:
             if payload_customer_id != identity_customer_id:
+                print("[CREATE_ORDER] ERROR: Customer ID mismatch")
                 return jsonify({"error": "Forbidden"}), 403
         
         # Use identity customer_id if not provided in payload
@@ -210,10 +219,13 @@ def create_order():
         customer_name = data.get("customer_name")
         phone_number = data.get("phone_number")
         
+        print(f"[CREATE_ORDER] Customer info: name={customer_name}, email={email}, phone={phone_number}")
+        
         if email and not customer_id:
             existing_customer = Customer.query.filter_by(email=email).first()
             if existing_customer:
                 customer_id = existing_customer.customer_id
+                print(f"[CREATE_ORDER] Found existing customer: {customer_id}")
             else:
                 new_customer = Customer(
                     full_name=customer_name or "Guest",
@@ -224,8 +236,10 @@ def create_order():
                 db.session.add(new_customer)
                 db.session.flush()
                 customer_id = new_customer.customer_id
+                print(f"[CREATE_ORDER] Created new customer: {customer_id}")
 
         # Create order
+        print(f"[CREATE_ORDER] Creating order for customer_id: {customer_id}")
         order = Order(
             customer_id=customer_id,
             customer_name=customer_name,
@@ -243,6 +257,7 @@ def create_order():
 
         db.session.add(order)
         db.session.flush()  # Get order_id without full commit
+        print(f"[CREATE_ORDER] Order created with order_id: {order.order_id}")
         
         # Cache this order to prevent duplicates from rapid submissions
         if email:
@@ -251,7 +266,10 @@ def create_order():
 
         # Bulk load all menu items to avoid N+1 queries
         menu_item_ids = [item.get("id") for item in menu_items]
+        print(f"[CREATE_ORDER] Looking up menu_item_ids: {menu_item_ids}")
+        
         menu_items_map = {mi.item_id: mi for mi in MenuItem.query.filter(MenuItem.item_id.in_(menu_item_ids)).all()}
+        print(f"[CREATE_ORDER] Found {len(menu_items_map)} menu items in database")
         
         # Prepare batch operations
         order_menu_items = []
@@ -259,24 +277,32 @@ def create_order():
         
         # Save menu items and prepare stock updates
         for item in menu_items:
+            item_id = item.get("id")
+            qty = item.get("qty", 1)
+            price = item.get("price", 0)
+            
+            print(f"[CREATE_ORDER] Adding item: id={item_id}, qty={qty}, price={price}")
+            
             om = OrderMenuItem(
                 order_id=order.order_id,
-                menu_item_id=item.get("id"),
-                quantity=item.get("qty", 1),
-                price_at_order_time=item.get("price", 0)
+                menu_item_id=item_id,
+                quantity=qty,
+                price_at_order_time=price
             )
             db.session.add(om)
             order_menu_items.append(om)
             
             # Decrease stock quantity
-            menu_item = menu_items_map.get(item.get("id"))
-            if menu_item and menu_item.stock_quantity is not None:
+            menu_item = menu_items_map.get(item_id)
+            if menu_item:
                 old_stock = menu_item.stock_quantity
-                menu_item.stock_quantity = max(0, menu_item.stock_quantity - item.get("qty", 1))
+                menu_item.stock_quantity = max(0, menu_item.stock_quantity - qty)
                 
                 # Mark as unavailable if stock reaches 0
                 if menu_item.stock_quantity == 0:
                     menu_item.is_available = False
+                
+                print(f"[CREATE_ORDER] Updated stock for {menu_item.item_name}: {old_stock} -> {menu_item.stock_quantity}")
                 
                 inventory_updates.append({
                     'item_id': menu_item.item_id,
@@ -286,9 +312,12 @@ def create_order():
                     'is_available': menu_item.is_available,
                     'low_stock': menu_item.stock_quantity < 10
                 })
+            else:
+                print(f"[CREATE_ORDER] WARNING: Menu item {item_id} not found in database")
 
         # Single commit for all database operations
         db.session.commit()
+        print(f"[CREATE_ORDER] Order and items committed successfully")
         
         # Prepare data for background tasks
         order_data = {
@@ -381,9 +410,13 @@ def create_order():
         
     except Exception as e:
         db.session.rollback()
+        print(f"\n[CREATE_ORDER] ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({"error": "Failed to create order", "details": str(e)}), 500
+        return jsonify({
+            "error": "Failed to create order", 
+            "details": str(e)
+        }), 500
 
 
 @orders_bp.route("/<int:id>", methods=["GET"])
