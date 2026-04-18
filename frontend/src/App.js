@@ -80,6 +80,10 @@ function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false); // Will be set by URL sync or initialization
+  const [hasUserInteracted, setHasUserInteracted] = useState(() => {
+    // Check if user has already visited before (stored in sessionStorage)
+    return sessionStorage.getItem('_hasVisited') === 'true';
+  });
   const [showUserSignUp, setShowUserSignUp] = useState(false);
   const [showUserSignIn, setShowUserSignIn] = useState(false);
   const [showOrderHistory, setShowOrderHistory] = useState(false);
@@ -398,8 +402,8 @@ function App() {
         navigate('/admin', { replace: true });
         return;
       }
-      // Show welcome page only if neither admin nor user is logged in
-      pageState.welcome = !isAdminLoggedIn && !isUserLoggedIn;
+      // Show welcome page only on first visit if user hasn't interacted yet
+      pageState.welcome = !hasUserInteracted && !isUserLoggedIn && !isAdminLoggedIn;
     }
 
     // Update all states in one batch to prevent glitching
@@ -413,20 +417,11 @@ function App() {
     setShowOrderHistory(pageState.orderHistory);
     setShowUserAccount(pageState.account);
     setShowWelcome(pageState.welcome);
-  }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing, currentUser, navigate]);
+  }, [location.pathname, isAdminLoggedIn, isUserLoggedIn, initializing, currentUser, navigate, hasUserInteracted]);
 
-  // Require authentication - redirect to welcome if not logged in and not on auth pages
-  useEffect(() => {
-    if (initializing) return; // Don't redirect during initialization
-
-    const path = location.pathname;
-    const isOnAuthPage = path === '/' || path === '/signup' || path === '/signin' ||
-      path === '/admin-login' || path === '/admin';
-
-    if (!isUserLoggedIn && !isAdminLoggedIn && !isOnAuthPage) {
-      navigate('/');
-    }
-  }, [isUserLoggedIn, isAdminLoggedIn, location.pathname, initializing, navigate]);
+  // Allow browsing without authentication - only require login at checkout
+  // Removed the auth guard that was preventing users from viewing menu/cart without login
+  // Authentication will be checked when user tries to proceed to checkout
 
   const [paymentStatus, setPaymentStatus] = useState(null); // For payment feedback
   // Dashboard Stats (if needed)
@@ -757,7 +752,11 @@ function App() {
       />
     );
   }
-  if (showWelcome) return <WelcomePage onGetStarted={() => navigate('/signin')} />;
+  if (showWelcome) return <WelcomePage onGetStarted={() => {
+    sessionStorage.setItem('_hasVisited', 'true');
+    setHasUserInteracted(true);
+    navigate('/');
+  }} />;
   if (showUserSignUp) return <UserSignUp goToSignIn={() => navigate('/signin')} goBack={() => navigate(-1)} onSignUpSuccess={(user) => {
     const adminEmails = ['admin@shanmugabhavaan.com'];
     if (adminEmails.includes(user.email)) {

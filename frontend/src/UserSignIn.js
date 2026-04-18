@@ -61,17 +61,31 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
     try {
+      console.log('Google login success, decoding JWT...');
       const decoded = jwtDecode(credentialResponse.credential);
+      console.log('Decoded Google JWT:', { email: decoded.email, name: decoded.name, sub: decoded.sub });
+      
+      console.log('Sending to backend: /api/users/google-login');
       const response = await axios.post('/api/users/google-login', {
         google_id: decoded.sub,
         email: decoded.email,
         name: decoded.name
       });
 
+      console.log('Backend response received:', response.status, response.data);
+
       // Store token
+      if (!response.data.token) {
+        throw new Error('No token received from backend');
+      }
+      
       sessionStorage.setItem('_userToken', response.data.token);
       sessionStorage.setItem('_user', JSON.stringify(response.data.user));
+
+      console.log('Token stored successfully');
 
       // Call success callback
       if (onSignInSuccess) {
@@ -83,12 +97,18 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
         goToHome();
       }
     } catch (err) {
-      setError('Google sign-in failed. Please try again.');
+      console.error('Google sign-in error:', err);
+      console.error('Error response:', err.response?.data);
+      const errorMsg = err.response?.data?.error || err.message || 'Google sign-in failed. Please try again.';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleError = () => {
-    setError('Google sign-in failed. Please try again.');
+  const handleGoogleError = (error) => {
+    console.error('Google Login Error:', error);
+    setError('Google sign-in encountered an error. Please check your internet connection and try again.');
   };
 
   // Track if this is an admin password reset

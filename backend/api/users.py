@@ -313,20 +313,28 @@ def login():
 
 @users_bp.route("/google-login", methods=["POST"])
 def google_login():
-    """Google OAuth login"""
+    """Google OAuth login - Create or login user with Google credentials"""
     try:
         data = request.get_json()
         google_id = data.get("google_id")
         email = data.get("email")
         name = data.get("name")
         
-        if not email or not name:
-            return jsonify({"error": "Email and name are required"}), 400
+        # Validate input
+        if not email:
+            return jsonify({"error": "Email is required for Google login"}), 400
+        if not name:
+            return jsonify({"error": "Name is required for Google login"}), 400
+        if not google_id:
+            return jsonify({"error": "Google ID is required"}), 400
+        
+        print(f"[Google Login] Processing login for email: {email}, name: {name}")
         
         # Check if user exists
         user = Customer.query.filter_by(email=email).first()
         
         if not user:
+            print(f"[Google Login] New user detected, creating account for {email}")
             # Create new user for Google sign-in
             user = Customer(
                 full_name=name,
@@ -335,6 +343,9 @@ def google_login():
             )
             db.session.add(user)
             db.session.commit()
+            print(f"[Google Login] New user created with ID: {user.customer_id}")
+        else:
+            print(f"[Google Login] Existing user found: {user.customer_id}")
         
         # Generate JWT token
         token = jwt.encode({
@@ -343,20 +354,28 @@ def google_login():
             "exp": datetime.utcnow() + timedelta(days=7)
         }, SECRET_KEY, algorithm="HS256")
         
+        print(f"[Google Login] Token generated successfully for user {user.customer_id}")
+        
         return jsonify({
-            "message": "Login successful",
+            "message": "Google login successful",
             "token": token,
             "user": {
                 "id": user.customer_id,
                 "name": user.full_name,
                 "email": user.email,
-                "phone": user.phone_number
+                "phone": user.phone_number or ""
             }
         }), 200
         
     except Exception as e:
+        print(f"[Google Login Error] Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "Google login failed. Please try again.",
+            "details": str(e)
+        }), 500
 
 @users_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():

@@ -45,6 +45,17 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
       return;
     }
     
+    // Check if user is logged in - if not, redirect to signin
+    const userToken = sessionStorage.getItem('_userToken');
+    if (!userToken) {
+      setFormError('Please sign in or create an account to proceed with checkout');
+      // After a short delay, redirect to signin page
+      setTimeout(() => {
+        window.location.href = '/signin';
+      }, 1500);
+      return;
+    }
+    
     if (!(formData.name && formData.phone && formData.email && formData.address)) {
       setFormError('Please fill all required fields');
       return;
@@ -75,7 +86,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
     if (customer && customer.customer_id) payload.customer_id = customer.customer_id;
 
     const headers = {};
-    const userToken = sessionStorage.getItem('_userToken'); // User auth token
+    // userToken already declared at line 49, just use it
     if (userToken) headers.Authorization = `Bearer ${userToken}`;
 
     if (paymentMethod === 'cod') {
