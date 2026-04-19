@@ -28,6 +28,12 @@
   <!-- Security: Referrer Policy (no-referrer-when-downgrade for OAuth compatibility) -->
   <meta name="referrer" content="no-referrer-when-downgrade">
 
+  <!-- Security: Cross-Origin-Opener-Policy (required for Razorpay popup) -->
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+
+  <!-- Security: Cross-Origin-Embedder-Policy -->
+  <meta http-equiv="Cross-Origin-Embedder-Policy" content="credentialless">
+
   <meta name="description" content="Hotel Shanmuga Bhavaan - Premium South Indian Catering Services" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/images/ShanmugaBhavaan.png" />
   <!--
