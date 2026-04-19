@@ -108,7 +108,12 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
 
   const handleGoogleError = (error) => {
     console.error('Google Login Error:', error);
-    setError('Google sign-in encountered an error. Please check your internet connection and try again.');
+    // Check if it's an origin mismatch error (development localhost issue)
+    if (error?.error === 'popup_closed_by_user' || error?.message?.includes('origin')) {
+      setError('💡 Google sign-in unavailable for localhost. Please use Email/Password to sign in.');
+    } else {
+      setError('Google sign-in encountered an error. Please try email/password sign in instead.');
+    }
   };
 
   // Track if this is an admin password reset
