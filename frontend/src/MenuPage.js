@@ -131,10 +131,13 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
   // Fetch menu items from API on mount
   useEffect(() => {
+    console.log("🔄 Fetching menu items...");
     axios.get('/api/menu')
       .then((res) => {
+        console.log("✅ Menu API Response:", res.data);
         const items = res.data.map(item => {
           const categories = toCategoryArray(item.category);
+          console.log(`  Item: ${item.item_name} | Category: ${item.category} -> ${JSON.stringify(categories)}`);
           return {
             id: item.item_id,
             name: item.item_name,
@@ -147,9 +150,13 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
             available: item.is_available
           };
         });
+        console.log("✅ Menu items loaded:", items.length, "items");
+        console.log("   Sample items:", items.slice(0, 3));
         setMenuData(items);
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("❌ Menu API Error:", error);
+      });
   }, []);
 
   // Listen for real-time menu changes and inventory updates
@@ -291,6 +298,11 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
   return (
     <div className="menu-container">
+      {/* Debug Info */}
+      <div style={{padding: '10px', backgroundColor: '#f0f0f0', margin: '10px', borderRadius: '5px', fontSize: '12px'}}>
+        <div>📊 Debug: menuData={menuData.length} | filtered={filteredData.length} | filter={filter} | search={search}</div>
+      </div>
+
       {/* Header */}
       <div className="menu-header">
         <button className="back-btn" onClick={goBack}>
@@ -318,15 +330,21 @@ export default function MenuPage({ goBack, goToCart, cart = {}, updateQty, addTo
 
       {/* Menu Grid */}
       <div className="menu-grid">
-        {filteredData.map((item) => (
-          <MenuCard
-            key={item.id}
-            item={item}
-            cart={cart}
-            updateQty={updateQty}
-            addToCart={addToCart}
-          />
-        ))}
+        {filteredData.length === 0 ? (
+          <div style={{gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: '#666'}}>
+            {menuData.length === 0 ? '📥 Loading menu...' : '🔍 No items match your search'}
+          </div>
+        ) : (
+          filteredData.map((item) => (
+            <MenuCard
+              key={item.id}
+              item={item}
+              cart={cart}
+              updateQty={updateQty}
+              addToCart={addToCart}
+            />
+          ))
+        )}
       </div>
 
       {/* Footer Cart Summary */}
