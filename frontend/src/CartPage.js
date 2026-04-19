@@ -10,7 +10,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
     email: '',
     address: ''
   });
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // 'online' or 'cod' - defaulting to COD due to Razorpay key issues
+  const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' or 'cod'
   const [orderResult, setOrderResult] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null); // { type: 'success'|'error', message: string }
   const [formError, setFormError] = useState('');
@@ -464,16 +464,16 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                 <div className="form-group">
                   <label>Payment Method *</label>
                   <div className="payment-methods">
-                    <label className="payment-option" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                    <label className="payment-option">
                       <input
                         type="radio"
                         name="paymentMethod"
                         value="online"
-                        disabled
-                        checked={false}
+                        checked={paymentMethod === 'online'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
                       />
                       <span className="payment-label">
-                        💳 Online Payment (Razorpay) - Temporarily Unavailable
+                        💳 Online Payment (Razorpay)
                       </span>
                     </label>
                     <label className="payment-option">
@@ -489,9 +489,6 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                       </span>
                     </label>
                   </div>
-                  <p style={{ color: '#d32f2f', fontSize: '12px', marginTop: '8px', fontWeight: 'bold' }}>
-                    Note: Online payments are temporarily unavailable. Please use Cash on Delivery for now.
-                  </p>
                 </div>
 
                 <div className="checkout-summary">
