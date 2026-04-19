@@ -310,11 +310,16 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
+    print("\n" + "="*70)
+    print("Starting Razorpay Catering Backend Server...")
+    print("="*70)
     # If SSL cert + key exist in the backend folder (cert.pem/key.pem), run HTTPS for local dev.
     base = os.path.dirname(__file__)
     cert = os.path.join(base, 'cert.pem')
     key = os.path.join(base, 'key.pem')
     if os.path.exists(cert) and os.path.exists(key):
+        print("✅ SSL certificates found. Running on HTTPS...")
         socketio.run(app, host="0.0.0.0", port=8000, debug=False, ssl_context=(cert, key))
     else:
+        print("✅ Running on HTTP (port 8000)...")
         socketio.run(app, host="0.0.0.0", port=8000, debug=False)
