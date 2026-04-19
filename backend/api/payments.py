@@ -183,4 +183,3 @@ def verify_payment():
             "error": "Payment verification error",
             "details": str(e)
         }), 500
-        return jsonify({"error": "Payment cancel error"}), 500
