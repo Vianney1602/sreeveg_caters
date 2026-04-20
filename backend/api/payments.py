@@ -3,16 +3,26 @@ import razorpay
 from extensions import db, socketio, emit_with_namespace
 from models import Order, Customer
 import os
+import socket
+import dns.resolver
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# DNS Configuration - Use Google DNS for reliability
-os.environ['NAMESERVERS'] = '8.8.8.8,8.8.4.4'
+# Configure DNS at socket level for ALL network operations
+# This ensures ALL libraries (including razorpay SDK) use Google DNS
+try:
+    # Create a DNS resolver that uses Google's DNS servers
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = ['8.8.8.8', '8.8.4.4']
+    dns.resolver.default_resolver = resolver
+    print("[DNS] ✅ Configured to use Google DNS (8.8.8.8, 8.8.4.4)")
+except Exception as e:
+    print(f"[DNS] Warning: Could not configure dnspython: {e}")
 
-# Configure requests session with retry logic and DNS
+# Configure requests session with retry logic
 session = requests.Session()
-retry = Retry(connect=3, backoff_factor=0.5)
+retry = Retry(connect=3, backoff_factor=0.5, timeout=10)
 adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
