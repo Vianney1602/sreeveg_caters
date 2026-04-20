@@ -580,7 +580,7 @@ function App() {
           });
           // Auto-hide after 5 seconds
           setTimeout(() => setPaymentStatus(null), 5000);
-          if (onError) onError(err);
+          if (onError) onError('Payment verification failed');
         });
       },
       modal: {
@@ -593,7 +593,8 @@ function App() {
             message: 'Payment cancelled. You can retry from the cart.'
           });
           setTimeout(() => setPaymentStatus(null), 5000);
-          if (onError) onError(new Error('Payment cancelled'));
+          // Pass error message as string, not Error object
+          if (onError) onError('Payment cancelled by user');
         }
       },
       prefill: {
@@ -617,7 +618,7 @@ function App() {
         message: 'Could not open payment. Error: ' + err.message
       });
       setTimeout(() => setPaymentStatus(null), 5000);
-      if (onError) onError(err);
+      if (onError) onError('Could not open payment gateway');
     }
   };
 
