@@ -3,6 +3,19 @@ import razorpay
 from extensions import db, socketio, emit_with_namespace
 from models import Order, Customer
 import os
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# DNS Configuration - Use Google DNS for reliability
+os.environ['NAMESERVERS'] = '8.8.8.8,8.8.4.4'
+
+# Configure requests session with retry logic and DNS
+session = requests.Session()
+retry = Retry(connect=3, backoff_factor=0.5)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 payments_bp = Blueprint("payments", __name__)
 
