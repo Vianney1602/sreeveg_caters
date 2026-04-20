@@ -6,8 +6,12 @@ import os
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import base64
+import hmac
+import hashlib
 
-# Configure requests session with retry logic
+# Configure requests session with retry logic and Google DNS
+# This bypasses Eventlet's broken greendns on EC2 ap-south-2
 session = requests.Session()
 retry = Retry(connect=3, backoff_factor=0.5)
 adapter = HTTPAdapter(max_retries=retry)
@@ -16,8 +20,57 @@ session.mount('https://', adapter)
 
 payments_bp = Blueprint("payments", __name__)
 
-# Razorpay client - use environment variables for security (LIVE MODE)
+# Direct Razorpay API calls using requests (bypasses Eventlet DNS issues)
+def create_razorpay_order_direct(amount_paisa, receipt):
+    """
+    Create Razorpay order using direct requests library.
+    Bypasses razorpay.Client which uses Eventlet's broken greendns on EC2.
+    """
+    key_id = os.environ.get("RAZORPAY_KEY_ID")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    
+    if not key_id or not key_secret:
+        raise ValueError("Razorpay keys not configured")
+    
+    url = "https://api.razorpay.com/v1/orders"
+    auth = (key_id, key_secret)
+    
+    payload = {
+        "amount": amount_paisa,
+        "currency": "INR",
+        "receipt": receipt,
+        "payment_capture": 1
+    }
+    
+    print(f"[RAZORPAY] Making direct HTTP request to {url}")
+    response = session.post(url, json=payload, auth=auth, timeout=10)
+    response.raise_for_status()
+    
+    return response.json()
+
+def verify_payment_signature_direct(razorpay_order_id, payment_id, razorpay_signature):
+    """
+    Verify Razorpay payment signature using direct HMAC (bypasses Client library).
+    """
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    if not key_secret:
+        raise ValueError("Razorpay key secret not configured")
+    
+    # Razorpay signature verification
+    data = f"{razorpay_order_id}|{payment_id}"
+    generated_signature = hmac.new(
+        key_secret.encode(),
+        data.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    if generated_signature != razorpay_signature:
+        raise ValueError("Invalid payment signature")
+    
+    return True
+
 def get_razorpay_client():
+    """Fallback: traditional razorpay.Client (only for verify utility if needed)"""
     key_id = os.environ.get("RAZORPAY_KEY_ID")
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
     if not key_id or not key_secret:
@@ -45,21 +98,14 @@ def create_razorpay_order():
 
         print(f"[RAZORPAY] Order found: {order.customer_name}, email: {order.email}")
 
-        # Create Razorpay order
+        # Create Razorpay order using DIRECT requests (bypasses Eventlet DNS)
         try:
-            rzp_client = get_razorpay_client()
-            print(f"[RAZORPAY] Razorpay client created")
+            amount_paisa = int(amount * 100)  # in paisa
+            receipt = f"order_{order_id}"
             
-            rzp_order_data = {
-                "amount": int(amount * 100),  # in paisa
-                "currency": "INR",
-                "receipt": f"order_{order_id}",
-                "payment_capture": 1
-            }
-            print(f"[RAZORPAY] Creating order with data: {rzp_order_data}")
-            
-            rzp_order = rzp_client.order.create(rzp_order_data)
-            print(f"[RAZORPAY] Order created successfully: {rzp_order['id']}")
+            print(f"[RAZORPAY] Creating order with amount={amount_paisa} paisa, receipt={receipt}")
+            rzp_order = create_razorpay_order_direct(amount_paisa, receipt)
+            print(f"[RAZORPAY] ✅ Order created successfully: {rzp_order['id']}")
 
             # Update order with razorpay_order_id
             order.razorpay_order_id = rzp_order["id"]
@@ -74,7 +120,7 @@ def create_razorpay_order():
                 "currency": rzp_order["currency"]
             })
         except Exception as e:
-            print(f"[RAZORPAY] ERROR creating Razorpay order: {str(e)}")
+            print(f"[RAZORPAY] ❌ ERROR creating Razorpay order: {str(e)}")
             current_app.logger.error(f"Razorpay order creation failed: {str(e)}", exc_info=True)
             import traceback
             traceback.print_exc()
@@ -83,7 +129,7 @@ def create_razorpay_order():
                 "details": str(e)
             }), 500
     except Exception as e:
-        print(f"[RAZORPAY] ERROR in create_razorpay_order: {str(e)}")
+        print(f"[RAZORPAY] ❌ ERROR in create_razorpay_order: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -105,17 +151,11 @@ def verify_payment():
         print(f"[RAZORPAY_VERIFY] ERROR: Missing payment details")
         return jsonify({"error": "All payment details required"}), 400
 
-    # Verify signature
+    # Verify signature using DIRECT HMAC (bypasses Eventlet DNS issues)
     try:
-        rzp_client = get_razorpay_client()
-        print(f"[RAZORPAY_VERIFY] Verifying signature with Razorpay")
-        
-        rzp_client.utility.verify_payment_signature({
-            "razorpay_order_id": razorpay_order_id,
-            "razorpay_payment_id": payment_id,
-            "razorpay_signature": razorpay_signature
-        })
-        print(f"[RAZORPAY_VERIFY] Signature verified successfully")
+        print(f"[RAZORPAY_VERIFY] Verifying signature with HMAC")
+        verify_payment_signature_direct(razorpay_order_id, payment_id, razorpay_signature)
+        print(f"[RAZORPAY_VERIFY] ✅ Signature verified successfully")
 
         # Update order status to paid
         order = Order.query.filter_by(razorpay_order_id=razorpay_order_id).first()
