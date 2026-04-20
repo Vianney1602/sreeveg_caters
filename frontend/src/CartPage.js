@@ -13,6 +13,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
   const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' or 'cod'
   const [orderResult, setOrderResult] = useState(null);
   const [orderStatus, setOrderStatus] = useState(null); // { type: 'success'|'error', message: string }
+  const [paymentSuccess, setPaymentSuccess] = useState(null); // Track payment success/failure (null=pending, true=success, false=failed)
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false); // Prevent duplicate submissions on slow network
 
@@ -27,7 +28,10 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
   const total = subtotal;
 
   const isEmpty = cartItems.length === 0;
-  const showSuccess = orderCompleted && orderedItems && orderedItems.length > 0;
+  // Only show success if order is completed AND payment was successful (or COD doesn't need payment check)
+  const showSuccess = orderCompleted && orderedItems && orderedItems.length > 0 && paymentSuccess !== false;
+  // Show error if payment explicitly failed
+  const showError = paymentSuccess === false;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -93,6 +97,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
       // Cash on Delivery - place order directly
       axios.post('/api/orders', payload, { headers })
         .then(res => {
+          setPaymentSuccess(true); // COD is always successful (no payment to verify)
           setOrderStatus({
             type: 'success',
             message: 'Order placed successfully! You will pay cash on delivery.',
@@ -114,6 +119,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         })
         .catch(err => {
           console.error('Order placement error:', err);
+          setPaymentSuccess(false); // Mark as failed
           const errorMsg = err.response?.data?.error || err.message || 'Error placing order. Please try again.';
           setOrderStatus({
             type: 'error',
@@ -145,43 +151,36 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             email: formData.email,
             phone: formData.phone
           };
-          initiatePayment(razorpayOrderId, amount, customerDetails,
-            (orderId) => {
-              // Payment success callback - handled by App.js paymentStatus
-              // Save ordered items before clearing cart
-              setOrderedItems(cartItems.map(item => ({
-                name: item.name,
-                qty: item.qty,
-                price: item.price,
-                image: item.image
-              })));
-              setOrderCompleted(true);
-              setShowCheckout(false);
-              setFormData({ name: '', phone: '', email: '', address: '' });
-              setPaymentMethod('online'); // Reset to default
-              // Clear cart in parent if provided
-              if (typeof clearCart === 'function') clearCart();
-            },
-            (errorMessage) => {
-              // Payment error callback - handled by App.js paymentStatus
-              setShowCheckout(false);
-              setFormData({ name: '', phone: '', email: '', address: '' });
-              setPaymentMethod('online'); // Reset to default
-            }
-          );
-          // Save ordered items before clearing cart
+          // Save ordered items BEFORE initiating payment
           setOrderedItems(cartItems.map(item => ({
             name: item.name,
             qty: item.qty,
             price: item.price,
             image: item.image
           })));
-          setOrderCompleted(true);
+          setOrderCompleted(true); // Set to true but will show error if payment fails
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
           setPaymentMethod('online'); // Reset to default
-          // Clear cart in parent if provided
           if (typeof clearCart === 'function') clearCart();
+          
+          // NOW initiate payment
+          initiatePayment(razorpayOrderId, amount, customerDetails,
+            (orderId) => {
+              // Payment success callback
+              setPaymentSuccess(true); // Mark payment as successful
+            },
+            (errorMessage) => {
+              // Payment error callback - mark as failed
+              setPaymentSuccess(false); // Mark payment as failed
+              setOrderStatus({
+                type: 'error',
+                message: errorMessage || 'Payment failed or was cancelled. Please try again.'
+              });
+              // Auto-hide error message after 5 seconds
+              setTimeout(() => setOrderStatus(null), 5000);
+            }
+          );
         })
         .catch(err => {
           console.error('Payment order creation error:', err);
@@ -211,7 +210,32 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
         {/* LEFT SIDE */}
         <div className="cart-left">
 
-          {showSuccess ? (
+          {showError ? (
+            <div className="empty-cart-container error-container" style={{
+              backgroundColor: '#ffe6e6',
+              borderLeft: '5px solid #d32f2f'
+            }}>
+              <div className="empty-cart-icon" style={{fontSize: '3rem'}}>❌</div>
+              <h3 className="empty-cart-title" style={{color: '#d32f2f', fontSize: '2rem', fontWeight: 'bold'}}>Oops! Your Order Was Cancelled</h3>
+              <p className="empty-cart-description" style={{color: '#c62828', fontSize: '1.1rem', marginTop: '15px'}}>
+                {orderStatus?.message || 'Your payment was not completed or was cancelled.'}
+              </p>
+              <p className="empty-cart-subtitle" style={{color: '#b71c1c', marginTop: '15px', fontSize: '1rem'}}>
+                Please try again or contact our support team if you need help.
+              </p>
+              <button className="empty-cart-cta" onClick={() => {
+                setPaymentSuccess(null); // Reset payment status
+                setOrderCompleted(false);
+                setOrderedItems(null);
+              }} style={{
+                marginTop: '20px',
+                backgroundColor: '#d32f2f',
+                color: 'white'
+              }}>
+                🔄 Try Again
+              </button>
+            </div>
+          ) : showSuccess ? (
             <div className="empty-cart-container success-container">
               <div className="empty-cart-icon">🎉</div>
               <h3 className="empty-cart-title" style={{color: '#7a0000', fontSize: '2rem', fontWeight: 'bold', letterSpacing: '0.5px', fontFamily: "'Georgia', 'Garamond', serif"}}>Your Order is Preparing to Get Delivered!</h3>
