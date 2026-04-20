@@ -42,11 +42,26 @@ def create_razorpay_order_direct(amount_paisa, receipt):
         "payment_capture": 1
     }
     
-    print(f"[RAZORPAY] Making direct HTTP request to {url}")
-    response = session.post(url, json=payload, auth=auth, timeout=10)
-    response.raise_for_status()
+    print(f"[RAZORPAY] Step 1: Preparing request to {url}")
+    print(f"[RAZORPAY] Step 2: Payload = {payload}")
+    print(f"[RAZORPAY] Step 3: Auth user = {key_id[:10]}***")
     
-    return response.json()
+    try:
+        print(f"[RAZORPAY] Step 4: Making POST request with timeout=10...")
+        response = session.post(url, json=payload, auth=auth, timeout=10, verify=True)
+        print(f"[RAZORPAY] Step 5: Response status = {response.status_code}")
+        response.raise_for_status()
+        print(f"[RAZORPAY] Step 6: Response JSON received")
+        return response.json()
+    except requests.exceptions.Timeout as e:
+        print(f"[RAZORPAY] ❌ TIMEOUT: {str(e)}")
+        raise
+    except requests.exceptions.ConnectionError as e:
+        print(f"[RAZORPAY] ❌ CONNECTION ERROR: {str(e)}")
+        raise
+    except Exception as e:
+        print(f"[RAZORPAY] ❌ ERROR: {type(e).__name__}: {str(e)}")
+        raise
 
 def verify_payment_signature_direct(razorpay_order_id, payment_id, razorpay_signature):
     """
@@ -76,6 +91,39 @@ def get_razorpay_client():
     if not key_id or not key_secret:
         raise ValueError("Razorpay keys not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET environment variables.")
     return razorpay.Client(auth=(key_id, key_secret))
+
+# DIAGNOSTIC ENDPOINT
+@payments_bp.route("/test_dns", methods=["GET"])
+def test_dns():
+    """Test DNS resolution to api.razorpay.com"""
+    import socket
+    import subprocess
+    
+    results = {}
+    
+    try:
+        print("[DNS_TEST] Testing socket.getaddrinfo...")
+        result = socket.getaddrinfo("api.razorpay.com", 443)
+        results["socket.getaddrinfo"] = f"✅ SUCCESS: {result[0][4][0]}"
+    except Exception as e:
+        results["socket.getaddrinfo"] = f"❌ FAILED: {str(e)}"
+    
+    try:
+        print("[DNS_TEST] Testing requests to Razorpay...")
+        resp = session.get("https://api.razorpay.com", timeout=5)
+        results["requests.get"] = f"✅ SUCCESS: HTTP {resp.status_code}"
+    except Exception as e:
+        results["requests.get"] = f"❌ FAILED: {str(e)}"
+    
+    try:
+        print("[DNS_TEST] Testing subprocess nslookup...")
+        output = subprocess.check_output(["nslookup", "api.razorpay.com"], timeout=5).decode()
+        results["nslookup"] = f"✅ SUCCESS: Resolved"
+    except Exception as e:
+        results["nslookup"] = f"❌ FAILED: {str(e)}"
+    
+    print(f"[DNS_TEST] Results: {results}")
+    return jsonify(results)
 
 @payments_bp.route("/create_order", methods=["POST"])
 def create_razorpay_order():
