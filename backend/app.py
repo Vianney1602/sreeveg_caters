@@ -1,8 +1,12 @@
 import eventlet
-eventlet.monkey_patch()
+
+# CRITICAL FIX: Disable Eventlet's greendns which breaks DNS on EC2 ap-south-2
+# Use dns=False to skip DNS monkey patching, keep other patches (socket, select, etc)
+eventlet.monkey_patch(dns=False, socket=True)
 
 # NOTE: Eventlet's greendns breaks DNS on EC2 ap-south-2.
 # Email sending now uses curl subprocess (brevo_mail.py) to bypass this.
+# Payments now use requests library directly, bypassing Eventlet's broken DNS.
 
 # Initialize psycogreen for non-blocking Postgres I/O with Eventlet
 try:
