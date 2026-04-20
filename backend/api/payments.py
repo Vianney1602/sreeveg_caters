@@ -20,12 +20,16 @@ session.mount('https://', adapter)
 
 payments_bp = Blueprint("payments", __name__)
 
-# Direct Razorpay API calls using requests (bypasses Eventlet DNS issues)
+# Direct Razorpay API calls using subprocess curl (GUARANTEED to work with system DNS)
 def create_razorpay_order_direct(amount_paisa, receipt):
     """
-    Create Razorpay order using direct requests library.
-    Bypasses razorpay.Client which uses Eventlet's broken greendns on EC2.
+    Create Razorpay order using subprocess curl.
+    Bypasses Python's socket layer which is corrupted by Eventlet's monkey_patch.
+    Uses system's curl which respects /etc/systemd/resolved.conf DNS settings.
     """
+    import subprocess
+    import json
+    
     key_id = os.environ.get("RAZORPAY_KEY_ID")
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
     
@@ -33,7 +37,6 @@ def create_razorpay_order_direct(amount_paisa, receipt):
         raise ValueError("Razorpay keys not configured")
     
     url = "https://api.razorpay.com/v1/orders"
-    auth = (key_id, key_secret)
     
     payload = {
         "amount": amount_paisa,
@@ -42,23 +45,44 @@ def create_razorpay_order_direct(amount_paisa, receipt):
         "payment_capture": 1
     }
     
-    print(f"[RAZORPAY] Step 1: Preparing request to {url}")
+    print(f"[RAZORPAY] Step 1: Preparing curl request to {url}")
     print(f"[RAZORPAY] Step 2: Payload = {payload}")
-    print(f"[RAZORPAY] Step 3: Auth user = {key_id[:10]}***")
     
     try:
-        print(f"[RAZORPAY] Step 4: Making POST request with timeout=10...")
-        response = session.post(url, json=payload, auth=auth, timeout=10, verify=True)
-        print(f"[RAZORPAY] Step 5: Response status = {response.status_code}")
-        response.raise_for_status()
-        print(f"[RAZORPAY] Step 6: Response JSON received")
-        return response.json()
-    except requests.exceptions.Timeout as e:
-        print(f"[RAZORPAY] ❌ TIMEOUT: {str(e)}")
-        raise
-    except requests.exceptions.ConnectionError as e:
-        print(f"[RAZORPAY] ❌ CONNECTION ERROR: {str(e)}")
-        raise
+        print(f"[RAZORPAY] Step 3: Executing curl subprocess...")
+        
+        # Use curl via subprocess - guaranteed to use system DNS
+        cmd = [
+            "curl",
+            "-X", "POST",
+            url,
+            "-u", f"{key_id}:{key_secret}",
+            "-H", "Content-Type: application/json",
+            "-d", json.dumps(payload),
+            "--max-time", "15",
+            "--silent"
+        ]
+        
+        print(f"[RAZORPAY] Step 4: Running curl command...")
+        result = subprocess.run(cmd, capture_output=True, timeout=20, text=True)
+        
+        if result.returncode != 0:
+            error_msg = result.stderr or result.stdout
+            print(f"[RAZORPAY] ❌ CURL ERROR (code {result.returncode}): {error_msg}")
+            raise Exception(f"Curl failed: {error_msg}")
+        
+        print(f"[RAZORPAY] Step 5: Parsing response...")
+        response_data = json.loads(result.stdout)
+        print(f"[RAZORPAY] Step 6: ✅ Response received")
+        
+        return response_data
+        
+    except subprocess.TimeoutExpired:
+        print(f"[RAZORPAY] ❌ TIMEOUT: Curl exceeded 15 seconds")
+        raise Exception("Razorpay API timeout")
+    except json.JSONDecodeError as e:
+        print(f"[RAZORPAY] ❌ JSON ERROR: {str(e)}")
+        raise Exception(f"Invalid JSON from Razorpay: {result.stdout}")
     except Exception as e:
         print(f"[RAZORPAY] ❌ ERROR: {type(e).__name__}: {str(e)}")
         raise
@@ -95,30 +119,38 @@ def get_razorpay_client():
 # DIAGNOSTIC ENDPOINT
 @payments_bp.route("/test_dns", methods=["GET"])
 def test_dns():
-    """Test DNS resolution to api.razorpay.com"""
-    import socket
+    """Test DNS resolution to api.razorpay.com using curl"""
     import subprocess
     
     results = {}
     
     try:
-        print("[DNS_TEST] Testing socket.getaddrinfo...")
-        result = socket.getaddrinfo("api.razorpay.com", 443)
-        results["socket.getaddrinfo"] = f"✅ SUCCESS: {result[0][4][0]}"
+        print("[DNS_TEST] Testing curl to Razorpay...")
+        result = subprocess.run(
+            ["curl", "-I", "https://api.razorpay.com", "--max-time", "5"],
+            capture_output=True,
+            timeout=7,
+            text=True
+        )
+        if result.returncode == 0:
+            results["curl_to_api.razorpay.com"] = f"✅ SUCCESS: HTTP connection established"
+        else:
+            results["curl_to_api.razorpay.com"] = f"❌ FAILED: {result.stderr}"
     except Exception as e:
-        results["socket.getaddrinfo"] = f"❌ FAILED: {str(e)}"
+        results["curl_to_api.razorpay.com"] = f"❌ FAILED: {str(e)}"
     
     try:
-        print("[DNS_TEST] Testing requests to Razorpay...")
-        resp = session.get("https://api.razorpay.com", timeout=5)
-        results["requests.get"] = f"✅ SUCCESS: HTTP {resp.status_code}"
-    except Exception as e:
-        results["requests.get"] = f"❌ FAILED: {str(e)}"
-    
-    try:
-        print("[DNS_TEST] Testing subprocess nslookup...")
-        output = subprocess.check_output(["nslookup", "api.razorpay.com"], timeout=5).decode()
-        results["nslookup"] = f"✅ SUCCESS: Resolved"
+        print("[DNS_TEST] Testing nslookup...")
+        result = subprocess.run(
+            ["nslookup", "api.razorpay.com"],
+            capture_output=True,
+            timeout=5,
+            text=True
+        )
+        if result.returncode == 0 and "Address" in result.stdout:
+            results["nslookup"] = f"✅ SUCCESS: DNS resolved"
+        else:
+            results["nslookup"] = f"❌ FAILED: {result.stderr}"
     except Exception as e:
         results["nslookup"] = f"❌ FAILED: {str(e)}"
     
