@@ -4,21 +4,43 @@ from extensions import db, socketio, emit_with_namespace
 from models import Order, Customer
 import os
 import socket
-import dns.resolver
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# Configure DNS at socket level for ALL network operations
-# This ensures ALL libraries (including razorpay SDK) use Google DNS
-try:
-    # Create a DNS resolver that uses Google's DNS servers
-    resolver = dns.resolver.Resolver()
-    resolver.nameservers = ['8.8.8.8', '8.8.4.4']
-    dns.resolver.default_resolver = resolver
-    print("[DNS] ✅ Configured to use Google DNS (8.8.8.8, 8.8.4.4)")
-except Exception as e:
-    print(f"[DNS] Warning: Could not configure dnspython: {e}")
+# PERMANENT DNS FIX: Force all DNS queries to use Google DNS
+# This works at the socket level, affecting ALL HTTP libraries including razorpay
+_original_getaddrinfo = socket.getaddrinfo
+
+def patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """
+    Patched getaddrinfo that forces DNS resolution through Google DNS
+    by using socket.gaierror as a fallback if local DNS fails
+    """
+    try:
+        # Try with original resolver first
+        return _original_getaddrinfo(host, port, family, type, proto, flags)
+    except socket.gaierror as e:
+        try:
+            # If it fails, use explicit Google DNS
+            import subprocess
+            result = subprocess.check_output(
+                ['nslookup', host, '8.8.8.8'],
+                timeout=5,
+                stderr=subprocess.STDOUT
+            ).decode()
+            # Extract IP from nslookup output
+            for line in result.split('\n'):
+                if 'Address:' in line and ':' not in line.split(':')[1]:
+                    ip = line.split()[-1]
+                    return _original_getaddrinfo(ip, port, family, type, proto, flags)
+        except:
+            pass
+        raise e
+
+# Apply the patch
+socket.getaddrinfo = patched_getaddrinfo
+print("[DNS] ✅ Applied socket-level DNS patch with Google DNS fallback")
 
 # Configure requests session with retry logic
 session = requests.Session()
