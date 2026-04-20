@@ -51,9 +51,9 @@ def create_razorpay_order_direct(amount_paisa, receipt):
     try:
         print(f"[RAZORPAY] Step 3: Executing curl subprocess...")
         
-        # Use curl via subprocess - guaranteed to use system DNS
+        # Use full path to curl - subprocess may not find it in PATH
         cmd = [
-            "curl",
+            "/usr/bin/curl",
             "-X", "POST",
             url,
             "-u", f"{key_id}:{key_secret}",
@@ -127,7 +127,7 @@ def test_dns():
     try:
         print("[DNS_TEST] Testing curl to Razorpay...")
         result = subprocess.run(
-            ["curl", "-I", "https://api.razorpay.com", "--max-time", "5"],
+            ["/usr/bin/curl", "-I", "https://api.razorpay.com", "--max-time", "5"],
             capture_output=True,
             timeout=7,
             text=True
@@ -142,7 +142,7 @@ def test_dns():
     try:
         print("[DNS_TEST] Testing nslookup...")
         result = subprocess.run(
-            ["nslookup", "api.razorpay.com"],
+            ["/usr/bin/nslookup", "api.razorpay.com"],
             capture_output=True,
             timeout=5,
             text=True
