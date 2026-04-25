@@ -20,6 +20,15 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  font-family: 'Poppins', sans-serif;
+}
+
+.modal-content h1,
+.modal-content h2,
+.modal-content h3,
+.modal-content h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
 }
 
 .modal-header {

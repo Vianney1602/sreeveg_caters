@@ -11,6 +11,15 @@
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+  font-family: 'Poppins', sans-serif;
+}
+
+.admin-login-container h1, 
+.admin-login-container h2,
+.admin-login-container h3,
+.admin-login-container h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
 }
 
 .admin-login-container::before {

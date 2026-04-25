@@ -706,13 +706,19 @@
 /* ---------- MENU CARD STYLES ---------- */
 /* ---------- GLOBAL ---------- */
 body, .menu-container {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
   background: #faf5e4;
   margin: 0;
   padding: 0;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+}
+
+body h1, body h2, body h3, body h4,
+.menu-container h1, .menu-container h2, .menu-container h3, .menu-container h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
 }
 
 /* ---------- HEADER ---------- */

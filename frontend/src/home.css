@@ -1,12 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&display=swap');
-
-/* Global heading font across the app */
-.app h1,
-.app h2,
-.app h3,
-.app h4 {
-  font-family: 'Cinzel Decorative', serif;
-}
+/* Global heading font is now defined in index.css */
 
 /* HERO SECTION */
 .hero {
@@ -967,7 +959,8 @@
 
 .footer h3 {
   margin-bottom: 10px;
-  font-family: 'Cinzel Decorative', serif;
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
 }
 
 .footer p {
@@ -1146,7 +1139,8 @@ section h2::after {
 .auth-box h2 {
   color: #7a0000;
   margin-bottom: 1.5rem;
-  font-family: 'Cinzel Decorative', serif;
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
   font-size: 1.75rem;
 }
 

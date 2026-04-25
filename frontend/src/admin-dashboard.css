@@ -1,10 +1,18 @@
 .admin-dashboard {
   min-height: 100vh;
   background: #f8f9fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow-x: hidden;
   width: 100%;
   max-width: 100vw;
+}
+
+.admin-dashboard h1,
+.admin-dashboard h2,
+.admin-dashboard h3,
+.admin-dashboard h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
 }
 
 /* Header */
