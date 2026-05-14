@@ -243,6 +243,27 @@
   font-weight: 400;
 }
 
+/* Account Page Header Layout */
+.account-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.account-page-header > div:first-child {
+  flex: 1;
+}
+
+.account-logout-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 0;
+  white-space: nowrap;
+}
+
 /* Mobile adjustments without changing desktop styles */
 @media (max-width: 768px) {
   .admin-login-container {
@@ -265,6 +286,17 @@
 
   .login-subtitle {
     font-size: 0.95rem;
+  }
+
+  .account-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .account-logout-btn {
+    width: 100%;
+    align-self: stretch;
   }
 }
 

@@ -24,22 +24,25 @@ export default function AccountPage({ customer, onLogout, goBack }) {
     <div className="admin-login-container">
       <button className="back-link" onClick={goBack}>← Back</button>
       <div className="login-card">
-        <div className="login-icon">🧾</div>
-        <h1>My Account</h1>
-        <p className="login-subtitle">{customer ? `Welcome, ${customer.full_name}` : 'Please sign in'}</p>
-
-        <div style={{ textAlign: 'left' }}>
+        <div className="account-page-header">
+          <div>
+            <div className="login-icon">🧾</div>
+            <h1>My Account</h1>
+            <p className="login-subtitle">{customer ? `Welcome, ${customer.full_name}` : 'Please sign in'}</p>
+          </div>
           <button
-            className="sign-in-btn"
+            className="sign-in-btn account-logout-btn"
             onClick={() => {
               sessionStorage.removeItem('_ct');
               sessionStorage.removeItem('_cu');
               onLogout();
             }}
-            style={{ marginBottom: 12 }}
           >
             Logout
           </button>
+        </div>
+
+        <div style={{ textAlign: 'left' }}>
 
           <h3>Purchase History</h3>
           {loading && <div>Loading orders...</div>}

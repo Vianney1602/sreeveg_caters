@@ -725,13 +725,28 @@ body h1, body h2, body h3, body h4,
 .menu-header {
   background: #7a0000;
   color: white;
-  text-align: center;
-  padding: 18px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 18px;
   font-weight: 600;
   width: 100%;
   position: relative;
   left: 0;
   right: 0;
+  flex-wrap: wrap;
+}
+
+.menu-header > h2 {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
+.menu-header > span {
+  flex-shrink: 0;
+  font-size: 0.95rem;
 }
 
 .menu-header p {
@@ -742,9 +757,6 @@ body h1, body h2, body h3, body h4,
 
 /* ---------- BACK BUTTON ---------- */
 .back-btn {
-  position: absolute;
-  left: 15px;
-  top: 18px;
   background: rgba(255, 255, 255, 0.15);
   border: 2px solid rgba(255, 255, 255, 0.3);
   color: white;
@@ -758,6 +770,8 @@ body h1, body h2, body h3, body h4,
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .back-btn:hover {
@@ -826,6 +840,28 @@ body h1, body h2, body h3, body h4,
 
 /* Mobile responsive styles for menu controls */
 @media (max-width: 768px) {
+  .menu-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .menu-header > h2 {
+    order: 2;
+  }
+
+  .menu-header > span {
+    order: 3;
+    text-align: center;
+  }
+
+  .back-btn {
+    order: 1;
+    width: 100%;
+    justify-content: center;
+  }
+
   .menu-controls {
     flex-direction: column;
     gap: 12px;
@@ -847,6 +883,31 @@ body h1, body h2, body h3, body h4,
 }
 
 @media (max-width: 540px) {
+  .menu-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .menu-header > h2 {
+    font-size: 1.3rem;
+    order: 2;
+  }
+
+  .menu-header > span {
+    order: 3;
+    font-size: 0.85rem;
+  }
+
+  .back-btn {
+    order: 1;
+    width: 100%;
+    justify-content: center;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
   .menu-controls {
     flex-direction: column;
     gap: 10px;
