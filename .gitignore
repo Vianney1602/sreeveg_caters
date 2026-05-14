@@ -41,6 +41,7 @@ frontend/.turbo/
 # Backend artifacts
 backend/instance/
 backend/static/uploads/
+scripts/fortinet-root.cer
 
 # Logs
 *.log

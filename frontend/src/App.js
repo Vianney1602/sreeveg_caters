@@ -652,6 +652,11 @@ function App() {
   }, []);
 
   // Cart functions
+  const toSafeAmount = (value, fallback = 0) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  };
+
   const updateQty = (id, qty) => {
     setCart((prev) => {
       if (qty <= 0) {
@@ -664,12 +669,13 @@ function App() {
   };
 
   const addToCart = (item) => {
+    const safePrice = toSafeAmount(item.price);
     setCart((prev) => ({
       ...prev,
       [item.id]: {
         ...item,
         qty: (prev[item.id]?.qty || 0) + 1,
-        price: item.price,
+        price: safePrice,
       },
     }));
   };

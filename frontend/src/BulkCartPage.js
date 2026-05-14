@@ -17,13 +17,21 @@ export default function BulkCartPage({
   bulkOrderedItems,
   setBulkOrderedItems,
 }) {
+  const toSafeAmount = (value, fallback = 0) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  };
+
+  const formatCurrency = (value) => `₹${toSafeAmount(value).toFixed(2)}`;
+
   const items = Object.values(bulkCart).map((item) => ({
     ...item,
-    qty: item.qty || guestCount || 1,
+    qty: Number.isFinite(Number(item.qty)) && Number(item.qty) > 0 ? Number(item.qty) : (Number.isFinite(Number(guestCount)) && Number(guestCount) > 0 ? Number(guestCount) : 1),
+    price: toSafeAmount(item.price),
   }));
 
   const subtotal = items.reduce(
-    (sum, item) => sum + ((item.price || 0) * (item.qty || 0)),
+    (sum, item) => sum + (toSafeAmount(item.price) * toSafeAmount(item.qty)),
     0
   );
   const total = subtotal;
@@ -90,9 +98,9 @@ export default function BulkCartPage({
       event_time: new Date().toLocaleTimeString(),
       venue: address,
       special: null,
-      total_amount: parseFloat(total.toFixed(2)),
+      total_amount: parseFloat(toSafeAmount(total).toFixed(2)),
       payment_method: paymentMethod,
-      menu_items,
+      menu_items: menu_items.map((it) => ({ ...it, qty: toSafeAmount(it.qty), price: toSafeAmount(it.price) })),
     };
 
     // Optional auth header if customer token exists
@@ -116,8 +124,8 @@ export default function BulkCartPage({
           if (typeof setBulkOrderedItems === "function") {
             setBulkOrderedItems(items.map(item => ({
               name: item.name,
-              qty: item.qty,
-              price: item.price,
+              qty: toSafeAmount(item.qty),
+              price: toSafeAmount(item.price),
               image: item.image
             })));
           }
@@ -163,8 +171,8 @@ export default function BulkCartPage({
         if (typeof setBulkOrderedItems === "function") {
           setBulkOrderedItems(items.map(item => ({
             name: item.name,
-            qty: item.qty,
-            price: item.price,
+              qty: toSafeAmount(item.qty),
+              price: toSafeAmount(item.price),
             image: item.image
           })));
         }
@@ -242,9 +250,9 @@ export default function BulkCartPage({
                       />
                       <div style={{flex: 1}}>
                         <p style={{color: '#7a0000', fontWeight: '600', margin: '0 0 5px 0'}}>{item.name}</p>
-                        <p style={{color: '#5c0000', fontSize: '0.9rem', margin: 0}}>Quantity: {item.qty} × ₹{item.price}</p>
+                        <p style={{color: '#5c0000', fontSize: '0.9rem', margin: 0}}>Quantity: {toSafeAmount(item.qty)} × {formatCurrency(item.price)}</p>
                       </div>
-                      <p style={{color: '#7a0000', fontWeight: '700', fontSize: '1rem'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                      <p style={{color: '#7a0000', fontWeight: '700', fontSize: '1rem'}}>{formatCurrency(toSafeAmount(item.qty) * toSafeAmount(item.price))}</p>
                     </div>
                   ))}
                 </div>
@@ -292,7 +300,7 @@ export default function BulkCartPage({
 
                 <div className="cart-item-info">
                   <h3>{item.name}</h3>
-                  <p>{item.qty} persons × ₹{item.price}</p>
+                  <p>{toSafeAmount(item.qty)} persons × {formatCurrency(item.price)}</p>
                   <div className="qty-row">
                     <button
                       type="button"
@@ -319,7 +327,7 @@ export default function BulkCartPage({
                 </div>
 
                 <div className="cart-price">
-                  ₹{(((item.price || 0) * item.qty)).toFixed(2)}
+                  {formatCurrency(toSafeAmount(item.price) * toSafeAmount(item.qty))}
                 </div>
               </div>
             ))
@@ -333,12 +341,12 @@ export default function BulkCartPage({
 
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>₹{subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(subtotal)}</span>
             </div>
 
             <div className="summary-row total">
               <span>Total</span>
-              <span className="total-amt">₹{total.toFixed(2)}</span>
+              <span className="total-amt">{formatCurrency(total)}</span>
             </div>
 
             <button
@@ -375,9 +383,9 @@ export default function BulkCartPage({
                   }}>
                     <div style={{flex: 1}}>
                       <p style={{color: '#5c0000', fontWeight: '600', margin: '0 0 3px 0'}}>{item.name}</p>
-                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {item.qty} × ₹{item.price}</p>
+                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {toSafeAmount(item.qty)} × {formatCurrency(item.price)}</p>
                     </div>
-                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>{formatCurrency(toSafeAmount(item.qty) * toSafeAmount(item.price))}</p>
                   </div>
                 ))}
               </div>
@@ -486,7 +494,7 @@ export default function BulkCartPage({
                 </div>
                 <div className="summary-line total-line">
                   <span>Total Amount</span>
-                  <span>₹{total.toFixed(2)}</span>
+                    <span>{formatCurrency(total)}</span>
                 </div>
               </div>
 

@@ -3,6 +3,13 @@ import axios from "axios";
 import "./cart.css";
 
 export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted, orderedItems, setOrderedItems }) {
+  const toSafeAmount = (value, fallback = 0) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  };
+
+  const formatCurrency = (value) => `₹${toSafeAmount(value).toFixed(2)}`;
+
   const [showCheckout, setShowCheckout] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -20,8 +27,8 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
   const cartItems = Object.values(cart);
 
   const subtotal = Object.values(cart).reduce((sum, item) => {
-    const price = item.price || 0;
-    const qty = item.qty || 0;
+    const price = toSafeAmount(item.price);
+    const qty = toSafeAmount(item.qty);
     return sum + (price * qty);
   }, 0);
 
@@ -78,9 +85,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
       event_time: new Date().toLocaleTimeString(),
       venue: formData.address,
       special: null,
-      total_amount: parseFloat(total.toFixed(2)),
+      total_amount: parseFloat(toSafeAmount(total).toFixed(2)),
       payment_method: paymentMethod, // Add payment method to payload
-      menu_items: cartItems.map(i => ({ id: i.id, qty: i.qty, price: i.price }))
+      menu_items: cartItems.map(i => ({ id: i.id, qty: toSafeAmount(i.qty), price: toSafeAmount(i.price) }))
     };
 
     // attach customer_id and Authorization header when user is logged in
@@ -106,8 +113,8 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           // Save ordered items before clearing cart
           setOrderedItems(cartItems.map(item => ({
             name: item.name,
-            qty: item.qty,
-            price: item.price,
+            qty: toSafeAmount(item.qty),
+            price: toSafeAmount(item.price),
             image: item.image
           })));
           setOrderCompleted(true);
@@ -154,8 +161,8 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
           // Save ordered items BEFORE initiating payment
           setOrderedItems(cartItems.map(item => ({
             name: item.name,
-            qty: item.qty,
-            price: item.price,
+            qty: toSafeAmount(item.qty),
+            price: toSafeAmount(item.price),
             image: item.image
           })));
           setOrderCompleted(true); // Set to true but will show error if payment fails
@@ -279,9 +286,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                       />
                       <div style={{flex: 1}}>
                         <p style={{color: '#7a0000', fontWeight: '600', margin: '0 0 5px 0'}}>{item.name}</p>
-                        <p style={{color: '#5c0000', fontSize: '0.9rem', margin: 0}}>Quantity: {item.qty} × ₹{item.price}</p>
+                        <p style={{color: '#5c0000', fontSize: '0.9rem', margin: 0}}>Quantity: {toSafeAmount(item.qty)} × {formatCurrency(item.price)}</p>
                       </div>
-                      <p style={{color: '#7a0000', fontWeight: '700', fontSize: '1rem'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                      <p style={{color: '#7a0000', fontWeight: '700', fontSize: '1rem'}}>{formatCurrency(toSafeAmount(item.qty) * toSafeAmount(item.price))}</p>
                     </div>
                   ))}
                 </div>
@@ -345,7 +352,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
               </div>
 
               <div className="cart-price">
-                ₹{(item.qty * item.price).toFixed(2)}
+                {formatCurrency(toSafeAmount(item.qty) * toSafeAmount(item.price))}
               </div>
             </div>
           ))}
@@ -361,12 +368,12 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
 
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>₹{subtotal.toFixed(2)}</span>
+              <span>{formatCurrency(subtotal)}</span>
             </div>
 
             <div className="summary-row total">
               <span>Total</span>
-              <span className="total-amt">₹{total.toFixed(2)}</span>
+              <span className="total-amt">{formatCurrency(total)}</span>
             </div>
 
             <button 
@@ -403,9 +410,9 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
                   }}>
                     <div style={{flex: 1}}>
                       <p style={{color: '#5c0000', fontWeight: '600', margin: '0 0 3px 0'}}>{item.name}</p>
-                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {item.qty} × ₹{item.price}</p>
+                      <p style={{color: '#7a0000', fontSize: '0.85rem', margin: 0}}>Qty: {toSafeAmount(item.qty)} × {formatCurrency(item.price)}</p>
                     </div>
-                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>₹{(item.qty * item.price).toFixed(2)}</p>
+                    <p style={{color: '#7a0000', fontWeight: '700', marginLeft: '10px'}}>{formatCurrency(toSafeAmount(item.qty) * toSafeAmount(item.price))}</p>
                   </div>
                 ))}
               </div>
@@ -519,7 +526,7 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
 
                   <div className="summary-line total-line">
                     <span>Total Amount</span>
-                    <span>₹{total.toFixed(2)}</span>
+                    <span>{formatCurrency(total)}</span>
                   </div>
                 </div>
 
@@ -597,13 +604,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
             <h3>Items</h3>
             <ul>
               {orderResult.items.map(it => (
-                <li key={it.id}>{it.name} × {it.qty} — ₹{(it.price * it.qty).toFixed(2)}</li>
+                <li key={it.id}>{it.name} × {toSafeAmount(it.qty)} — {formatCurrency(toSafeAmount(it.price) * toSafeAmount(it.qty))}</li>
               ))}
             </ul>
 
             <div className="summary-line total-line">
               <span>Total</span>
-              <span>₹{orderResult.total.toFixed(2)}</span>
+              <span>{formatCurrency(orderResult.total)}</span>
             </div>
 
             <button className="close-summary-btn" onClick={() => setOrderResult(null)}>Close</button>
