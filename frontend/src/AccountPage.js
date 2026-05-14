@@ -22,10 +22,12 @@ export default function AccountPage({ customer, onLogout, goBack }) {
 
   return (
     <div className="admin-login-container">
-      <button className="back-link" onClick={goBack}>← Back</button>
       <div className="login-card">
+        <div className="account-page-header-top">
+          <button className="back-link" onClick={goBack}>← Back</button>
+        </div>
         <div className="account-page-header">
-          <div>
+          <div className="account-header-content">
             <div className="login-icon">🧾</div>
             <h1>My Account</h1>
             <p className="login-subtitle">{customer ? `Welcome, ${customer.full_name}` : 'Please sign in'}</p>

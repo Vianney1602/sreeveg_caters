@@ -1641,6 +1641,11 @@ section h2::after {
 
 .account-info-value {
   color: #2d3e50;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  flex: 0 1 auto;
+  text-align: right;
+  margin-left: 1rem;
 }
 
 .account-actions {
@@ -1710,5 +1715,38 @@ section h2::after {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+/* Mobile responsive styles for account info */
+@media (max-width: 768px) {
+  .account-info-item {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .account-info-label {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .account-info-value {
+    text-align: left;
+    margin-left: 0;
+    word-break: break-word;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-info-item {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .account-info-value {
+    font-size: 0.95rem;
   }
 }
