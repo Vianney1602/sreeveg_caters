@@ -192,16 +192,16 @@ export default function CartPage({ goBack, goToSignIn, cart, updateQty, clearCar
           setShowCheckout(false);
           setFormData({ name: '', phone: '', email: '', address: '' });
           setPaymentMethod('online'); // Reset to default
-          if (typeof clearCart === 'function') clearCart();
           
           // NOW initiate payment
           initiatePayment(razorpayOrderId, amount, customerDetails,
             (orderId) => {
-              // Payment success callback
+              // Payment success callback - only clear cart after successful payment
               setPaymentSuccess(true); // Mark payment as successful
+              if (typeof clearCart === 'function') clearCart();
             },
             (errorMessage) => {
-              // Payment error callback - mark as failed
+              // Payment error callback - mark as failed, keep cart items intact
               setPaymentSuccess(false); // Mark payment as failed
               setOrderStatus({
                 type: 'error',

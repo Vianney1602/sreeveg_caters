@@ -181,21 +181,12 @@ export default function BulkCartPage({
       .then((rzpRes) => {
         const razorpayOrderId = rzpRes.data.order_id;
         const customerDetails = { name, email, phone };
-        if (typeof initiatePayment === "function") {
-          initiatePayment(
-            razorpayOrderId,
-            payload.total_amount,
-            customerDetails,
-            () => {},
-            () => {}
-          );
-        }
-        // Save ordered items before clearing cart
+        // Save ordered items before payment
         if (typeof setBulkOrderedItems === "function") {
           setBulkOrderedItems(items.map(item => ({
             name: item.name,
-              qty: toSafeAmount(item.qty),
-              price: toSafeAmount(item.price),
+            qty: toSafeAmount(item.qty),
+            price: toSafeAmount(item.price),
             image: item.image
           })));
         }
@@ -203,7 +194,21 @@ export default function BulkCartPage({
         setShowCheckout(false);
         setFormData({ name: "", phone: "", email: "", address: "" });
         setPaymentMethod("online");
-        if (typeof clearCart === "function") clearCart();
+        
+        if (typeof initiatePayment === "function") {
+          initiatePayment(
+            razorpayOrderId,
+            payload.total_amount,
+            customerDetails,
+            () => {
+              // Payment success callback - only clear cart after successful payment
+              if (typeof clearCart === "function") clearCart();
+            },
+            () => {
+              // Payment error callback - keep cart items intact
+            }
+          );
+        }
       })
       .catch((err) => {
         console.error('Bulk payment order creation error:', err);
