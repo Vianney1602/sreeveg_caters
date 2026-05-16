@@ -133,7 +133,7 @@ function App() {
     setOrderCompleted(false);
     setOrderedItems([]);
     setTimeout(() => {
-      navigate('/cart');
+      navigate('/cart', { state: { returnTo: location.pathname || '/' } });
       setIsPageTransitioning(false);
     }, 2000);
   };
@@ -141,7 +141,7 @@ function App() {
   const navigateToBulkCart = () => {
     setIsPageTransitioning(true);
     setTimeout(() => {
-      navigate('/bulk-cart');
+      navigate('/bulk-cart', { state: { returnTo: location.pathname || '/bulk-menu' } });
       setIsPageTransitioning(false)
     }, 2000);
   };
@@ -149,7 +149,7 @@ function App() {
   const navigateToBulkMenu = () => {
     setIsPageTransitioning(true);
     setTimeout(() => {
-      navigate('/bulk-menu');
+      navigate('/bulk-menu', { state: { returnTo: location.pathname || '/' } });
       setIsPageTransitioning(false);
     }, 2000);
   };
@@ -870,7 +870,7 @@ function App() {
   if (showAdminLogin) {
     return (
       <AdminLogin
-        goBack={() => navigate(-1)}
+        goBack={() => navigate(location.state?.returnTo || '/')}
         onLoginSuccess={() => {
           setIsAdminLoggedIn(true);
           navigate('/admin');
@@ -883,7 +883,7 @@ function App() {
     setHasUserInteracted(true);
     navigate('/');
   }} />;
-  if (showUserSignUp) return <UserSignUp goToSignIn={() => navigate('/signin')} goBack={() => navigate(-1)} onSignUpSuccess={(user) => {
+  if (showUserSignUp) return <UserSignUp goToSignIn={() => navigate('/signin')} goBack={() => navigate(location.state?.returnTo || '/')} onSignUpSuccess={(user) => {
     const adminEmails = ['admin@shanmugabhavaan.com'];
     if (adminEmails.includes(user.email)) {
       // Admin signup: set admin session properly
@@ -907,7 +907,7 @@ function App() {
       navigate('/account');
     }
   }} goToHome={() => navigate('/')} />;
-  if (showUserSignIn) return <UserSignIn returnTo={location.state?.returnTo || '/account'} goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
+  if (showUserSignIn) return <UserSignIn returnTo={location.state?.returnTo || '/account'} goToSignUp={() => navigate('/signup')} goBack={() => navigate(location.state?.returnTo || '/')} onSignInSuccess={(user) => {
     // Regular user login
     setCurrentUser(user);
     setIsUserLoggedIn(true);
@@ -935,7 +935,7 @@ function App() {
       navigate('/signin');
       return null;
     }
-    return <OrderHistory user={currentUser} goBack={() => navigate(-1)} />;
+    return <OrderHistory user={currentUser} goBack={() => navigate(location.state?.returnTo || '/account')} />;
   }
   if (showUserAccount) {
     if (!isUserLoggedIn || !currentUser) {
@@ -948,15 +948,15 @@ function App() {
       sessionStorage.removeItem('_userToken');
       sessionStorage.removeItem('_user');
       navigate('/signin');
-    }} goToOrderHistory={() => navigate('/order-history')} goToMenu={() => navigate('/menu')} goToHome={() => navigate('/')} />;
+    }} goToOrderHistory={() => navigate('/order-history', { state: { returnTo: '/account' } })} goToMenu={() => navigate('/menu', { state: { returnTo: '/account' } })} goToHome={() => navigate(location.state?.returnTo || '/')} />;
   }
   if (showCart)
     return (
       <CartPage
         goBack={() => {
-          navigate(-1);
+          navigate(location.state?.returnTo || '/');
         }}
-        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: '/cart' } })}
+        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: location.pathname || '/cart' } })}
         cart={cart}
         updateQty={updateQty}
         clearCart={() => setCart({})}
@@ -973,7 +973,7 @@ function App() {
     return (
       <MenuPage
         goBack={() => {
-          navigate(-1);
+          navigate(location.state?.returnTo || '/');
         }}
         goToCart={navigateToCart}
         cart={cart}
@@ -989,7 +989,7 @@ function App() {
         setBulkCart={setBulkCart}
         goToCart={navigateToBulkCart}
         goBack={() => {
-          navigate(-1);
+          navigate(location.state?.returnTo || '/');
         }}
       />
     );
@@ -999,8 +999,8 @@ function App() {
         guestCount={bulkGuestCount}
         bulkCart={bulkCart}
         updateBulkQty={updateBulkQty}
-        goBack={navigateToBulkMenu}
-        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: '/bulk-cart' } })}
+        goBack={() => navigate(location.state?.returnTo || '/bulk-menu')}
+        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: location.pathname || '/bulk-cart' } })}
         clearCart={() => setBulkCart({})}
         initiatePayment={initiatePayment}
         defaultPaymentMethod="online"

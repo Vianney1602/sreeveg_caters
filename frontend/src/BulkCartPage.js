@@ -39,7 +39,9 @@ export default function BulkCartPage({
   const totalQty = items.reduce((sum, item) => sum + (item.qty || 0), 0);
 
   const isEmpty = items.length === 0;
-  const showSuccess = bulkOrderCompleted && bulkOrderedItems && bulkOrderedItems.length > 0;
+  const [paymentSuccess, setPaymentSuccess] = useState(null); // null=pending, true=success, false=failed/cancelled
+  const showSuccess = bulkOrderCompleted && bulkOrderedItems && bulkOrderedItems.length > 0 && paymentSuccess !== false;
+  const showError = paymentSuccess === false;
 
   /* 🔹 Checkout State */
   const [showCheckout, setShowCheckout] = useState(false);
@@ -181,16 +183,6 @@ export default function BulkCartPage({
       .then((rzpRes) => {
         const razorpayOrderId = rzpRes.data.order_id;
         const customerDetails = { name, email, phone };
-        // Save ordered items before payment
-        if (typeof setBulkOrderedItems === "function") {
-          setBulkOrderedItems(items.map(item => ({
-            name: item.name,
-            qty: toSafeAmount(item.qty),
-            price: toSafeAmount(item.price),
-            image: item.image
-          })));
-        }
-        if (typeof setBulkOrderCompleted === "function") setBulkOrderCompleted(true);
         setShowCheckout(false);
         setFormData({ name: "", phone: "", email: "", address: "" });
         setPaymentMethod("online");
@@ -201,11 +193,27 @@ export default function BulkCartPage({
             payload.total_amount,
             customerDetails,
             () => {
-              // Payment success callback - only clear cart after successful payment
+              // Payment success callback - only mark success after payment is verified
+                setPaymentSuccess(true);
+              if (typeof setBulkOrderedItems === "function") {
+                setBulkOrderedItems(items.map(item => ({
+                  name: item.name,
+                  qty: toSafeAmount(item.qty),
+                  price: toSafeAmount(item.price),
+                  image: item.image
+                })));
+              }
+              if (typeof setBulkOrderCompleted === "function") setBulkOrderCompleted(true);
               if (typeof clearCart === "function") clearCart();
             },
-            () => {
-              // Payment error callback - keep cart items intact
+            (errorMessage) => {
+              // Payment error callback - keep cart items intact and surface the shared cancel/error message
+                setPaymentSuccess(false);
+              setOrderStatus({
+                type: "error",
+                message: errorMessage || "Payment failed or was cancelled. Please try again."
+              });
+              setTimeout(() => setOrderStatus(null), 5000);
             }
           );
         }
@@ -234,7 +242,35 @@ export default function BulkCartPage({
       <div className="cart-content">
         {/* LEFT SIDE */}
         <div className="cart-left">
-          {showSuccess ? (
+          {showError ? (
+            <div className="empty-cart-container error-container" style={{
+              backgroundColor: '#ffe6e6',
+              borderLeft: '5px solid #d32f2f'
+            }}>
+              <div className="empty-cart-icon" style={{fontSize: '3rem'}}>❌</div>
+              <h3 className="empty-cart-title" style={{color: '#d32f2f', fontSize: '2rem', fontWeight: 'bold'}}>
+                Oops! Your Order Was Cancelled
+              </h3>
+              <p className="empty-cart-description" style={{color: '#c62828', fontSize: '1.1rem', marginTop: '15px'}}>
+                {orderStatus?.message || 'Your payment was not completed or was cancelled.'}
+              </p>
+              <p className="empty-cart-subtitle" style={{color: '#b71c1c', marginTop: '15px', fontSize: '1rem'}}>
+                Please try again or contact our support team if you need help.
+              </p>
+              <button className="empty-cart-cta" onClick={() => {
+                setPaymentSuccess(null);
+                setBulkOrderCompleted(false);
+                setBulkOrderedItems([]);
+                setOrderStatus(null);
+              }} style={{
+                marginTop: '20px',
+                backgroundColor: '#d32f2f',
+                color: 'white'
+              }}>
+                🔄 Try Again
+              </button>
+            </div>
+          ) : showSuccess ? (
             <div className="empty-cart-container success-container">
               <div className="empty-cart-icon">🎉</div>
               <h3 className="empty-cart-title" style={{color: '#7a0000', fontSize: '2rem', fontWeight: 'bold', letterSpacing: '0.5px', fontFamily: "'Georgia', 'Garamond', serif"}}>Your Bulk Order is Preparing to Get Delivered!</h3>
