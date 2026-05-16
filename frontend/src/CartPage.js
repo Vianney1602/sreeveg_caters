@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import "./cart.css";
 
-export default function CartPage({ goBack, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted, orderedItems, setOrderedItems }) {
+export default function CartPage({ goBack, goToSignIn, cart, updateQty, clearCart, initiatePayment, paymentStatus, clearPaymentStatus, orderCompleted, setOrderCompleted, orderedItems, setOrderedItems }) {
   const toSafeAmount = (value, fallback = 0) => {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
@@ -53,9 +53,13 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
     const userToken = sessionStorage.getItem('_userToken');
     if (!userToken) {
       setFormError('Please sign in or create an account to proceed with checkout');
-      // Redirect to signin page after a short delay
+      // Redirect to signin page after a short delay and return back to cart after login
       setTimeout(() => {
-        window.location.href = '/signin';
+        if (typeof goToSignIn === 'function') {
+          goToSignIn();
+        } else {
+          window.location.href = '/signin';
+        }
       }, 1500);
       return;
     }
@@ -77,7 +81,11 @@ export default function CartPage({ goBack, cart, updateQty, clearCart, initiateP
       setFormError('Please sign in or create an account to proceed with checkout');
       // After a short delay, redirect to signin page
       setTimeout(() => {
-        window.location.href = '/signin';
+        if (typeof goToSignIn === 'function') {
+          goToSignIn();
+        } else {
+          window.location.href = '/signin';
+        }
       }, 1500);
       return;
     }

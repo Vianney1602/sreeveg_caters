@@ -7,6 +7,7 @@ export default function BulkCartPage({
   guestCount,
   updateBulkQty,
   goBack,
+  goToSignIn,
   clearCart,
   initiatePayment,
   defaultPaymentMethod,
@@ -77,9 +78,13 @@ export default function BulkCartPage({
         type: "error", 
         message: "Please sign in or create an account to proceed with checkout" 
       });
-      // Redirect to signin page after a short delay
+      // Redirect to signin page after a short delay and return back to bulk cart after login
       setTimeout(() => {
-        window.location.href = '/signin';
+        if (typeof goToSignIn === 'function') {
+          goToSignIn();
+        } else {
+          window.location.href = '/signin';
+        }
       }, 1500);
       return;
     }

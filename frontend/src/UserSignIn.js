@@ -90,10 +90,8 @@ export default function UserSignIn({ goToSignUp, goBack, onSignInSuccess, goToHo
       // Call success callback
       if (onSignInSuccess) {
         onSignInSuccess(response.data.user);
-      }
-
-      // Redirect to home page
-      if (goToHome) {
+      } else if (goToHome) {
+        // Fallback only when no redirect handler is supplied
         goToHome();
       }
     } catch (err) {

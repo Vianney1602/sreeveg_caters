@@ -907,13 +907,18 @@ function App() {
       navigate('/account');
     }
   }} goToHome={() => navigate('/')} />;
-  if (showUserSignIn) return <UserSignIn goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
+  if (showUserSignIn) return <UserSignIn returnTo={location.state?.returnTo || '/account'} goToSignUp={() => navigate('/signup')} goBack={() => navigate(-1)} onSignInSuccess={(user) => {
     // Regular user login
     setCurrentUser(user);
     setIsUserLoggedIn(true);
     setShowUserAccount(true);
     sessionStorage.setItem('_showWelcome', 'false');
-    navigate('/account');
+    const returnTo = location.state?.returnTo;
+    if (returnTo) {
+      navigate(returnTo, { replace: true });
+    } else {
+      navigate('/account');
+    }
   }} onAdminLogin={(admin) => {
     // Admin login: set admin session properly
     sessionStorage.removeItem('_userToken');
@@ -951,6 +956,7 @@ function App() {
         goBack={() => {
           navigate(-1);
         }}
+        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: '/cart' } })}
         cart={cart}
         updateQty={updateQty}
         clearCart={() => setCart({})}
@@ -994,6 +1000,7 @@ function App() {
         bulkCart={bulkCart}
         updateBulkQty={updateBulkQty}
         goBack={navigateToBulkMenu}
+        goToSignIn={() => navigate('/signin', { replace: true, state: { returnTo: '/bulk-cart' } })}
         clearCart={() => setBulkCart({})}
         initiatePayment={initiatePayment}
         defaultPaymentMethod="online"
