@@ -124,7 +124,7 @@ function App() {
   // eslint-disable-next-line no-unused-vars
   const [selectedMenuItems, setSelectedMenuItems] = useState([]);
   const [, setEventTypes] = useState([]);
-  const [, setMenuCategories] = useState([]);
+  const [menuCategories, setMenuCategories] = useState([]);
 
   // Navigation helper functions with loading animation
   const navigateToCart = () => {
@@ -651,6 +651,61 @@ function App() {
       });
   }, []);
 
+  useEffect(() => {
+    if (!menuCategories.length) return;
+
+    setCart((prev) => {
+      let changed = false;
+      const menuLookup = new Map();
+
+      menuCategories.forEach((category) => {
+        (category.items || []).forEach((item) => {
+          const itemId = item.id ?? item.item_id;
+          if (itemId !== undefined && itemId !== null) {
+            menuLookup.set(String(itemId), item);
+          }
+        });
+      });
+
+      const nextCart = Object.fromEntries(
+        Object.entries(prev).map(([itemId, cartItem]) => {
+          const menuItem = menuLookup.get(String(itemId));
+          if (!menuItem) {
+            return [itemId, cartItem];
+          }
+
+          const normalizedQty = toSafeAmount(cartItem.qty, 1);
+          const normalizedPrice = toSafeAmount(
+            cartItem.price,
+            toSafeAmount(menuItem.price)
+          );
+
+          const normalizedItem = {
+            ...menuItem,
+            ...cartItem,
+            id: menuItem.id ?? menuItem.item_id ?? itemId,
+            qty: normalizedQty > 0 ? normalizedQty : 1,
+            price: normalizedPrice,
+          };
+
+          if (
+            normalizedItem.name !== cartItem.name ||
+            normalizedItem.image !== cartItem.image ||
+            normalizedItem.description !== cartItem.description ||
+            normalizedItem.price !== cartItem.price ||
+            normalizedItem.id !== cartItem.id
+          ) {
+            changed = true;
+          }
+
+          return [itemId, normalizedItem];
+        })
+      );
+
+      return changed ? nextCart : prev;
+    });
+  }, [menuCategories]);
+
   // Cart functions
   const toSafeAmount = (value, fallback = 0) => {
     const numeric = Number(value);
@@ -669,12 +724,16 @@ function App() {
   };
 
   const addToCart = (item) => {
+    const itemId = item?.id ?? item?.item_id;
+    if (itemId === undefined || itemId === null) return;
+
     const safePrice = toSafeAmount(item.price);
     setCart((prev) => ({
       ...prev,
-      [item.id]: {
+      [itemId]: {
         ...item,
-        qty: (prev[item.id]?.qty || 0) + 1,
+        id: itemId,
+        qty: (prev[itemId]?.qty || 0) + 1,
         price: safePrice,
       },
     }));

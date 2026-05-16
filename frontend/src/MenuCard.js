@@ -17,7 +17,7 @@ const MenuCard = React.memo(({ item, cart, updateQty, addToCart }) => {
       <div className="qty-controls">
         <button onClick={() => qty > 0 && updateQty(item.id, qty - 1)}>−</button>
         <span>{qty}</span>
-        <button onClick={() => updateQty(item.id, qty + 1)}>+</button>
+        <button onClick={() => (qty === 0 ? addToCart(item) : updateQty(item.id, qty + 1))}>+</button>
       </div>
 
       <button
