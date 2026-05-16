@@ -9,6 +9,8 @@ from urllib3.util.retry import Retry
 import base64
 import hmac
 import hashlib
+import certifi
+import ssl
 
 # Configure requests session with retry logic and Google DNS
 # This bypasses Eventlet's broken greendns on EC2 ap-south-2
@@ -32,7 +34,7 @@ def create_razorpay_order_direct(amount_paisa, receipt):
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
     
     if not key_id or not key_secret:
-        raise ValueError("Razorpay keys not configured")
+        raise ValueError("Razorpay keys not configured - set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET")
     
     url = "https://api.razorpay.com/v1/orders"
     
@@ -49,14 +51,27 @@ def create_razorpay_order_direct(amount_paisa, receipt):
     try:
         print(f"[RAZORPAY] Step 3: Sending HTTP request...")
         
-        # Use requests library with Basic Auth
-        response = requests.post(
-            url,
-            auth=(key_id, key_secret),
-            json=payload,
-            timeout=15,
-            headers={"Content-Type": "application/json"}
-        )
+        # Use requests library with Basic Auth and SSL verification
+        try:
+            response = requests.post(
+                url,
+                auth=(key_id, key_secret),
+                json=payload,
+                timeout=15,
+                headers={"Content-Type": "application/json"},
+                verify=certifi.where()  # Use certifi for SSL certificate verification
+            )
+        except requests.exceptions.SSLError as ssl_err:
+            print(f"[RAZORPAY] ❌ SSL ERROR: {str(ssl_err)} - retrying without SSL verification...")
+            # Fallback: retry without strict SSL verification (less secure but works on some AWS instances)
+            response = requests.post(
+                url,
+                auth=(key_id, key_secret),
+                json=payload,
+                timeout=15,
+                headers={"Content-Type": "application/json"},
+                verify=False
+            )
         
         print(f"[RAZORPAY] Step 4: Response status code: {response.status_code}")
         
