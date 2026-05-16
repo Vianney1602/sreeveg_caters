@@ -146,14 +146,6 @@ function App() {
     }, 2000);
   };
 
-  const navigateToBulkMenu = () => {
-    setIsPageTransitioning(true);
-    setTimeout(() => {
-      navigate('/bulk-menu', { state: { returnTo: location.pathname || '/' } });
-      setIsPageTransitioning(false);
-    }, 2000);
-  };
-
   // Initialize WebSocket connection on app mount
   useEffect(() => {
     // Set minimum display time for loading animation (500ms for smooth transition)
