@@ -69,6 +69,24 @@ export default function BulkCartPage({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleProceedToBulkCheckout = () => {
+    // Check if user is logged in BEFORE showing checkout form
+    const userToken = sessionStorage.getItem('_userToken');
+    if (!userToken) {
+      setOrderStatus({ 
+        type: "error", 
+        message: "Please sign in or create an account to proceed with checkout" 
+      });
+      // Redirect to signin page after a short delay
+      setTimeout(() => {
+        window.location.href = '/signin';
+      }, 1500);
+      return;
+    }
+    // User is logged in, show checkout form
+    setShowCheckout(true);
+  };
+
   const handlePlaceOrder = (e) => {
     e.preventDefault();
     
@@ -352,7 +370,7 @@ export default function BulkCartPage({
             <button
               className="checkout-btn"
               disabled={isEmpty || isSubmitting}
-              onClick={() => setShowCheckout(true)}
+              onClick={handleProceedToBulkCheckout}
             >
               Proceed to Checkout
             </button>
